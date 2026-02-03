@@ -27,8 +27,8 @@ return new class extends Migration
             // Unique Hash for Email Routing (e.g., "c82a1b" -> reply+c82a1b@app.com)
             $table->string('email_route_id')->unique()->index();
 
-            $table->enum('status', ['draft', 'sent', 'waiting_reply', 'escalated', 'resolved'])->default('draft');
-            $table->integer('stage')->default(1); // Escalation Level (1, 2, 3)
+            $table->string('status')->default('Active');
+            $table->string('stage')->default('Drafting');
 
             $table->timestamps();
         });

@@ -8,62 +8,55 @@ use App\Models\InstitutionCategory;
 use App\Models\Cases;
 use App\Models\CaseTimeline;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB; // Required for raw queries
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
 class CreateDispute extends Component
 {
-    // --- WIZARD STATE ---
     public $step = 1;
 
-    // --- STEP 1: INSTITUTION DATA ---
+    // Step 1 Data
     public $query = '';
-    public $results; // Will be initialized as Collection
+    public $results;
     public $mode = 'search';
     public $popular = [];
-
-    // Selection State
     public $selectedInstitutionId = null;
     public $selectedInstitutionName = '';
-
-    // Custom Creation State
     public $customName = '';
     public $categoryId = '';
     public $customCategoryName = '';
     public $categories = [];
 
-    // --- STEP 2: DISPUTE DETAILS DATA ---
+    // Step 2 Data
     public $transactionDate;
     public $transactionAmount;
     public $referenceNumber;
     public $issueDescription;
 
+    // Step 3 Data (UPDATED)
+    public $generatedSubject = ''; // New Field
+    public $generatedLetter = '';
+    public $institutionEmail = '';
+
     public function mount()
     {
-        // 1. Initialize results as an Empty Collection (Fixes 'first() on array' error)
         $this->results = collect();
-
         $this->popular = Institution::where('is_verified', true)->limit(4)->get();
         $this->categories = InstitutionCategory::orderBy('name')->get();
     }
 
-    // --- STEP 1 LOGIC ---
-
+    // ... [Keep updatedQuery, selectExisting, enableCreateMode, submitCustom same as before] ...
     public function updatedQuery()
     {
-        // 2. Clean input
         $searchTerm = trim($this->query);
-
         if (strlen($searchTerm) >= 1) {
             $this->results = Institution::with('category')
-                // 3. FORCE CASE-INSENSITIVE SEARCH
-                // This converts both the column and search term to lowercase before comparing
                 ->whereRaw('LOWER(name) LIKE ?', ['%' . strtolower($searchTerm) . '%'])
                 ->where('is_verified', true)
                 ->limit(5)
                 ->get();
         } else {
-            // 4. Reset to Collection (Not Array)
             $this->results = collect();
         }
     }
@@ -104,14 +97,14 @@ class CreateDispute extends Component
         }
 
         $this->selectedInstitutionName = $this->customName;
-        $this->selectedInstitutionId = null; // null = New Institution
+        $this->selectedInstitutionId = null;
 
         $this->goToStep(2);
     }
 
-    // --- STEP 2 LOGIC (Saving Logic) ---
+    // --- UPDATED LOGIC ---
 
-    public function submitDetails()
+    public function generateReview()
     {
         $this->validate([
             'transactionDate' => 'required|date',
@@ -119,12 +112,40 @@ class CreateDispute extends Component
             'issueDescription' => 'required|min:10',
         ]);
 
+        // 1. Get raw AI response
+        $rawContent = $this->generateDisputeLetter();
+
+        if ($rawContent) {
+            // 2. Parse Subject and Body
+            // We expect the AI to return "Subject: ... \n Body..."
+            if (preg_match('/Subject:(.*?)\n(.*)/s', $rawContent, $matches)) {
+                $this->generatedSubject = trim($matches[1]);
+                $this->generatedLetter = trim($matches[2]);
+            } else {
+                // Fallback if parsing fails
+                $this->generatedSubject = "Dispute regarding transaction on {$this->transactionDate}";
+                $this->generatedLetter = $rawContent;
+            }
+        } else {
+            $this->generatedSubject = "Dispute Request";
+            $this->generatedLetter = "AI Generation Failed. Please write your letter here.";
+        }
+
+        $this->goToStep(3);
+    }
+
+    public function finalizeDispute()
+    {
+        $this->validate([
+            'institutionEmail' => 'required|email',
+            'generatedSubject' => 'required|min:5',
+            'generatedLetter'  => 'required|min:10',
+        ]);
+
         DB::transaction(function () {
 
-            // 1. Handle Institution Creation
             if (is_null($this->selectedInstitutionId)) {
                 $finalCategoryId = $this->categoryId;
-
                 if ($this->categoryId === 'other') {
                     $newCat = InstitutionCategory::firstOrCreate(
                         ['name' => ucfirst($this->customCategoryName)],
@@ -132,19 +153,14 @@ class CreateDispute extends Component
                     );
                     $finalCategoryId = $newCat->id;
                 }
-
                 $newInst = Institution::create([
                     'name' => $this->selectedInstitutionName,
                     'institution_category_id' => $finalCategoryId,
                     'is_verified' => false,
                 ]);
-
                 $this->selectedInstitutionId = $newInst->id;
             }
 
-            // 2. Create the CASE
-            // Note: I removed 'transaction_date' etc. from here because your Cases model
-            // likely only has basic fields. The details go into metadata/timeline.
             $case = Cases::create([
                 'user_id' => Auth::id(),
                 'institution_id' => $this->selectedInstitutionId,
@@ -152,26 +168,73 @@ class CreateDispute extends Component
                 'case_reference_id' => strtoupper(Str::random(6)),
                 'email_route_id' => (string) Str::uuid(),
                 'status' => 'Active',
-                'stage' => 'Drafting',
+                'stage' => 'Sent',
             ]);
 
-            // 3. Create the TIMELINE (Metadata Storage)
             CaseTimeline::create([
                 'case_id' => $case->id,
                 'type' => 'case_created',
                 'actor' => 'User',
-                'description' => $this->issueDescription,
+                'description' => "Dispute created & sent to {$this->institutionEmail}",
                 'occurred_at' => now(),
                 'metadata' => [
                     'amount' => $this->transactionAmount,
                     'transaction_date' => $this->transactionDate,
-                    'reference_number' => $this->referenceNumber ?? 'N/A'
+                    'reference_number' => $this->referenceNumber ?? 'N/A',
+                    'institution_email' => $this->institutionEmail
+                ]
+            ]);
+
+            // Save Metadata including Subject
+            CaseTimeline::create([
+                'case_id' => $case->id,
+                'type' => 'email_sent',
+                'actor' => 'System',
+                'description' => $this->generatedLetter,
+                'occurred_at' => now()->addSecond(),
+                'metadata' => [
+                    'recipient' => $this->institutionEmail,
+                    'subject' => $this->generatedSubject // Saved here
                 ]
             ]);
         });
 
-        session()->flash('message', 'Dispute Draft Created Successfully!');
+        session()->flash('message', 'Dispute Sent Successfully!');
         return redirect()->route('user.dashboard');
+    }
+
+    private function generateDisputeLetter()
+    {
+        $apiKey = env('GEMINI_API_KEY');
+        if (!$apiKey) return null;
+
+        $user = Auth::user();
+
+        $prompt = "Write a formal dispute email to {$this->selectedInstitutionName}. " .
+                  "My name is {$user->name}. " .
+                  "Transaction Date: {$this->transactionDate}. " .
+                  "Amount: \${$this->transactionAmount}. " .
+                  "Ref Number: " . ($this->referenceNumber ?? 'N/A') . ". " .
+                  "Issue: {$this->issueDescription}. " .
+                  "Tone: Professional and firm. " .
+                  "IMPORTANT FORMATTING RULES: " .
+                  "1. Start response strictly with 'Subject: [Subject Here]'. " .
+                  "2. Do NOT use markdown formatting (no **bold**, no *italics*, no lists with *). " .
+                  "3. Use plain text only. Use dashes (-) for lists if needed.";
+
+        try {
+            $response = Http::withHeaders(['Content-Type' => 'application/json'])
+                ->post("https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={$apiKey}", [
+                'contents' => [[ 'parts' => [['text' => $prompt]] ]]
+            ]);
+
+            if ($response->successful()) {
+                return $response->json()['candidates'][0]['content']['parts'][0]['text'] ?? null;
+            }
+            return null;
+        } catch (\Exception $e) {
+            return null;
+        }
     }
 
     public function goToStep($step)
