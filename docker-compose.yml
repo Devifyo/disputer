@@ -55,6 +55,18 @@ services:
       - db_data:/var/lib/mysql
     networks:
       - default
+  phpmyadmin:
+    image: phpmyadmin
+    container_name: disputer-pma # Check your specific container name!
+    environment:
+      - PMA_HOST=db
+      # Ensure this matches your URL
+      - PMA_ABSOLUTE_URI=https://dispute.devifyo.cloud/dbase/
+    networks:
+      - default
+      - web_network  # <--- ADD THIS LINE
+    depends_on:
+      - db
 
 volumes:
   db_data:
