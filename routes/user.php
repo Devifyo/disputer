@@ -1,7 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\User\DashboardController;
+use App\Http\Controllers\User\{DashboardController, CaseController};
 
 /*
 |--------------------------------------------------------------------------
@@ -12,19 +12,22 @@ use App\Http\Controllers\User\DashboardController;
 | Middleware: auth, verified
 */
 
-Route::middleware(['auth', 'verified'])->prefix('app')->name('user.')->group(function () {
+Route::middleware(['auth', 'verified'])->name('user.')->group(function () {
 
-    // Dashboard -> route('user.dashboard')
-    // URL: /app/dashboard
-    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-    // Step 1: Show the "Select Institution" Page
-    Route::get('/cases/create', [\App\Http\Controllers\User\CaseController::class, 'createStep1'])->name('cases.create');
+    Route::get('/dashboard', [DashboardController::class, 'index'])
+        ->name('dashboard');
 
-    // API: Live Search for Institutions (Used by the Step 1 JS)
-    Route::get('/api/institutions/search', [\App\Http\Controllers\User\CaseController::class, 'searchInstitutions'])->name('api.institutions.search');
-    // My Disputes -> route('user.cases.index')
-    // Route::resource('cases', \App\Http\Controllers\User\CaseController::class);
+    // ✅ CREATE must come BEFORE {case_reference_id}
+    Route::get('/cases/create', [CaseController::class, 'createStep1'])
+        ->name('cases.create');
 
-    // Profile Settings
-    // Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::get('/cases', [CaseController::class, 'index'])
+        ->name('cases.index');
+
+    Route::get('/cases/{case_reference_id}', [CaseController::class, 'show'])
+        ->name('cases.show');
+
+    Route::get('/api/institutions/search', [CaseController::class, 'searchInstitutions'])
+        ->name('api.institutions.search');
+
 });

@@ -5,14 +5,42 @@ namespace App\Http\Controllers\User;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Institution; // Import your Model
-
+use App\Services\CaseService;
 class CaseController extends Controller
-{
+{   
+    protected $caseService;
+
+    public function __construct(CaseService $caseService)
+    {
+        $this->caseService = $caseService;
+    }
+
+
+    public function index(Request $request)
+    {
+        $filters = $request->only(['search', 'status', 'category']);
+        $cases = $this->caseService->getUserCases($filters);
+
+        return view('user.cases.index', compact('cases'));
+    }
+
+    public function show($case_reference_id)
+    {
+        $case = $this->caseService->getCaseByReference($case_reference_id);
+        
+        $metadata = $this->caseService->extractCaseMetadata($case);
+        
+        // NEW: Get workflow visualization data
+        $workflow = $this->caseService->getWorkflowDetails($case);
+
+        return view('user.cases.show', compact('case', 'metadata', 'workflow'));
+    }
+
     /**
      * Step 1: Show the Institution Selection Wizard
      */
     public function createStep1()
-    {
+    {   
         // Pass popular institutions for the "Quick Pick" section
         $popular = Institution::where('is_verified', true)->limit(4)->get();
 

@@ -11,9 +11,11 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
-
+use Livewire\WithFileUploads;
+use App\Models\Attachment;
 class CreateDispute extends Component
-{
+{   
+    use WithFileUploads;
     public $step = 1;
 
     // Step 1 Data
@@ -38,7 +40,7 @@ class CreateDispute extends Component
     public $generatedSubject = ''; // New Field
     public $generatedLetter = '';
     public $institutionEmail = '';
-
+    public $attachments = [];
     public function mount()
     {
         $this->results = collect();
@@ -65,13 +67,13 @@ class CreateDispute extends Component
     {
         $this->selectedInstitutionId = $id;
         $this->selectedInstitutionName = $name;
-
+        $institution = Institution::find($id);
         if ($institution && $institution->contact_email) {
             $this->institutionEmail = $institution->contact_email;
         } else {
             $this->institutionEmail = ''; // Reset if no email exists
         }
-        
+
         $this->goToStep(2);
     }
 
@@ -117,6 +119,7 @@ class CreateDispute extends Component
             'transactionDate' => 'required|date',
             'transactionAmount' => 'required|numeric|min:0',
             'issueDescription' => 'required|min:10',
+            'attachments.*' => 'nullable|file|max:10240',
         ]);
 
         // 1. Get raw AI response
@@ -151,22 +154,26 @@ class CreateDispute extends Component
 
         DB::transaction(function () {
             
-            // 1. Handle Custom Institution & Category Creation
+            // ====================================================
+            // 1. HANDLE INSTITUTION & CATEGORY LOGIC
+            // ====================================================
+            
+            $finalCategoryId = null;
+
             if (is_null($this->selectedInstitutionId)) {
+                // User creates a NEW Institution
                 
                 $finalCategoryId = $this->categoryId;
 
-                // A. User created a completely NEW Category (e.g. "Crypto")
+                // A. User created a completely NEW Category (e.g., "Crypto")
                 if ($this->categoryId === 'other') {
-                    
-                    // LOAD TEMPLATE
                     $defaultWorkflow = config('workflow_templates.standard');
 
                     $newCat = InstitutionCategory::firstOrCreate(
                         ['name' => ucfirst($this->customCategoryName)],
                         [
                             'slug' => Str::slug($this->customCategoryName),
-                            'workflow_config' => $defaultWorkflow, // <--- SAVING TEMPLATE TO DB
+                            'workflow_config' => $defaultWorkflow, // Save Template
                             'is_verified' => false 
                         ]
                     );
@@ -180,21 +187,67 @@ class CreateDispute extends Component
                     'is_verified' => false,
                 ]);
                 $this->selectedInstitutionId = $newInst->id;
+                
+            } else {
+                // User selected an EXISTING Institution
+                // We must look up the category ID from the existing record
+                $institution = Institution::find($this->selectedInstitutionId);
+                if ($institution) {
+                    $finalCategoryId = $institution->institution_category_id;
+                }
             }
 
-            // 2. Create the Case
+            // ====================================================
+            // 2. CALCULATE WORKFLOW DEADLINE (The Fix)
+            // ====================================================
+
+            // Try to load category config, fallback to standard template if missing
+            $category = InstitutionCategory::find($finalCategoryId);
+            $workflowConfig = $category->workflow_config ?? config('workflow_templates.standard');
+
+            // Get wait days for Step 1 (Index 0). Default to 14 days if config is broken.
+            $stepOneWaitDays = $workflowConfig['steps'][0]['wait_days'] ?? 14;
+            $nextActionDate = now()->addDays($stepOneWaitDays);
+
+            // ====================================================
+            // 3. CREATE THE CASE
+            // ====================================================
+
             $case = Cases::create([
                 'user_id' => Auth::id(),
                 'institution_id' => $this->selectedInstitutionId,
                 'institution_name' => $this->selectedInstitutionName,
                 'case_reference_id' => strtoupper(Str::random(6)), 
                 'email_route_id' => (string) Str::uuid(), 
-                'status' => \App\Enums\CaseStatus::SENT, // Using Enum
+                'status' => \App\Enums\CaseStatus::SENT,
                 'stage' => 'Sent',
-                'current_workflow_step' => 1, // Start at Step 1
+                'current_workflow_step' => 1,
+                'next_action_at' => $nextActionDate, // <--- SAVED CORRECTLY NOW
             ]);
 
-            // 3. Log Timeline (Created)
+            // ====================================================
+            // 4. SAVE ATTACHMENTS
+            // ====================================================
+
+            if (!empty($this->attachments)) {
+                foreach ($this->attachments as $file) {
+                    $path = $file->store('attachments', 'public');
+
+                    Attachment::create([
+                        'case_id' => $case->id,
+                        'file_path' => $path,
+                        'file_name' => $file->getClientOriginalName(),
+                        'mime_type' => $file->getMimeType(),
+                        'ai_analysis_status' => 'pending',
+                    ]);
+                }
+            }
+
+            // ====================================================
+            // 5. LOG TIMELINE EVENTS
+            // ====================================================
+
+            // Log Creation
             CaseTimeline::create([
                 'case_id' => $case->id,
                 'type' => 'case_created',            
@@ -209,22 +262,30 @@ class CreateDispute extends Component
                 ]
             ]);
 
-            // 4. Log Timeline (Email Sent)
+            // Log Email Sent
             CaseTimeline::create([
                 'case_id' => $case->id,
                 'type' => 'email_sent',
                 'actor' => 'System',
-                'description' => $this->generatedLetter, 
+                'description' => 'Formal dispute notice generated and logged.', 
                 'occurred_at' => now()->addSecond(),
                 'metadata' => [
                     'recipient' => $this->institutionEmail,
-                    'subject' => $this->generatedSubject
+                    'subject' => $this->generatedSubject,
+                    // Storing body might be heavy, consider storing snippet or file ref
+                    'full_body' => $this->generatedLetter
                 ]
             ]);
         });
 
         session()->flash('message', 'Dispute Sent Successfully!');
         return redirect()->route('user.dashboard');
+    }
+
+    public function removeAttachment($index)
+    {
+        unset($this->attachments[$index]);
+        $this->attachments = array_values($this->attachments);
     }
 
     private function generateDisputeLetter()

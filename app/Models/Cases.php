@@ -41,4 +41,22 @@ class Cases extends Model
     {
         return $this->hasMany(Attachment::class, 'case_id');
     }
+
+    public function getStatusColorAttribute()
+    {
+        return match($this->status?->value ?? $this->status) {
+            'open', 'active' => 'bg-emerald-50 text-emerald-700 border-emerald-100',
+            'pending', 'sent', 'waiting_reply' => 'bg-amber-50 text-amber-700 border-amber-100',
+            'resolved', 'closed' => 'bg-slate-100 text-slate-600 border-slate-200',
+            'escalated' => 'bg-purple-50 text-purple-700 border-purple-100',
+            default => 'bg-blue-50 text-blue-700 border-blue-100'
+        };
+    }
+    
+    // Accessor for human readable Timeline Type
+    public function getReadableTypeAttribute($value)
+    {
+        // Convert "case_created" to "Case Created"
+        return ucwords(str_replace('_', ' ', $value)); 
+    }
 }
