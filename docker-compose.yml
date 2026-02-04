@@ -1,0 +1,75 @@
+services:
+  app:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    image: disputer-app
+    container_name: disputer-app
+    restart: unless-stopped
+    working_dir: /var/www
+    volumes:
+      - ./:/var/www
+    networks:
+      - disputer-network
+
+  # Optimized Database (Low Memory Usage)
+  db:
+    image: mariadb:10.6
+    container_name: disputer-db
+    restart: unless-stopped
+    command: --innodb-buffer-pool-size=64M
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_USER: ${DB_USERNAME}
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - disputer-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: disputer-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./:/var/www
+      - ./docker-compose/nginx:/etc/nginx/conf.d
+      - certbot_conf:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+    networks:
+      - disputer-network
+    depends_on:
+      - app
+      - db
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: disputer-pma
+    restart: unless-stopped
+    environment:
+      PMA_HOST: db
+      PMA_ABSOLUTE_URI: http://dispute.devifyo.cloud/phpmyadmin/
+      UPLOAD_LIMIT: 64M
+    networks:
+      - disputer-network
+
+  # --- THIS WAS MISSING ---
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - certbot_conf:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+  # ------------------------
+
+networks:
+  disputer-network:
+    driver: bridge
+
+volumes:
+  db_data:
+  certbot_conf:
+  certbot_www:
