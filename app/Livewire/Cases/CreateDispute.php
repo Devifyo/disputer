@@ -65,6 +65,13 @@ class CreateDispute extends Component
     {
         $this->selectedInstitutionId = $id;
         $this->selectedInstitutionName = $name;
+
+        if ($institution && $institution->contact_email) {
+            $this->institutionEmail = $institution->contact_email;
+        } else {
+            $this->institutionEmail = ''; // Reset if no email exists
+        }
+        
         $this->goToStep(2);
     }
 
@@ -222,7 +229,7 @@ class CreateDispute extends Component
 
     private function generateDisputeLetter()
     {
-        $apiKey = env('GEMINI_API_KEY');
+        $apiKey = config('services.gemini.api_key');
         if (!$apiKey) return null;
 
         $user = Auth::user();
@@ -244,12 +251,12 @@ class CreateDispute extends Component
                 ->post("https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={$apiKey}", [
                 'contents' => [[ 'parts' => [['text' => $prompt]] ]]
             ]);
-            
             if ($response->successful()) {
                 return $response->json()['candidates'][0]['content']['parts'][0]['text'] ?? null;
             }
             return null;
         } catch (\Exception $e) {
+            dd($e);
             return null;
         }
     }
