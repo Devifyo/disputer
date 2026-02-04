@@ -6,8 +6,12 @@ use Illuminate\Database\Eloquent\Model;
 
 class InstitutionCategory extends Model
 {
-    protected $fillable = ['name', 'slug'];
+    protected $fillable = ['name', 'slug', 'workflow_config', 'is_verified'];
 
+    protected $casts = [
+        'workflow_config' => 'array',
+        'is_verified' => 'boolean',
+    ];
     public function institutions()
     {
         return $this->hasMany(Institution::class);

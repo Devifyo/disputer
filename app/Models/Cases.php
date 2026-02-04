@@ -3,17 +3,18 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-
+use App\Enums\CaseStatus;
 class Cases extends Model
 {
    protected $fillable = [
-        'user_id',
-        'institution_id',
-        'institution_name',
-        'case_reference_id',
-        'email_route_id',
-        'status',
-        'stage'
+        'user_id', 'institution_id', 'institution_name', 
+        'case_reference_id', 'email_route_id', 
+        'status', 'stage', 'current_workflow_step', 'next_action_at'
+    ];
+
+    protected $casts = [
+        'status' => CaseStatus::class, // Casts string to Enum
+        'next_action_at' => 'datetime',
     ];
 
     public function user()

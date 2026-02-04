@@ -143,16 +143,30 @@ class CreateDispute extends Component
         ]);
 
         DB::transaction(function () {
-
+            
+            // 1. Handle Custom Institution & Category Creation
             if (is_null($this->selectedInstitutionId)) {
+                
                 $finalCategoryId = $this->categoryId;
+
+                // A. User created a completely NEW Category (e.g. "Crypto")
                 if ($this->categoryId === 'other') {
+                    
+                    // LOAD TEMPLATE
+                    $defaultWorkflow = config('workflow_templates.standard');
+
                     $newCat = InstitutionCategory::firstOrCreate(
                         ['name' => ucfirst($this->customCategoryName)],
-                        ['slug' => Str::slug($this->customCategoryName)]
+                        [
+                            'slug' => Str::slug($this->customCategoryName),
+                            'workflow_config' => $defaultWorkflow, // <--- SAVING TEMPLATE TO DB
+                            'is_verified' => false 
+                        ]
                     );
                     $finalCategoryId = $newCat->id;
                 }
+
+                // B. Create the Institution
                 $newInst = Institution::create([
                     'name' => $this->selectedInstitutionName,
                     'institution_category_id' => $finalCategoryId,
@@ -161,23 +175,26 @@ class CreateDispute extends Component
                 $this->selectedInstitutionId = $newInst->id;
             }
 
+            // 2. Create the Case
             $case = Cases::create([
                 'user_id' => Auth::id(),
                 'institution_id' => $this->selectedInstitutionId,
                 'institution_name' => $this->selectedInstitutionName,
-                'case_reference_id' => strtoupper(Str::random(6)),
-                'email_route_id' => (string) Str::uuid(),
-                'status' => 'Active',
+                'case_reference_id' => strtoupper(Str::random(6)), 
+                'email_route_id' => (string) Str::uuid(), 
+                'status' => \App\Enums\CaseStatus::SENT, // Using Enum
                 'stage' => 'Sent',
+                'current_workflow_step' => 1, // Start at Step 1
             ]);
 
+            // 3. Log Timeline (Created)
             CaseTimeline::create([
                 'case_id' => $case->id,
-                'type' => 'case_created',
-                'actor' => 'User',
-                'description' => "Dispute created & sent to {$this->institutionEmail}",
-                'occurred_at' => now(),
-                'metadata' => [
+                'type' => 'case_created',            
+                'actor' => 'User',                   
+                'description' => "Dispute created & sent to {$this->institutionEmail}", 
+                'occurred_at' => now(),              
+                'metadata' => [                      
                     'amount' => $this->transactionAmount,
                     'transaction_date' => $this->transactionDate,
                     'reference_number' => $this->referenceNumber ?? 'N/A',
@@ -185,16 +202,16 @@ class CreateDispute extends Component
                 ]
             ]);
 
-            // Save Metadata including Subject
+            // 4. Log Timeline (Email Sent)
             CaseTimeline::create([
                 'case_id' => $case->id,
                 'type' => 'email_sent',
                 'actor' => 'System',
-                'description' => $this->generatedLetter,
+                'description' => $this->generatedLetter, 
                 'occurred_at' => now()->addSecond(),
                 'metadata' => [
                     'recipient' => $this->institutionEmail,
-                    'subject' => $this->generatedSubject // Saved here
+                    'subject' => $this->generatedSubject
                 ]
             ]);
         });
@@ -227,7 +244,7 @@ class CreateDispute extends Component
                 ->post("https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={$apiKey}", [
                 'contents' => [[ 'parts' => [['text' => $prompt]] ]]
             ]);
-
+            
             if ($response->successful()) {
                 return $response->json()['candidates'][0]['content']['parts'][0]['text'] ?? null;
             }
