@@ -28,10 +28,9 @@ class AuthController extends Controller
             'email' => ['required', 'email'],
             'password' => ['required'],
         ]);
-        
         if (Auth::attempt($credentials, $request->boolean('remember'))) {
             $request->session()->regenerate();
-
+            dd('lol');
             return redirect()->route('user.dashboard');
         }
 
