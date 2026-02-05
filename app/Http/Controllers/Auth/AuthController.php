@@ -30,7 +30,6 @@ class AuthController extends Controller
         ]);
         if (Auth::attempt($credentials, $request->boolean('remember'))) {
             $request->session()->regenerate();
-            dd('lol');
             return redirect()->route('user.dashboard');
         }
 
