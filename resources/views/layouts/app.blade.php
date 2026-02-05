@@ -67,8 +67,8 @@
                     </svg>
                 </div>
                 <div>
-                    <span class="font-bold tracking-tight text-lg block leading-none">Resolver</span>
-                    <span class="text-[10px] text-slate-500 font-mono">Bureaucracy Killer</span>
+                    <span class="font-bold tracking-tight text-lg block leading-none">{{ config('app.name') }}</span>
+                    <span class="text-[10px] text-slate-500 font-mono">Smart Dispute Management</span>
                 </div>
             </div>
             <button @click="sidebarOpen = false" class="lg:hidden ml-auto text-slate-400 hover:text-white">
