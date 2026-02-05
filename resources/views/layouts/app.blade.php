@@ -63,7 +63,7 @@
                 <i data-lucide="layout-dashboard" class="w-4 h-4"></i><span class="text-sm font-medium">Dashboard</span>
             </a>
 
-            <a href="#" class="sidebar-item flex items-center gap-3 px-3 py-2 rounded-lg hover:text-white transition-all">
+            <a href="{{route('user.documents.index')}}" class="sidebar-item flex items-center gap-3 px-3 py-2 rounded-lg hover:text-white transition-all">
                 <i data-lucide="files" class="w-4 h-4 hover:text-blue-400"></i><span class="text-sm font-medium">Documents</span>
             </a>
 

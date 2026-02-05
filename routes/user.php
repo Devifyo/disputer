@@ -1,7 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\User\{DashboardController, CaseController};
+use App\Http\Controllers\User\{DashboardController, CaseController, DocumentController};
 
 /*
 |--------------------------------------------------------------------------
@@ -29,5 +29,13 @@ Route::middleware(['auth', 'verified'])->name('user.')->group(function () {
 
     Route::get('/api/institutions/search', [CaseController::class, 'searchInstitutions'])
         ->name('api.institutions.search');
+
+    // Documents Route
+    Route::get('/documents', [DocumentController::class, 'index'])->name('documents.index');
+    Route::get('/document/view/{attachment}', [DocumentController::class, 'showPublic'])
+    ->name('evidence.view');
+    Route::get('/document/download/{attachment}', [DocumentController::class, 'downloadSecure'])
+    ->name('evidence.download')
+    ->middleware('signed');
 
 });
