@@ -10,11 +10,11 @@
         
         <div class="text-xs font-medium flex items-center justify-end min-w-[120px]">
             
-            <span wire:loading wire:target="send" class="text-blue-600 flex items-center gap-1">
+            <span wire:loading wire:target="send" style="display: none;" class="text-blue-600 flex items-center gap-1">
                 <i data-lucide="loader" class="w-3 h-3 animate-spin"></i> Sending...
             </span>
 
-            <span wire:dirty wire:loading.remove wire:target="send" class="text-amber-600 flex items-center gap-1">
+            <span wire:dirty wire:loading.remove wire:target="send" style="display: none;" class="text-amber-600 flex items-center gap-1">
                 <div class="w-1.5 h-1.5 rounded-full bg-amber-500"></div> Unsaved changes
             </span>
 
@@ -84,11 +84,16 @@
                     <label class="group flex items-center justify-center gap-4 p-5 border-2 border-dashed border-slate-300 rounded-xl hover:bg-slate-50 hover:border-blue-400 cursor-pointer transition-all relative overflow-hidden mb-4">
                         <div class="flex flex-col items-center gap-2 text-center">
                             <div class="w-10 h-10 rounded-full bg-slate-100 group-hover:bg-blue-100 text-slate-400 group-hover:text-blue-500 flex items-center justify-center transition-colors">
-                                <i data-lucide="cloud-upload" class="w-5 h-5"></i>
+                                <i data-lucide="cloud-upload" class="w-5 h-5" wire:loading.remove wire:target="attachments"></i>
+                                <i data-lucide="loader" class="w-5 h-5 animate-spin" wire:loading wire:target="attachments" style="display: none;"></i>
                             </div>
+                            
                             <p class="text-sm font-bold text-slate-700 group-hover:text-blue-700 transition-colors">
+                                
                                 <span wire:loading.remove wire:target="attachments">Click to upload evidence</span>
-                                <span wire:loading wire:target="attachments">Uploading...</span>
+                                
+                                <span wire:loading wire:target="attachments" style="display: none;">Uploading...</span>
+                                
                             </p>
                         </div>
                         <input type="file" wire:model="attachments" multiple class="hidden">
@@ -119,15 +124,18 @@
                     <button type="button" wire:click="discard" class="text-slate-500 hover:text-red-600 text-xs font-bold transition-colors flex items-center gap-1.5">
                         <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Discard
                     </button>
-
-                    <button type="submit" class="bg-slate-900 hover:bg-slate-800 text-white px-6 py-2 rounded-lg text-sm font-bold shadow-lg shadow-slate-900/20 transition-all flex items-center gap-2" wire:loading.attr="disabled">
+                    {{-- send button --}}
+                    <button type="submit" class="bg-slate-900 hover:bg-slate-800 text-white px-6 py-2 rounded-lg text-sm font-bold shadow-lg shadow-slate-900/20 transition-all flex items-center justify-center gap-2 min-w-[140px]" wire:loading.attr="disabled">
                         
-                        <span wire:loading.remove wire:target="send">Send Message</span>
-                        <i data-lucide="send" class="w-3.5 h-3.5" wire:loading.remove wire:target="send"></i>
+                        <span wire:loading.remove wire:target="send" class="flex items-center gap-2">
+                            Send Message
+                            <i data-lucide="send" class="w-3.5 h-3.5"></i>
+                        </span>
                         
-                        <span wire:loading wire:target="send" class="flex items-center gap-2">
+                        <span wire:loading.flex wire:target="send" style="display: none;" class="items-center gap-2">
                             <i data-lucide="loader" class="w-3.5 h-3.5 animate-spin"></i> Sending...
                         </span>
+
                     </button>
                 </div>
 
@@ -136,38 +144,53 @@
     </div>
 
     @if($showTemplateModal)
-    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
-        <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" wire:click="$set('showTemplateModal', false)"></div>
-        
-        <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden max-h-[80vh]">
-            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
-                <h3 class="font-bold text-slate-900">Select a Template</h3>
-                <button wire:click="$set('showTemplateModal', false)" class="p-2 rounded-lg hover:bg-slate-200 text-slate-400 transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
-            </div>
-
-            <div class="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50">
-                <div class="relative mb-4">
-                    <i data-lucide="search" class="absolute left-3 top-2.5 w-4 h-4 text-slate-400"></i>
-                    <input type="text" wire:model.live.debounce.300ms="searchQuery" placeholder="Search templates..." class="w-full bg-white border border-slate-200 rounded-lg pl-9 pr-4 py-2 text-sm focus:border-blue-500 focus:ring-0">
+        <div class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+            <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" wire:click="$set('showTemplateModal', false)"></div>
+            
+            <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden max-h-[80vh]">
+                <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
+                    <h3 class="font-bold text-slate-900">Select a Template</h3>
+                    <button wire:click="$set('showTemplateModal', false)" class="p-2 rounded-lg hover:bg-slate-200 text-slate-400 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                    </button>
                 </div>
 
-                @forelse($this->templates as $template)
-                <div wire:click="applyTemplate({{ $template->id }})" class="bg-white p-4 rounded-xl border border-slate-200 hover:border-blue-400 hover:shadow-md cursor-pointer transition-all group">
-                    <div class="flex items-center gap-4">
-                        <div class="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                            <i data-lucide="file-text" class="w-5 h-5"></i>
+                <div class="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50">
+                    <div class="relative mb-4">
+                        <div class="absolute left-3 top-2.5 text-slate-400">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
                         </div>
-                        <div>
-                            <h4 class="text-sm font-bold text-slate-900 group-hover:text-blue-700">{{ $template->title }}</h4>
-                            <p class="text-xs text-slate-500 mt-0.5">{{ $template->category->name ?? 'General' }}</p>
+                        <input type="text" wire:model.live.debounce.300ms="searchQuery" placeholder="Search templates..." class="w-full bg-white border border-slate-200 rounded-lg pl-9 pr-4 py-2 text-sm focus:border-blue-500 focus:ring-0">
+                    </div>
+
+                    @forelse($this->templates as $template)
+                    <div wire:click="applyTemplate({{ $template->id }})" class="bg-white p-4 rounded-xl border border-slate-200 hover:border-blue-400 hover:shadow-md cursor-pointer transition-all group">
+                        <div class="flex items-center gap-4">
+                            <div class="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                                
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5">
+                                    <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>
+                                </svg>
+
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-bold text-slate-900 group-hover:text-blue-700">{{ $template->title }}</h4>
+                                <p class="text-xs text-slate-500 mt-0.5">{{ $template->category->name ?? 'General' }}</p>
+                            </div>
                         </div>
                     </div>
+                    @empty
+                        @if(!empty($searchQuery))
+                        <div class="text-center py-8 text-slate-400 text-sm">No templates found.</div>
+                        @else
+                        <div class="text-center py-8 text-slate-400 text-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 mx-auto mb-2 opacity-50"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                            Type to search templates...
+                        </div>
+                        @endif
+                    @endforelse
                 </div>
-                @empty
-                    <div class="text-center py-8 text-slate-400 text-sm">No templates found.</div>
-                @endforelse
             </div>
         </div>
-    </div>
     @endif
 </div>

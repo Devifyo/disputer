@@ -138,6 +138,7 @@
         </div>
 
         {{-- modal --}}
+        {{-- modal --}}
         <div x-show="modalOpen" style="display: none;" 
              class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6"
              x-transition:enter="transition ease-out duration-200"
@@ -145,59 +146,64 @@
              x-transition:enter-end="opacity-100"
              x-transition:leave="transition ease-in duration-150"
              x-transition:leave-start="opacity-100"
-             x-transition:leave-end="opacity-0">
+             x-transition:leave-end="opacity-0"
+        >
             
             <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" @click="modalOpen = false"></div>
             
-            <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl flex flex-col overflow-hidden ring-1 ring-slate-900/5 h-[85vh]"
-                 x-transition:enter="transition ease-out duration-300"
-                 x-transition:enter-start="opacity-0 translate-y-8 scale-95"
-                 x-transition:enter-end="opacity-100 translate-y-0 scale-100">
+            <template x-if="activeTemplate">
                 
-                <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/80 shrink-0">
-                    <div>
-                        <h3 class="font-bold text-slate-900" x-text="activeTemplate?.title"></h3>
-                        <div class="flex items-center gap-2 mt-1">
-                            <span class="text-xs text-slate-500" x-text="activeTemplate?.category_name"></span>
-                            <span class="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide border border-blue-100">Editable Mode</span>
+                <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl flex flex-col overflow-hidden ring-1 ring-slate-900/5 h-[85vh]"
+                     x-transition:enter="transition ease-out duration-300"
+                     x-transition:enter-start="opacity-0 translate-y-8 scale-95"
+                     x-transition:enter-end="opacity-100 translate-y-0 scale-100">
+                    
+                    <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/80 shrink-0">
+                        <div>
+                            <h3 class="font-bold text-slate-900" x-text="activeTemplate.title"></h3>
+                            <div class="flex items-center gap-2 mt-1">
+                                <span class="text-xs text-slate-500" x-text="activeTemplate.category_name"></span>
+                                <span class="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide border border-blue-100">Editable Mode</span>
+                            </div>
+                        </div>
+                        <button @click="modalOpen = false" class="p-2 rounded-lg hover:bg-slate-200 text-slate-400 transition-colors">
+                            <i data-lucide="x" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+
+                    <div class="flex-1 bg-slate-100/50 p-4 sm:p-6 overflow-hidden flex flex-col">
+                        
+                        <div class="flex justify-between items-center mb-2 px-1">
+                            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                <i data-lucide="pen-line" class="w-3 h-3 inline mr-1"></i> Edit text before copying
+                            </label>
+                            <button @click="activeTemplate.content = activeTemplate.original_content" class="text-[10px] text-slate-400 hover:text-red-500 underline decoration-dotted transition-colors">
+                                Reset to Original
+                            </button>
+                        </div>
+
+                        <textarea 
+                            x-model="activeTemplate.content"
+                            class="flex-1 w-full p-6 rounded-xl border-0 shadow-sm ring-1 ring-slate-200 text-slate-700 font-mono text-sm leading-relaxed focus:ring-2 focus:ring-blue-500/20 focus:outline-none resize-none bg-white placeholder:text-slate-300"
+                            placeholder="Template content..."
+                            spellcheck="false"
+                        ></textarea>
+                    </div>
+
+                    <div class="px-6 py-4 border-t border-slate-100 bg-white flex justify-between items-center shrink-0">
+                        <span class="text-xs text-slate-400 hidden sm:inline">Changes are temporary.</span>
+                        
+                        <div class="flex gap-3 ml-auto">
+                            <button @click="modalOpen = false" class="px-4 py-2 text-slate-500 hover:text-slate-700 text-sm font-medium transition-colors">Close</button>
+                            
+                            <button @click="copyToClipboard(activeTemplate.content); modalOpen = false" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold shadow-lg shadow-blue-500/20 transition-all flex items-center gap-2 transform active:scale-95">
+                                <i data-lucide="copy" class="w-4 h-4"></i> Copy Text
+                            </button>
                         </div>
                     </div>
-                    <button @click="modalOpen = false" class="p-2 rounded-lg hover:bg-slate-200 text-slate-400 transition-colors">
-                        <i data-lucide="x" class="w-5 h-5"></i>
-                    </button>
                 </div>
 
-                <div class="flex-1 bg-slate-100/50 p-4 sm:p-6 overflow-hidden flex flex-col">
-                    
-                    <div class="flex justify-between items-center mb-2 px-1">
-                        <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                            <i data-lucide="pen-line" class="w-3 h-3 inline mr-1"></i> Edit text before copying
-                        </label>
-                        <button @click="activeTemplate.content = activeTemplate.original_content" class="text-[10px] text-slate-400 hover:text-red-500 underline decoration-dotted transition-colors">
-                            Reset to Original
-                        </button>
-                    </div>
-
-                    <textarea 
-                        x-model="activeTemplate.content"
-                        class="flex-1 w-full p-6 rounded-xl border-0 shadow-sm ring-1 ring-slate-200 text-slate-700 font-mono text-sm leading-relaxed focus:ring-2 focus:ring-blue-500/20 focus:outline-none resize-none bg-white placeholder:text-slate-300"
-                        placeholder="Template content..."
-                        spellcheck="false"
-                    ></textarea>
-                </div>
-
-                <div class="px-6 py-4 border-t border-slate-100 bg-white flex justify-between items-center shrink-0">
-                    <span class="text-xs text-slate-400 hidden sm:inline">Changes are temporary and won't be saved to the database.</span>
-                    
-                    <div class="flex gap-3 ml-auto">
-                        <button @click="modalOpen = false" class="px-4 py-2 text-slate-500 hover:text-slate-700 text-sm font-medium transition-colors">Close</button>
-                        
-                        <button @click="copyToClipboard(activeTemplate.content); modalOpen = false" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold shadow-lg shadow-blue-500/20 transition-all flex items-center gap-2 transform active:scale-95">
-                            <i data-lucide="copy" class="w-4 h-4"></i> Copy Text
-                        </button>
-                    </div>
-                </div>
-            </div>
+            </template> 
         </div>
         {{-- end of modal --}}
 
