@@ -5,12 +5,14 @@
 @section('content')
     <header class="h-16 bg-surface border-b border-slate-200 flex items-center justify-between px-4 sm:px-8 z-10 sticky top-0 shrink-0">
         <div class="flex items-center gap-4">
-            <button id="open-sidebar" class="lg:hidden text-slate-500 hover:text-slate-800"><i data-lucide="menu" class="w-6 h-6"></i></button>
-            <span class="font-semibold text-slate-800 text-sm">Dashboard</span>
+            {{-- <button id="open-sidebar" class="lg:hidden text-slate-500 hover:text-slate-800"><i data-lucide="menu" class="w-6 h-6"></i></button> --}}
+            <h1 class="font-bold text-slate-900 text-lg tracking-tight flex items-center gap-2">
+                Dashboard
+            </h1>
         </div>
         <div class="flex items-center gap-3 sm:gap-4">
             <a href="{{ route('user.cases.create') }}">
-                <button class="bg-primary hover:bg-slate-800 text-white px-3 sm:px-4 py-2 rounded-md text-xs font-semibold shadow-lg shadow-slate-900/10 transition-all flex items-center gap-2">
+                <button class="bg-slate-900 hover:bg-slate-800 text-white px-3 sm:px-4 py-2 rounded-lg text-xs font-bold shadow-lg shadow-slate-900/20 transition-all flex items-center gap-2">
                     <i data-lucide="plus" class="w-3 h-3"></i>
                     <span class="hidden sm:inline">New Dispute</span>
                     <span class="sm:hidden">New</span>
@@ -53,7 +55,7 @@
                 </div>
                 <div class="flex gap-3 w-full md:w-auto">
                     <button class="flex-1 md:flex-none px-4 py-2 bg-white border border-slate-200 text-slate-600 text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors">Dismiss</button>
-                    <button class="flex-1 md:flex-none px-4 py-2 bg-accent hover:bg-blue-700 text-white text-sm font-medium rounded-lg shadow-md transition-all flex items-center justify-center gap-2">View Thread <i data-lucide="arrow-right" class="w-4 h-4"></i></button>
+                    <button class="flex-1 md:flex-none px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-lg shadow-md shadow-blue-600/20 transition-all flex items-center justify-center gap-2">View Thread <i data-lucide="arrow-right" class="w-4 h-4"></i></button>
                 </div>
             </div>
 

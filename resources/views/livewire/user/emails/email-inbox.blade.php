@@ -3,9 +3,9 @@
     <div class="px-6 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/50 backdrop-blur-sm border-b border-slate-200/60 sticky top-0 z-20">
         
         <div class="flex items-center gap-6 flex-1">
-            <button id="open-sidebar" class="lg:hidden p-2 -ml-2 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors">
+            {{-- <button id="open-sidebar" class="lg:hidden p-2 -ml-2 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors">
                 <i data-lucide="menu" class="w-5 h-5"></i>
-            </button>
+            </button> --}}
             <h1 class="text-xl font-bold text-slate-900 tracking-tight">Inbox</h1>
             
             <div class="relative w-full max-w-md group hidden sm:block">

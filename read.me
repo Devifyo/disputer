@@ -1,5 +1,6 @@
 # 1. Ensure Laravel can write session files
-
+chown -R 82:82 storage bootstrap/cache
+chown -R 82:82 storage bootstrap/cache
 # 2. Clear the configuration cache (so the .env changes take effect)
 docker compose exec app php artisan config:clear
 docker compose exec app php artisan config:cache

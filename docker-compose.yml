@@ -9,7 +9,13 @@ services:
     container_name: dispute_app
     restart: unless-stopped
     working_dir: /var/www
-    user: "root"
+    
+    # --- PERMANENT PERMISSION FIX ---
+    # Changed from "root" to "82:82" (www-data).
+    # This ensures all new files (sessions, logs) are created with the correct 
+    # permissions automatically, preventing the 419 error permanently.
+    user: "82:82"
+    
     volumes:
       - ./:/var/www
     environment:
@@ -18,7 +24,6 @@ services:
       - APP_URL=https://dispute.devifyo.cloud
       - DB_CONNECTION=mysql
       - DB_HOST=db
-      # TRY THIS NAME FIRST (Based on your earlier hint):
       - DB_DATABASE=disputeb
       - DB_USERNAME=${DB_USERNAME}
       - DB_PASSWORD=${DB_PASSWORD}
@@ -72,13 +77,11 @@ services:
       - db
 
 # -----------------------------------------------------------
-# FIX: CONNECT TO YOUR OLD DATA
+# VOLUMES & NETWORKS
 # -----------------------------------------------------------
 volumes:
   volume_to_test:
     external: true
-    # We are switching to the OTHER volume name found in your list.
-    # If this fails, change it to 'disputer_db_data'
     name: disputer_db_data
 
 networks:
