@@ -1,7 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\User\{DashboardController, CaseController, DocumentController, TemplateController};
+use App\Http\Controllers\User\{DashboardController, CaseController, DocumentController, TemplateController, EmailController};
 
 /*
 |--------------------------------------------------------------------------
@@ -40,6 +40,8 @@ Route::middleware(['auth', 'verified'])->name('user.')->group(function () {
 
     // lettler templates
     Route::get('/templates', [TemplateController::class, 'index'])->name('templates.index');
-
+    //emails
+    Route::resource('emails', EmailController::class)->only(['index', 'show', 'create', 'store']);
+    Route::get('/templates/search', [TemplateController::class, 'search'])->name('templates.search');
 
 });

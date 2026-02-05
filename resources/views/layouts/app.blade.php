@@ -73,12 +73,20 @@
 
             <div class="px-3 mt-8 mb-2 text-[10px] uppercase tracking-widest font-bold text-slate-600">Tools & History</div>
 
-            <a href="{{route('user.templates.index')}}" class="sidebar-item flex items-center gap-3 px-3 py-2 rounded-lg hover:text-white transition-all">
+            <a href="{{route('user.templates.index')}}" class="sidebar-item {{ request()->routeIs('user.templates.*') ? 'active' : '' }} flex items-center gap-3 px-3 py-2 rounded-lg hover:text-white transition-all">
                 <i data-lucide="file-text" class="w-4 h-4 hover:text-purple-400"></i><span class="text-sm font-medium">Letter Templates</span>
             </a>
 
-            <a href="#" class="sidebar-item flex items-center gap-3 px-3 py-2 rounded-lg hover:text-white transition-all">
+            {{-- <a href="#" class="sidebar-item flex items-center gap-3 px-3 py-2 rounded-lg hover:text-white transition-all">
                 <i data-lucide="history" class="w-4 h-4 hover:text-blue-400"></i><span class="text-sm font-medium">Audit Logs</span>
+            </a> --}}
+            <a href="{{ route('user.emails.index') }}" 
+                class="sidebar-item {{ request()->routeIs('user.emails.*') ? 'active' : '' }} flex items-center gap-3 px-3 py-2 rounded-lg text-slate-400 hover:text-white transition-all">
+                    <div class="relative">
+                        <i data-lucide="mail" class="w-4 h-4"></i>
+                        <span class="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full border-2 border-slate-900"></span>
+                    </div>
+                    <span class="text-sm font-medium">Mailbox</span>
             </a>
         </nav>
 

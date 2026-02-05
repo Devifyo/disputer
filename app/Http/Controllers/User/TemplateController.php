@@ -29,4 +29,34 @@ class TemplateController extends Controller
 
         return view('user.templates.index', compact('templates'));
     }
+
+
+    public function search(Request $request)
+    {
+        $query = $request->get('query');
+
+        $templates = \App\Models\LetterTemplate::with('category')
+            ->where('is_active', true)
+            ->when($query, function ($q) use ($query) {
+                $q->where('title', 'like', "%{$query}%")
+                  ->orWhereHas('category', function ($catQ) use ($query) {
+                      $catQ->where('name', 'like', "%{$query}%");
+                  });
+            })
+            ->latest()
+            ->limit(10) // Limit results for speed
+            ->get(['id', 'institution_category_id', 'title', 'content']); // Select only needed columns
+
+        // Transform data for the frontend
+        $data = $templates->map(function ($t) {
+            return [
+                'id' => $t->id,
+                'title' => $t->title,
+                'category' => $t->category->name ?? 'General',
+                'content' => $t->content
+            ];
+        });
+
+        return response()->json($data);
+    }
 }
