@@ -143,8 +143,11 @@
                                         <p class="text-[10px] text-slate-500 uppercase font-semibold">{{ Str::afterLast($file->file_name, '.') }} • {{ $file->created_at->format('M d') }}</p>
                                     </div>
                                 </div>
-                                <a href="{{ Storage::url($file->file_path) }}" target="_blank" class="text-xs font-bold text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-3 py-1.5 rounded-md transition-all">
-                                    View
+                                <a href="{{$file->public_link}}" 
+                                    target="_blank" 
+                                    class="inline-flex items-center justify-center text-blue-600 hover:text-blue-800 hover:bg-blue-50 p-1.5 rounded-md transition-all"
+                                    title="View File">
+                                        <i data-lucide="eye" class="w-4 h-4"></i>
                                 </a>
                             </li>
                             @endforeach
