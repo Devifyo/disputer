@@ -32,8 +32,7 @@
 
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-
+    
     <style>
         [x-cloak] { display: none !important; }
         body { font-family: 'Inter', sans-serif; }
@@ -152,14 +151,23 @@
         @yield('content')
     </main>
 
+    @stack('scripts')
     @livewireScripts
     <script>
+        // Initialize Lucide icons on page load
         lucide.createIcons();
-        document.addEventListener('livewire:navigated', () => lucide.createIcons());
+        
+        // Re-initialize Lucide icons after Livewire updates the DOM
+        document.addEventListener('livewire:navigated', () => {
+            lucide.createIcons();
+        });
+
+        // This hook is crucial for Livewire 3 component updates
         document.addEventListener("livewire:init", () => {
-            Livewire.hook('morph.updated', () => lucide.createIcons());
+            Livewire.hook('morph.updated', (component) => {
+                lucide.createIcons();
+            });
         });
     </script>
-    @stack('scripts')
 </body>
 </html>
