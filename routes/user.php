@@ -1,7 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\User\{DashboardController, CaseController, DocumentController};
+use App\Http\Controllers\User\{DashboardController, CaseController, DocumentController, TemplateController};
 
 /*
 |--------------------------------------------------------------------------
@@ -37,5 +37,9 @@ Route::middleware(['auth', 'verified'])->name('user.')->group(function () {
     Route::get('/document/download/{attachment}', [DocumentController::class, 'downloadSecure'])
     ->name('evidence.download')
     ->middleware('signed');
+
+    // lettler templates
+    Route::get('/templates', [TemplateController::class, 'index'])->name('templates.index');
+
 
 });
