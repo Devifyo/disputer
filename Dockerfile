@@ -1,37 +1,61 @@
 FROM php:8.2-fpm-alpine
 
-# 1. Install dependencies
-RUN apk add --no-cache git curl libpng-dev oniguruma-dev libxml2-dev zip unzip shadow
+# --------------------------------------------------
+# 1. System Dependencies
+# --------------------------------------------------
+RUN apk add --no-cache \
+    git \
+    curl \
+    libpng-dev \
+    oniguruma-dev \
+    libxml2-dev \
+    zip \
+    unzip \
+    shadow
 
-# 2. Install PHP extensions
-RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
+# --------------------------------------------------
+# 2. PHP Extensions
+# --------------------------------------------------
+RUN docker-php-ext-install \
+    pdo_mysql \
+    mbstring \
+    exif \
+    pcntl \
+    bcmath \
+    gd
 
-# 3. Force PHP-FPM to listen on 0.0.0.0:9000
-RUN sed -i 's/listen = 127.0.0.1:9000/listen = 0.0.0.0:9000/g' /usr/local/etc/php-fpm.d/www.conf || true
+# --------------------------------------------------
+# 3. PHP-FPM Config
+# --------------------------------------------------
+RUN sed -i 's|listen = 127.0.0.1:9000|listen = 0.0.0.0:9000|' \
+    /usr/local/etc/php-fpm.d/www.conf
 
-# 4. Get Composer
+# --------------------------------------------------
+# 4. Composer
+# --------------------------------------------------
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# 5. Set Work Directory
-WORKDIR /var/www
+# --------------------------------------------------
+# 5. Application Root (CRITICAL)
+# --------------------------------------------------
+WORKDIR /var/www/html
 
-# --- PERMISSION FIX STARTS HERE ---
+# --------------------------------------------------
+# 6. Laravel Runtime Directories
+# --------------------------------------------------
+RUN mkdir -p \
+    storage/framework/sessions \
+    storage/framework/views \
+    storage/framework/cache \
+    bootstrap/cache
 
-# A. Create the critical directory structure manually
-# This ensures they exist even if your local folder is empty
-RUN mkdir -p /var/www/storage/framework/sessions \
-    /var/www/storage/framework/views \
-    /var/www/storage/framework/cache \
-    /var/www/bootstrap/cache
+# --------------------------------------------------
+# 7. Permissions (Laravel-safe)
+# --------------------------------------------------
+RUN chown -R 82:82 /var/www/html \
+ && chmod -R 775 storage bootstrap/cache
 
-# B. Force ownership to User 82 (Standard Alpine Web User)
-# This replaces your manual "sudo chown -R 82:82" command
-RUN chown -R 82:82 /var/www
-
-# C. Set Write Permissions (775) so the group can write
-RUN chmod -R 775 /var/www/storage /var/www/bootstrap/cache
-
-# --- PERMISSION FIX ENDS HERE ---
-
-# 6. Switch to User 82 (Alpine www-data)
+# --------------------------------------------------
+# 8. Run as non-root
+# --------------------------------------------------
 USER 82
