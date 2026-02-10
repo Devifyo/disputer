@@ -14,6 +14,7 @@ class CaseController extends Controller
     public function __construct(CaseService $caseService, SendEmailService $emailService)
     {
         $this->caseService = $caseService;
+        $this->emailService = $emailService;
     }
 
 
@@ -73,7 +74,7 @@ class CaseController extends Controller
         return response()->json($institutions);
     }
 
-    public function sendEmail(Request $request, Cases $case)
+    public function sendEmail(Request $request, $casId)
     {   
 
         if (!isEmailConfigured()) {
@@ -88,6 +89,12 @@ class CaseController extends Controller
             'attachments' => 'array',
             'attachments.*' => 'nullable|file|mimes:pdf,jpg,jpeg,png,doc,docx|max:10240', // 10MB Max per file
         ]);
+        
+        $case = Cases::find(decrypt_id($casId));
+        if(!$case){
+            return back()
+            ->with('error', 'Case not found!');
+        }
 
         try {
             // Handle Multiple Attachments

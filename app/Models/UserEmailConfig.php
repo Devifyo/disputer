@@ -27,4 +27,9 @@ class UserEmailConfig extends Model
             return $value;
         }
     }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
 }

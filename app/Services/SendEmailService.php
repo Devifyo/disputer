@@ -12,7 +12,6 @@ use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\UploadedFile;
 
 class SendEmailService
@@ -20,103 +19,128 @@ class SendEmailService
     /**
      * Send email via Custom SMTP, upload files, and record database entries.
      */
-    public function sendAndLog(User $user, Cases $case, string $recipient, string $subject, string $body, array $attachments = [])
+    public function sendAndLog(User $user, Cases $case, string $recipient, string $subject, string $body, array $attachments = [], Email $parentEmail = null)
     {
         // 1. Get User's SMTP Config
         $emailConfig = UserEmailConfig::where('user_id', $user->id)->first();
 
         if (!$emailConfig) {
-            throw new \Exception('SMTP settings not found. Please configure your email settings in your profile.');
+            throw new \Exception('SMTP settings not found.');
         }
 
-        // 2. Configure Mailer Dynamically
-        $this->configureMailer($emailConfig);
+        // 2. Generate ID (WITHOUT BRACKETS for Symfony Header)
+        // Example: 1670000.random@domain.com
+        $domain = substr(strrchr($emailConfig->from_email, "@"), 1);
+        $cleanMessageId = time() . "." . bin2hex(random_bytes(8)) . "@" . $domain;
 
-        // 3. Send the Email First (Ensure delivery before DB work)
+        // 3. Register Mailer
+        $mailerName = 'custom_smtp_' . $user->id;
+        $this->registerCustomMailer($mailerName, $emailConfig);
+
+        // 4. Send Email
         try {
-            Mail::raw($body, function ($message) use ($recipient, $subject, $emailConfig, $attachments) {
+            Mail::mailer($mailerName)->send([], [], function ($message) use ($recipient, $subject, $body, $emailConfig, $attachments, $cleanMessageId, $parentEmail) {
                 $message->to($recipient)
                         ->subject($subject)
-                        ->from($emailConfig->from_email, $emailConfig->from_name ?? 'Dispute Manager');
-                
-                // Attach files from Temporary Upload path
-                /** @var UploadedFile $file */
+                        ->from($emailConfig->from_email, $emailConfig->from_name)
+                        ->html($body);
+
+                // A. FIXED: Use addIdHeader (No brackets allowed here)
+                $message->getHeaders()->addIdHeader('Message-ID', $cleanMessageId);
+
+                // B. Handle Threading (If this is a reply)
+                if ($parentEmail && $parentEmail->message_id) {
+                    // Strip brackets from parent ID for the header
+                    $cleanParentId = trim($parentEmail->message_id, '<>');
+                    
+                    // FIXED: Use addIdHeader for these too
+                    $message->getHeaders()->addIdHeader('In-Reply-To', $cleanParentId);
+                    $message->getHeaders()->addIdHeader('References', $cleanParentId);
+                }
+
+                // Attach files
                 foreach ($attachments as $file) {
-                    $message->attach($file->getRealPath(), [
-                        'as' => $file->getClientOriginalName(),
-                        'mime' => $file->getClientMimeType(),
-                    ]);
+                    if ($file instanceof UploadedFile) {
+                        $message->attach($file->getRealPath(), [
+                            'as' => $file->getClientOriginalName(),
+                            'mime' => $file->getClientMimeType(),
+                        ]);
+                    }
                 }
             });
+
         } catch (\Exception $e) {
-            Log::error("Custom SMTP Error: " . $e->getMessage());
+            Log::error("SMTP Error: " . $e->getMessage());
             throw new \Exception("Failed to send email: " . $e->getMessage());
         }
 
-        // 4. database Transaction: Record Timeline, Email, and Attachments
-        DB::transaction(function () use ($case, $user, $recipient, $subject, $body, $attachments, $emailConfig) {
+        // 5. Database Transaction
+        DB::transaction(function () use ($case, $user, $recipient, $subject, $body, $attachments, $emailConfig, $cleanMessageId, $parentEmail) {
             
-            // A. Create Timeline Entry
+            // Format ID with brackets for Database Storage (Standard format)
+            $dbMessageId = "<{$cleanMessageId}>";
+
+            // Timeline
             $timeline = CaseTimeline::create([
                 'case_id' => $case->id,
                 'type' => 'email_sent',
-                'actor' => 'user', // or $user->name
-                'description' => count($attachments) > 0 
-                    ? "Sent email to {$recipient} with " . count($attachments) . " attachment(s)." 
-                    : "Sent email to {$recipient}",
+                'actor' => 'user', 
+                'description' => "Sent email to {$recipient}",
                 'occurred_at' => now(),
                 'metadata' => [
-                    'subject' => $subject, // Keep basic meta for quick access
+                    'subject' => $subject,
                     'recipient' => $recipient,
+                    'direction' => 'outbound',
+                    'message_id' => $dbMessageId, // Stored with brackets
+                    'email_id' => null // Will update below
                 ]
             ]);
 
-            // B. Create Email Record (Linked to Timeline)
+            // Email Record
             $emailRecord = Email::create([
-                'case_id' => $case->id,
-                'timeline_id' => $timeline->id,
-                'direction' => 'outbound',
-                'sender_email' => $emailConfig->from_email,
+                'case_id'         => $case->id,
+                'timeline_id'     => $timeline->id,
+                'parent_id'       => $parentEmail ? $parentEmail->id : null,
+                'direction'       => 'outbound',
+                'sender_email'    => $emailConfig->from_email,
                 'recipient_email' => $recipient,
-                'subject' => $subject,
-                'body_text' => $body,
-                // 'body_html' => nl2br($body), // Optional if you want HTML version
+                'subject'         => $subject,
+                'body_text'       => strip_tags($body),
+                'body_html'       => $body,
+                'message_id'      => $dbMessageId, // Stored with brackets
             ]);
 
-            // C. Upload Files and Create Attachment Records
-            /** @var UploadedFile $file */
-            foreach ($attachments as $file) {
-                // 1. Store file securely (e.g., storage/app/cases/{id}/attachments)
-                $path = $file->storeAs(
-                    "cases/{$case->id}/attachments", 
-                    time() . '_' . $file->getClientOriginalName()
-                );
+            // Update Timeline with Email ID (for UI Reply button)
+            $timeline->update(['metadata' => array_merge($timeline->metadata, ['email_id' => $emailRecord->id])]);
 
-                // 2. Create DB Record linked to Email AND Case
-                Attachment::create([
-                    'case_id' => $case->id,
-                    'email_id' => $emailRecord->id, // Linked to specific email
-                    'file_path' => $path,
-                    'file_name' => $file->getClientOriginalName(),
-                    'mime_type' => $file->getClientMimeType(),
-                    'ai_analysis_status' => 'pending' // Ready for your AI processing job
-                ]);
+            // Attachments
+            foreach ($attachments as $file) {
+                if ($file instanceof UploadedFile) {
+                    $path = $file->storeAs("cases/{$case->id}/attachments", time() . '_' . $file->getClientOriginalName());
+                    Attachment::create([
+                        'case_id' => $case->id,
+                        'email_id' => $emailRecord->id,
+                        'file_path' => $path,
+                        'file_name' => $file->getClientOriginalName(),
+                        'mime_type' => $file->getClientMimeType(),
+                        'ai_analysis_status' => 'pending'
+                    ]);
+                }
             }
         });
     }
 
-    private function configureMailer(UserEmailConfig $config)
+    private function registerCustomMailer(string $mailerName, UserEmailConfig $config)
     {
-        Config::set('mail.mailers.smtp.transport', 'smtp');
-        Config::set('mail.mailers.smtp.host', $config->smtp_host);
-        Config::set('mail.mailers.smtp.port', $config->smtp_port);
-        Config::set('mail.mailers.smtp.encryption', $config->smtp_encryption);
-        Config::set('mail.mailers.smtp.username', $config->smtp_username);
-        Config::set('mail.mailers.smtp.password', $config->smtp_password);
-        Config::set('mail.from.address', $config->from_email);
-        Config::set('mail.from.name', $config->from_name);
-        
-        // Reset the mailer instance to apply new config
-        Mail::purge('smtp');
+        $encryption = ($config->smtp_encryption === 'none') ? null : $config->smtp_encryption;
+        Config::set("mail.mailers.{$mailerName}", [
+            'transport' => 'smtp',
+            'host'       => $config->smtp_host,
+            'port'       => $config->smtp_port,
+            'encryption' => $encryption,
+            'username'   => $config->smtp_username,
+            'password'   => $config->smtp_password,
+            'timeout'    => null,
+        ]);
     }
 }

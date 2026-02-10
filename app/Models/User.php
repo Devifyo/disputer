@@ -50,4 +50,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(Cases::class);
     }
+
+    public function emailConfig()
+    {
+        return $this->hasOne(UserEmailConfig::class);
+    }
 }

@@ -10,6 +10,7 @@ RUN apk add --no-cache \
     oniguruma-dev \
     libxml2-dev \
     zip \
+    libzip-dev \
     unzip \
     shadow
 
@@ -22,7 +23,8 @@ RUN docker-php-ext-install \
     exif \
     pcntl \
     bcmath \
-    gd
+    gd \
+    zip
 
 # --------------------------------------------------
 # 3. PHP-FPM Config

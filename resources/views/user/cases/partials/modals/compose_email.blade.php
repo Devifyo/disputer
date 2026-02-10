@@ -9,7 +9,7 @@
     <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden max-h-[90vh]"
          x-data="fileManager()">
          
-        <form action="{{ route('user.cases.send_email', $case->id) }}" method="POST" enctype="multipart/form-data" class="flex flex-col h-full">
+        <form action="{{ route('user.cases.send_email', encrypt_id($case->id)) }}" method="POST" enctype="multipart/form-data" class="flex flex-col h-full">
             @csrf
             
             <div class="px-6 py-4 bg-slate-900 flex justify-between items-center text-white shrink-0">
