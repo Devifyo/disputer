@@ -10,7 +10,7 @@
         replyTo: '',
         replySubject: '',
         replyBody: '',
-        replyParentId: null, // Stores Encrypted Parent ID
+        replyParentId: null, 
         
         // Actions
         openViewer(subject, body) { 
@@ -22,12 +22,21 @@
         openReply(originalSubject, recipient, encryptedParentId = null) {
             this.replyTo = recipient;
             
-            // Auto-prefix 'Re:' if not present
-            let prefix = originalSubject.toLowerCase().startsWith('re:') ? '' : 'Re: ';
-            this.replySubject = prefix + originalSubject;
+            // 1. Safety: Ensure Subject is a String
+            let subjectStr = String(originalSubject || 'Case #{{ $case->case_reference_id }}');
+
+            // 2. Logic: Only add 'Re:' if this is actually a reply (has a parent ID)
+            if (encryptedParentId) {
+                let prefix = subjectStr.toLowerCase().startsWith('re:') ? '' : 'Re: ';
+                this.replySubject = prefix + subjectStr;
+                this.replyBody = '\n\n\n--- Original Message ---\n'; 
+            } else {
+                // New Email: No Prefix, No Body Quote
+                this.replySubject = subjectStr;
+                this.replyBody = ''; 
+            }
             
-            this.replyBody = '\n\n\n--- Original Message ---\n'; 
-            this.replyParentId = encryptedParentId; // Set the encrypted parent ID
+            this.replyParentId = encryptedParentId; 
             this.composeModalOpen = true;
         }
     }"
@@ -55,9 +64,23 @@
                         $direction = $log->metadata['direction'] ?? 'outbound'; 
                         if(str_contains($log->type, 'received')) { $direction = 'inbound'; }
 
-                        // 2. Get & Encrypt Email ID (Safely)
+                        // 2. Encrypt Email ID
                         $rawEmailId = $log->metadata['email_id'] ?? null;
                         $encryptedEmailId = $rawEmailId ? encrypt_id($rawEmailId) : null;
+
+                        // 3. SAFE EXTRACTION
+                        $rawSubject = $log->metadata['subject'] ?? 'Case #'.$case->case_reference_id;
+                        if (is_array($rawSubject)) { $rawSubject = reset($rawSubject); }
+                        $safeSubject = (string) $rawSubject;
+
+                        $rawRecipient = $log->metadata['sender_email'] ?? $log->metadata['recipient'] ?? '';
+                        if (is_array($rawRecipient)) { $rawRecipient = reset($rawRecipient); }
+                        $safeRecipient = (string) $rawRecipient;
+
+                        // 4. ROBUST BODY EXTRACTION (Check multiple keys)
+                        $rawBody = $log->metadata['full_body'] ?? $log->metadata['body'] ?? '';
+                        if (is_array($rawBody)) { $rawBody = reset($rawBody); }
+                        $safeBody = (string) $rawBody;
                     @endphp
 
                     <div class="relative pl-12 group">
@@ -95,23 +118,21 @@
                                         @endif
                                     @endif
                                 </div>
-
                                 <span class="text-[10px] font-semibold text-slate-400 uppercase bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100 whitespace-nowrap">
                                     {{ $log->occurred_at ? $log->occurred_at->diffForHumans(null, true) : 'N/A' }}
                                 </span>
                             </div>
                             
-                            <p class="text-xs text-slate-600 leading-relaxed line-clamp-2">
-                                {{ $log->description }}
-                            </p>
+                            <p class="text-xs text-slate-600 leading-relaxed line-clamp-2">{{ $log->description }}</p>
 
-                            @if(isset($log->metadata['full_body']))
+                            {{-- FIXED: Check if it is an email TYPE, not just if body is empty --}}
+                            @if($log->type == 'email_sent' || $log->type == 'email_received')
                                 <div class="mt-2 flex items-center gap-2">
                                     
                                     <button 
                                         @click="openViewer(
-                                            {{ json_encode($log->metadata['subject'] ?? 'System Msg') }}, 
-                                            {{ json_encode($log->metadata['full_body'] ?? '') }}
+                                            '{{ addslashes($safeSubject) }}', 
+                                            {{ json_encode($safeBody ?: 'No content available for this email.') }}
                                         )"
                                         class="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 transition-all text-xs font-bold text-slate-600 hover:text-slate-900 shadow-sm">
                                         <i data-lucide="eye" class="w-3.5 h-3.5"></i> View
@@ -120,8 +141,8 @@
                                     @if($direction === 'inbound')
                                         <button 
                                             @click="openReply(
-                                                {{ json_encode($log->metadata['subject'] ?? 'Case Inquiry') }}, 
-                                                {{ json_encode($log->metadata['sender_email'] ?? $log->metadata['recipient'] ?? '') }},
+                                                '{{ addslashes($safeSubject) }}', 
+                                                '{{ addslashes($safeRecipient) }}',
                                                 '{{ $encryptedEmailId }}' 
                                             )"
                                             class="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-blue-200 bg-blue-50 hover:bg-blue-100 hover:border-blue-300 transition-all text-xs font-bold text-blue-600 shadow-sm">
@@ -149,7 +170,6 @@
     </div>
 
     @include('user.cases.partials.modals.view_email')
-    
     @include('user.cases.partials.modals.compose_email')
 
 </div>
