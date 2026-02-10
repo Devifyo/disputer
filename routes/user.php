@@ -43,6 +43,7 @@ Route::middleware(['auth', 'verified'])->name('user.')->group(function () {
     //emails
     Route::resource('emails', EmailController::class)->only(['index', 'show', 'create', 'store']);
     Route::get('/templates/search', [TemplateController::class, 'search'])->name('templates.search');
+    
     // Add this new route for sending emails from the case timeline
-    Route::post('/cases/{case}/send-email', [CaseController::class, 'sendEmail'])->name('user.cases.send_email');
+    Route::post('/cases/{case}/send-email', [CaseController::class, 'sendEmail'])->name('cases.send_email');
 });

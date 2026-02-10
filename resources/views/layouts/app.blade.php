@@ -118,24 +118,36 @@
         </nav>
 
         <div class="p-4 border-t border-white/5 bg-slate-950 shrink-0">
-            <div class="flex items-center gap-3 p-3 rounded-xl bg-slate-900/50 border border-white/5 hover:border-white/10 transition-all">
-                <div class="relative">
-                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-sm text-white font-bold shadow-lg">
-                        {{ substr(Auth::user()->name ?? 'U', 0, 2) }}
+            {{--  --}}
+            <div class="flex items-center gap-1 p-2 rounded-xl bg-slate-900/50 border border-white/5 hover:border-white/10 transition-all">
+    
+                <a href="{{ route('profile.edit') }}" class="flex items-center gap-3 flex-1 min-w-0 p-1.5 rounded-lg hover:bg-white/5 transition-colors group">
+                    <div class="relative shrink-0">
+                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-sm text-white font-bold shadow-lg ring-2 ring-transparent group-hover:ring-blue-500/50 transition-all">
+                            {{ substr(Auth::user()->name ?? 'U', 0, 2) }}
+                        </div>
+                        <div class="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-slate-900 rounded-full"></div>
                     </div>
-                    <div class="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-slate-900 rounded-full"></div>
-                </div>
-                <div class="flex-1 min-w-0">
-                    <p class="text-sm font-semibold text-white truncate">{{ Auth::user()->name ?? 'Guest' }}</p>
-                    <p class="text-xs text-slate-500 truncate">Free Plan</p>
-                </div>
+
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-semibold text-white truncate group-hover:text-blue-400 transition-colors">
+                            {{ Auth::user()->name ?? 'Guest' }}
+                        </p>
+                        <p class="text-[10px] text-slate-500 truncate group-hover:text-slate-400">
+                            Manage Profile
+                        </p>
+                    </div>
+                </a>
+
                 <form method="POST" action="{{ route('logout') }}">
                     @csrf
-                    <button type="submit" class="p-2 text-slate-500 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors">
-                        <i data-lucide="log-out" class="w-4 h-4"></i>
+                    <button type="submit" class="p-2.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors" title="Log Out">
+                        <i data-lucide="log-out" class="w-4.5 h-4.5"></i>
                     </button>
                 </form>
+    
             </div>
+            {{--  --}}
         </div>
     </aside>
 
@@ -151,7 +163,9 @@
 
         @yield('content')
     </main>
-
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jquery-validation@1.19.5/dist/jquery.validate.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jquery-validation@1.19.5/dist/additional-methods.min.js"></script>
     @stack('scripts')
     @livewireScripts
     <script>

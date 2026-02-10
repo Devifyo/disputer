@@ -4,7 +4,7 @@ namespace App\Http\Controllers\User;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use App\Models\Institution; // Import your Model
+use App\Models\{Institution, Cases}; // Import your Model
 use App\Services\CaseService;
 use App\Services\SendEmailService;
 class CaseController extends Controller
@@ -73,29 +73,38 @@ class CaseController extends Controller
         return response()->json($institutions);
     }
 
-    public function sendEmail(Request $request, DisputeCase $case)
-    {
-        // 1. Validate
+    public function sendEmail(Request $request, Cases $case)
+    {   
+
+        if (!isEmailConfigured()) {
+        return back()
+            ->with('error', 'Your email settings are incomplete. Please configure SMTP & IMAP in your profile.')
+            ->with('smtp_missing', true); // Optional: forces the alert to show if not already visible
+       }
         $request->validate([
             'recipient' => 'required|email',
             'subject' => 'required|string|max:255',
             'body' => 'required|string',
+            'attachments' => 'array',
+            'attachments.*' => 'nullable|file|mimes:pdf,jpg,jpeg,png,doc,docx|max:10240', // 10MB Max per file
         ]);
 
         try {
-            // 2. Delegate to Service
+            // Handle Multiple Attachments
+            $files = $request->file('attachments') ?? [];
+
             $this->emailService->sendAndLog(
                 auth()->user(),
                 $case,
                 $request->recipient,
                 $request->subject,
-                $request->body
+                $request->body,
+                $files
             );
 
             return back()->with('success', 'Email sent successfully via your SMTP server.');
 
         } catch (\Exception $e) {
-            // Catch errors thrown by the service (missing config, SMTP failure)
             return back()->with('error', $e->getMessage());
         }
     }

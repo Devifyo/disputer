@@ -38,7 +38,7 @@
 
     <div class="flex-1 overflow-y-auto bg-slate-50/50 p-4 sm:p-6 lg:p-8">
         <div class="max-w-7xl mx-auto space-y-6">
-
+            @include('user.cases.partials.alerts')
             <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6 relative overflow-hidden">
                 <div class="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4 relative z-10">
                     <div>
