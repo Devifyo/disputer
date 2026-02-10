@@ -73,7 +73,7 @@ class CheckImapReplies implements ShouldQueue
         // It makes the get() request 100x faster.
         $query = $folder->query()
                         ->unseen()
-                        ->since(now()->subDays(10))
+                        ->since(now()->subDays(3))
                         ->setFetchBody(false); 
 
         $count = $query->count();

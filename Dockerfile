@@ -32,18 +32,23 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 # 5. Application Root
 WORKDIR /var/www/html
 
-# 6. Copy Application Code (Fixed missing step)
+# --------------------------------------------------
+# 6. COPY PHP CONFIG (CRITICAL STEP)
+# --------------------------------------------------
+# This copies your local.ini to the correct spot in the container
+COPY ./php/local.ini /usr/local/etc/php/conf.d/local.ini
+
+# 7. Copy App Code
 COPY . .
 
-# 7. Laravel Runtime Directories
+# 8. Laravel Directories & Permissions
 RUN mkdir -p \
     storage/framework/sessions \
     storage/framework/views \
     storage/framework/cache \
     bootstrap/cache
 
-# 8. Permissions
-# We set ownership to 82 (www-data)
+# Fix permissions for User 82 (www-data)
 RUN chown -R 82:82 /var/www/html \
  && chmod -R 775 storage bootstrap/cache
 
