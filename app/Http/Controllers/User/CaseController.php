@@ -6,11 +6,12 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Institution; // Import your Model
 use App\Services\CaseService;
+use App\Services\SendEmailService;
 class CaseController extends Controller
 {   
     protected $caseService;
-
-    public function __construct(CaseService $caseService)
+    protected $emailService;
+    public function __construct(CaseService $caseService, SendEmailService $emailService)
     {
         $this->caseService = $caseService;
     }
@@ -70,5 +71,32 @@ class CaseController extends Controller
             ->get();
 
         return response()->json($institutions);
+    }
+
+    public function sendEmail(Request $request, DisputeCase $case)
+    {
+        // 1. Validate
+        $request->validate([
+            'recipient' => 'required|email',
+            'subject' => 'required|string|max:255',
+            'body' => 'required|string',
+        ]);
+
+        try {
+            // 2. Delegate to Service
+            $this->emailService->sendAndLog(
+                auth()->user(),
+                $case,
+                $request->recipient,
+                $request->subject,
+                $request->body
+            );
+
+            return back()->with('success', 'Email sent successfully via your SMTP server.');
+
+        } catch (\Exception $e) {
+            // Catch errors thrown by the service (missing config, SMTP failure)
+            return back()->with('error', $e->getMessage());
+        }
     }
 }
