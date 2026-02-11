@@ -139,7 +139,7 @@
                     </div>
                 </a>
 
-                <form method="POST" action="{{ route('auth.logout') }}">
+                <form method="POST" action="{{ route('logout') }}">
                     @csrf
                     <button type="submit" class="p-2.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors" title="Log Out">
                         <i data-lucide="log-out" class="w-4.5 h-4.5"></i>
