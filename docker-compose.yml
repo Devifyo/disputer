@@ -7,7 +7,7 @@ services:
     container_name: dispute_app
     restart: unless-stopped
     working_dir: /var/www/html
-    user: "82:82"
+    user: root # We start as root to fix permissions, then PHP-FPM switches to 82
     volumes:
        - ./:/var/www/html
     environment:
@@ -18,6 +18,11 @@ services:
       - DB_DATABASE=${DB_DATABASE}
       - DB_USERNAME=${DB_USERNAME}
       - DB_PASSWORD=${DB_PASSWORD}
+    # This script runs every time the container starts
+    entrypoint: >
+      sh -c "chown -R 82:82 /var/www/html/storage /var/www/html/bootstrap/cache && 
+             chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache && 
+             php-fpm"
     networks:
       - default
     depends_on:
