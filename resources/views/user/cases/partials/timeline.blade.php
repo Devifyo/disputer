@@ -151,7 +151,8 @@
                                 <div class="mt-2 flex items-center gap-2">
                               <button 
                                     type="button"
-                                    @click="$dispatch('open-email', { 
+                                    @click="$dispatch('open-email', {
+                                        emailId: '{{ $rawEmailId ?? '' }}',
                                         subject: '{{ addslashes($safeSubject) }}', 
                                         body: {{ json_encode($safeBody) }}, 
                                         attachments: {{ json_encode($attachmentsData) }},

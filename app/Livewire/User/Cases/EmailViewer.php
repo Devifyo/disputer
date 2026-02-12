@@ -16,16 +16,19 @@ class EmailViewer extends Component
     
     public $isAnalyzing = false;
     public $analysis = null;
-
+    public $emailId = '';
     #[On('open-email')]
-    public function loadEmail($subject, $body, $attachments = [], $recipient = 'Support Team')
-    {
+    public function loadEmail($emailId, $subject, $body, $attachments = [], $recipient = 'Support Team')
+    {   
         $this->subject = $subject;
         $this->body = $body;
         $this->attachments = $attachments;
         $this->recipient_email = $recipient;
         $this->isOpen = true;
         $this->analysis = null;
+        if ($emailId) {
+            \App\Models\Email::where('id', $emailId)->update(['is_read' => true]);
+        }
     }
 
     public function close()
