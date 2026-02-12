@@ -126,12 +126,12 @@
                 Letter Templates
             </a>
 
-            <a href="{{ route('user.emails.index') }}" class="{{ navClass('user.emails.*') }} group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all justify-between">
+            {{-- <a href="{{ route('user.emails.index') }}" class="{{ navClass('user.emails.*') }} group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all justify-between">
                 <div class="flex items-center gap-3">
                     <i data-lucide="mail" class="w-5 h-5 transition-colors {{ request()->routeIs('user.emails.*') ? 'text-blue-400' : 'text-slate-500 group-hover:text-slate-300' }}"></i>
                     Mailbox
                 </div>
-            </a>
+            </a> --}}
         </nav>
 
         <div class="p-4 border-t border-white/5 bg-slate-950 shrink-0">

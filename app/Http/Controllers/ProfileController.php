@@ -70,7 +70,7 @@ class ProfileController extends Controller
             $validated
         );
 
-        return Redirect::route('profile.edit')->with('success', 'Email configuration updated successfully.');
+        return Redirect::route('profile.edit')->with('success', 'Email configuration updated successfully.')->with('status', 'email-updated');
     }
 
     /**

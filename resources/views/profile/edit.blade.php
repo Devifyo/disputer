@@ -65,11 +65,11 @@
                             </div>
                         </div>
 
-                        <div class="p-4 sm:p-8 bg-white shadow-sm ring-1 ring-slate-900/5 sm:rounded-xl">
+                        {{-- <div class="p-4 sm:p-8 bg-white shadow-sm ring-1 ring-slate-900/5 sm:rounded-xl">
                             <div class="max-w-xl">
                                 @include('profile.partials.delete-user-form')
                             </div>
-                        </div>
+                        </div> --}}
                     </div>
 
                 </div>
@@ -83,56 +83,76 @@
        $(document).ready(function() {
             
             // ==========================================
-            // 1. TAB SWITCHING LOGIC (jQuery)
+            // 1. TAB SWITCHING LOGIC
             // ==========================================
             
-            // Function to activate a specific tab
             function activateTab(tabName) {
-                // 1. Reset all buttons to inactive state
+                // 1. Reset all buttons
                 $('.tab-button').removeClass('bg-white text-blue-600 shadow-sm ring-1 ring-slate-900/5')
                                 .addClass('text-slate-600 hover:bg-slate-100 hover:text-slate-900');
                 
-                // 2. Hide all tab panes
+                // 2. Hide all panes
                 $('.tab-pane').addClass('hidden');
 
-                // 3. Activate the specific button
+                // 3. Activate button
                 $('.tab-button[data-tab="' + tabName + '"]')
                                 .removeClass('text-slate-600 hover:bg-slate-100 hover:text-slate-900')
                                 .addClass('bg-white text-blue-600 shadow-sm ring-1 ring-slate-900/5');
 
-                // 4. Show the specific tab pane
+                // 4. Show pane
                 $('#tab-' + tabName).removeClass('hidden');
 
-                // 5. Update URL Hash without jumping
+                // 5. Update URL Hash
+                let hashName = (tabName === 'email') ? 'email-settings' : tabName;
                 if(history.pushState) {
-                    history.pushState(null, null, '#' + (tabName === 'email' ? 'email-settings' : tabName));
+                    history.pushState(null, null, '#' + hashName);
                 } else {
-                    location.hash = '#' + (tabName === 'email' ? 'email-settings' : tabName);
+                    location.hash = '#' + hashName;
                 }
             }
 
             // Click Handler
             $('.tab-button').on('click', function() {
-                var tab = $(this).data('tab');
-                activateTab(tab);
+                activateTab($(this).data('tab'));
             });
 
-            // Check URL Hash on Page Load
-            var hash = window.location.hash;
+            // ==========================================
+            // 2. DETERMINE ACTIVE TAB ON LOAD
+            // ==========================================
+            
+            let activeTab = 'profile'; // Default
+            let hash = window.location.hash;
+
+            // A. Check URL Hash first
             if (hash === '#email-settings' || hash === '#email') {
-                activateTab('email');
+                activeTab = 'email';
             } else if (hash === '#password') {
-                activateTab('password');
-            } else {
-                // Default is profile (HTML is already set to profile, but this enforces consistency)
-                activateTab('profile'); 
+                activeTab = 'password';
             }
 
+            // B. Check Laravel Validation Errors (Overrides Hash)
+            // If there are errors in specific fields, open that tab automatically
+            @if($errors->hasAny(['from_name', 'from_email', 'smtp_host', 'smtp_port', 'smtp_username', 'imap_host']))
+                activeTab = 'email';
+            @elseif($errors->updatePassword->any() || $errors->hasAny(['current_password', 'password', 'password_confirmation']))
+                activeTab = 'password';
+            @endif
+
+            // C. Check Custom Session (Optional Controller Override)
+            // Use return back()->with('status', 'password-updated'); in your controller
+            @if(session('status') === 'password-updated')
+                activeTab = 'password';
+            @elseif(session('status') === 'email-updated')
+                activeTab = 'email';
+            @endif
+
+            // Run the activation
+            activateTab(activeTab);
+
             // ==========================================
-            // 2. VALIDATION LOGIC
+            // 3. VALIDATION LOGIC (Keep existing code)
             // ==========================================
 
-            // Global Tailwind Styling for Errors
             $.validator.setDefaults({
                 errorElement: 'p',
                 errorClass: 'text-red-500 text-xs font-bold mt-1',
@@ -153,25 +173,10 @@
                 }
             });
 
-            // Profile Information Form
             $("#profile-update-form").validate({
-                rules: {
-                    name: "required",
-                    email: {
-                        required: true,
-                        email: true
-                    }
-                },
-                messages: {
-                    name: "Please enter your full name.",
-                    email: {
-                        required: "We need your email address to contact you.",
-                        email: "Please enter a valid email format (e.g., user@example.com)."
-                    }
-                }
+                rules: { name: "required", email: { required: true, email: true } }
             });
 
-            // Email Configuration Form
             $("#email-config-form").validate({
                 rules: {
                     from_name: "required",
@@ -184,66 +189,21 @@
                     imap_port: { required: true, digits: true },
                     imap_username: "required",
                     imap_password: "required"
-                },
-                messages: {
-                    from_name: "Please enter the sender name (e.g., Support Team).",
-                    from_email: {
-                        required: "Sender email is required.",
-                        email: "Please enter a valid email address."
-                    },
-                    smtp_host: "SMTP Host is required.",
-                    smtp_port: {
-                        required: "SMTP Port is required.",
-                        digits: "Port must be a number (e.g., 587)."
-                    },
-                    smtp_username: "SMTP Username is required.",
-                    smtp_password: "SMTP Password is required.",
-                    imap_host: "IMAP Host is required.",
-                    imap_port: {
-                        required: "IMAP Port is required.",
-                        digits: "Port must be a number (e.g., 993)."
-                    },
-                    imap_username: "IMAP Username is required.",
-                    imap_password: "IMAP Password is required."
                 }
             });
 
-            // Password Update Form
             $("#password-update-form").validate({
-                ignore: [], // Important: Validates even if tab is hidden
+                ignore: [],
                 rules: {
                     current_password: "required",
-                    password: {
-                        required: true,
-                        minlength: 8
-                    },
-                    password_confirmation: {
-                        required: true,
-                        equalTo: "#password"
-                    }
-                },
-                messages: {
-                    current_password: "Please enter your current password to authorize this change.",
-                    password: {
-                        required: "Please provide a new password.",
-                        minlength: "Your password must be at least 8 characters long."
-                    },
-                    password_confirmation: {
-                        required: "Please confirm your new password.",
-                        equalTo: "The passwords do not match. Please try again."
-                    }
+                    password: { required: true, minlength: 8 },
+                    password_confirmation: { required: true, equalTo: "#password" }
                 }
             });
             
-            // Delete Account Form
             $("#delete-account-form").validate({
                 ignore: [],
-                rules: {
-                    password: "required"
-                },
-                messages: {
-                    password: "You must enter your password to confirm account deletion."
-                }
+                rules: { password: "required" }
             });
         });
     </script>
