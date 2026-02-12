@@ -35,7 +35,6 @@ services:
       - ./:/var/www/html
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
     ports:
-      # CRITICAL: Map Host Port 8002 -> Container Port 80
       - "127.0.0.1:8002:80"
     networks:
       - web_network
@@ -56,6 +55,21 @@ services:
       - disputer_db_data:/var/lib/mysql
     networks:
       - default
+
+  # --- ADDED THIS SECTION ---
+  phpmyadmin:
+    image: phpmyadmin
+    container_name: dispute_pma
+    restart: unless-stopped
+    environment:
+      - PMA_HOST=db
+      - PMA_ABSOLUTE_URI=https://dispute.devifyo.cloud/dbase/
+    ports:
+      - "127.0.0.1:8083:80"
+    networks:
+      - default
+    depends_on:
+      - db
 
 volumes:
   disputer_db_data:

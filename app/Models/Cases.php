@@ -59,4 +59,16 @@ class Cases extends Model
         // Convert "case_created" to "Case Created"
         return ucwords(str_replace('_', ' ', $value)); 
     }
+
+    public function suggestions()
+    {
+        return $this->hasMany(AiSuggestion::class, 'case_id');
+    }
+
+    public function getPendingSuggestionsAttPribute()
+    {
+        // It uses the relationship above ('suggestions') 
+        // and filters it to only show ones waiting for approval.
+        return $this->suggestions()->where('status', 'pending')->get();
+    }
 }

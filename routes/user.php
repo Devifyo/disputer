@@ -46,4 +46,8 @@ Route::middleware(['auth', 'verified'])->name('user.')->group(function () {
     
     // Add this new route for sending emails from the case timeline
     Route::post('/cases/{case}/send-email', [CaseController::class, 'sendEmail'])->name('cases.send_email');
+    Route::post('/cases/{case}/update-stage', [App\Http\Controllers\User\CaseController::class, 'updateStage'])
+    ->name('user.cases.update_stage');
+
+//     
 });
