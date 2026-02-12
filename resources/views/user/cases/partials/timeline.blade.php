@@ -149,14 +149,14 @@
                             @if($log->type == 'email_sent' || $log->type == 'email_received')
                                 <div class="mt-2 flex items-center gap-2">
                                     <button 
-                                        @click="openViewer(
-                                            '{{ addslashes($safeSubject) }}', 
-                                            {{ json_encode($safeBody ?: 'No content available.') }},
-                                            {{ json_encode($attachmentsData) }} 
-                                        )"
-                                        class="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 transition-all text-xs font-bold text-slate-600 hover:text-slate-900 shadow-sm">
-                                        <i data-lucide="eye" class="w-3.5 h-3.5"></i> View
-                                    </button>
+    @click="$dispatch('open-email', { 
+        subject: '{{ addslashes($safeSubject) }}', 
+        body: {{ json_encode($safeBody) }}, 
+        attachments: {{ json_encode($attachmentsData) }} 
+    })"
+    class="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-slate-200 bg-white hover:bg-slate-50 ...">
+    <i data-lucide="eye" class="w-3.5 h-3.5"></i> View
+</button>
                                     @if($direction === 'inbound')
                                         <button 
                                             @click="openReply(
@@ -184,5 +184,5 @@
     </div>
 
     @include('user.cases.partials.modals.view_email')
-    @include('user.cases.partials.modals.compose_email')
+    {{-- @include('user.cases.partials.modals.compose_email') --}}
 </div>

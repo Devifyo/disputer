@@ -133,4 +133,5 @@
             </div>
         </div>
     </div>
+    @livewire('user.cases.email-viewer')
 @endsection

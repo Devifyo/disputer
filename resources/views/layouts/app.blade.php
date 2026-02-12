@@ -29,6 +29,7 @@
                 }
             }
         }
+        
     </script>
 
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -41,6 +42,22 @@
         .sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
         .sidebar-scroll::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }
         .sidebar-scroll:hover::-webkit-scrollbar-thumb { background: #475569; }
+
+        #compose-body, 
+        .compose-modal-textarea {
+            min-height: 300px !important;
+            resize: vertical;
+        }
+
+        textarea[wire\:model="body"], 
+    textarea[x-model="replyBody"] {
+        min-height: 250px !important;
+        line-height: 1.6 !important;
+        padding: 1rem !important;
+        font-family: inherit;
+        resize: vertical !important; /* Allows you to manually pull it down */
+        overflow-y: auto !important;
+    }
     </style>
     
     @livewireStyles
@@ -166,6 +183,7 @@
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jquery-validation@1.19.5/dist/jquery.validate.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jquery-validation@1.19.5/dist/additional-methods.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     @stack('scripts')
     @livewireScripts
     <script>
@@ -183,6 +201,12 @@
                 lucide.createIcons();
             });
         });
+
+        document.addEventListener('livewire:initialized', () => {
+        Livewire.on('open-email', () => {
+            setTimeout(() => { lucide.createIcons(); }, 100);
+        });
+    });
     </script>
 </body>
 </html>
