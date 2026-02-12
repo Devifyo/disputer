@@ -116,7 +116,7 @@ class SendEmailService
             // Attachments
             foreach ($attachments as $file) {
                 if ($file instanceof UploadedFile) {
-                    $path = $file->storeAs("cases/{$case->id}/attachments", time() . '_' . $file->getClientOriginalName());
+                    $path = $file->storeAs("cases/{$case->id}/attachments", time() . '_' . $file->getClientOriginalName(), 'public');
                     Attachment::create([
                         'case_id' => $case->id,
                         'email_id' => $emailRecord->id,

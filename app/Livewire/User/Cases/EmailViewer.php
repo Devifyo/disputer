@@ -12,7 +12,7 @@ class EmailViewer extends Component
     public $subject = '';
     public $body = '';
     public $attachments = [];
-    
+    public $recipient_email = '';
     // AI State
     public $isAnalyzing = false;
     public $analysis = null;
@@ -23,11 +23,12 @@ class EmailViewer extends Component
      * Listen for the 'open-email' event from the timeline
      */
     #[On('open-email')]
-    public function loadEmail($subject, $body, $attachments = [])
+    public function loadEmail($subject, $body, $attachments = [], $recipient = '')
     {
         $this->subject = $subject;
         $this->body = $body;
         $this->attachments = $attachments;
+        $this->recipient_email = $recipient;
         
         $this->analysis = null; // Reset analysis for new email
         $this->isOpen = true;
