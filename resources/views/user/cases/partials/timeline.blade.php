@@ -91,8 +91,9 @@
                                 foreach($attachments as $att) {
                                     $attachmentsData[] = [
                                         'name' => $att->file_name,
-                                        'url'  => asset('storage/' . $att->file_path),
-                                        'type' => $att->mime_type
+                                        'url'  => $att->public_link,
+                                        'type' => $att->mime_type,
+                                        'path' => $att->file_path,
                                     ];
                                 }
                             }
