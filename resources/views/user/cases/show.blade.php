@@ -39,39 +39,9 @@
     <div class="flex-1 overflow-y-auto bg-slate-50/50 p-4 sm:p-6 lg:p-8">
         <div class="max-w-7xl mx-auto space-y-6">
             @include('user.cases.partials.alerts')
-            <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6 relative overflow-hidden">
-                <div class="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4 relative z-10">
-                    <div>
-                        <div class="flex items-center gap-2 mb-1">
-                            <span class="text-xs font-bold text-blue-600 uppercase tracking-wider">Current Stage</span>
-                            @if($case->status?->value !== 'Closed')
-                                <span class="relative flex h-2 w-2">
-                                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                                  <span class="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
-                                </span>
-                            @endif
-                        </div>
-                        <h2 class="text-2xl font-bold text-slate-900">{{ $workflow['step_name'] ?? 'Processing' }}</h2>
-                        <p class="text-sm text-slate-500 mt-1">Step {{ $workflow['current_step'] }} of {{ $workflow['total_steps'] }} in the dispute resolution process.</p>
-                    </div>
 
-                    @if($case->next_action_at)
-                        <div class="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 flex items-start gap-3">
-                            <div class="bg-white p-1.5 rounded-md shadow-sm border border-slate-100 text-blue-600">
-                                <i data-lucide="calendar-clock" class="w-5 h-5"></i>
-                            </div>
-                            <div>
-                                <p class="text-xs font-medium text-slate-500 uppercase">Estimated Completion</p>
-                                <p class="text-sm font-bold text-slate-900 font-mono">{{ $case->next_action_at->format('M d, Y') }}</p>
-                            </div>
-                        </div>
-                    @endif
-                </div>
+            @livewire('user.cases.case-workflow', ['case' => $case])
 
-                <div class="mt-8 relative h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-                    <div class="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-500 to-indigo-600 transition-all duration-1000 ease-out rounded-full" style="width: {{ $workflow['progress_percent'] }}%"></div>
-                </div>
-            </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
                 
@@ -155,9 +125,11 @@
                     </div>
                     @endif
                 </div>
-                {{-- timeline --}}
-                     @include('user.cases.partials.timeline', ['case' => $case])
-                {{-- end of timeline --}}
+
+                <div class="lg:col-span-5">
+                    @include('user.cases.partials.timeline', ['case' => $case])
+                </div>
+                
             </div>
         </div>
     </div>

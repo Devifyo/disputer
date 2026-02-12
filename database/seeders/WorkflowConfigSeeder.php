@@ -7,160 +7,241 @@ use App\Models\InstitutionCategory;
 
 class WorkflowConfigSeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     */
     public function run(): void
     {
-        // ==========================================
-        // 1. AVIATION WORKFLOW (Complex, Regulation Heavy)
-        // ==========================================
-        $airlineWorkflow = [
-            'initial_step' => 'draft',
+        $this->command->info('Seeding Workflows with Escalation Emails & Deadlines...');
+
+        // =====================================================================
+        // 1. AVIATION WORKFLOW (Strict EU261 Deadlines)
+        // =====================================================================
+        $aviationWorkflow = [
+            'initial_step' => 'draft_complaint',
             'steps' => [
-                'draft' => [
-                    'label' => 'Draft Complaint',
-                    'description' => 'Drafting the initial formal complaint letter.',
-                    'status_color' => 'gray',
+                'draft_complaint' => [
+                    'label' => 'Drafting Complaint',
+                    'description' => 'Gathering flight details. Claims have a statute of limitations.',
+                    'status_color' => 'slate',
+                    'icon' => 'file-edit',
                     'actions' => [
-                        [
-                            'key' => 'send_email',
-                            'label' => 'Send Complaint',
-                            'to_step' => 'waiting_for_response',
-                            'required_fields' => ['body_text', 'subject']
-                        ]
+                        ['key' => 'send_to_airline', 'label' => 'Submit to Airline', 'to_step' => 'awaiting_airline_response', 'icon' => 'send']
                     ]
                 ],
-                'waiting_for_response' => [
-                    'label' => 'Waiting for Airline',
-                    'description' => 'Complaint sent. Waiting for the airline to reply.',
+                'awaiting_airline_response' => [
+                    'label' => 'Awaiting Airline Reply',
+                    'description' => 'Complaint submitted. Airlines have 14 days to acknowledge receipt.',
                     'status_color' => 'amber',
+                    'icon' => 'clock',
+                    'waiting_for' => 'Airline',
+                    
+                    // --- ESCALATION DATA ---
+                    'escalation_target' => 'Civil Aviation Authority (CAA)',
+                    'escalation_email' => 'passengercomplaints@caa.co.uk',
+                    
                     'timeouts' => [
-                        [
-                            'days' => 14,
-                            'action' => 'suggest_escalation', 
-                            'message' => 'It has been 14 days. We recommend sending a follow-up or escalating.'
-                        ]
+                        ['days' => 14, 'action' => 'suggest_escalation', 'message' => '14 days passed. We recommend escalating to the regulator.']
                     ],
                     'actions' => [
-                        ['key' => 'mark_response_received', 'label' => 'I received a reply', 'to_step' => 'reviewing_response'],
-                        ['key' => 'mark_no_reply', 'label' => 'No Reply (Escalate)', 'to_step' => 'escalation_draft']
+                        ['key' => 'reply_received', 'label' => 'Reply Received', 'to_step' => 'negotiation_phase'],
+                        ['key' => 'no_reply_escalate', 'label' => 'Ignored (Escalate)', 'to_step' => 'prepare_neb_escalation']
                     ]
                 ],
-                'reviewing_response' => [
-                    'label' => 'Reviewing Reply',
-                    'description' => 'Review the airline\'s offer or rejection.',
+                'negotiation_phase' => [
+                    'label' => 'Airline Negotiation',
+                    'description' => 'Reviewing the airline\'s offer.',
                     'status_color' => 'blue',
-                    'actions' => [
-                        ['key' => 'accept_offer', 'label' => 'Accept Offer', 'to_step' => 'resolved_success'],
-                        ['key' => 'reject_and_escalate', 'label' => 'Reject & Escalate', 'to_step' => 'escalation_draft'],
-                        ['key' => 'reply_continue', 'label' => 'Reply & Keep Waiting', 'to_step' => 'waiting_for_response']
-                    ]
-                ],
-                'escalation_draft' => [
-                    'label' => 'Drafting Escalation',
-                    'description' => 'Preparing submission for the National Enforcement Body (NEB).',
-                    'status_color' => 'purple',
-                    'actions' => [
-                        ['key' => 'send_escalation', 'label' => 'Submit Escalation', 'to_step' => 'escalated_pending']
-                    ]
-                ],
-                'escalated_pending' => [
-                    'label' => 'Regulatory Review',
-                    'description' => 'Case is with the Regulator. This can take up to 90 days.',
-                    'status_color' => 'purple',
+                    'icon' => 'scale',
+                    'waiting_for' => 'User',
+                    'escalation_target' => 'Civil Aviation Authority (CAA)',
+                    'escalation_email' => 'passengercomplaints@caa.co.uk',
                     'timeouts' => [
-                        ['days' => 30, 'action' => 'check_status', 'message' => '30 Day Check-in: Check regulatory portal status.']
+                        ['days' => 14, 'action' => 'offer_expiry_warning', 'message' => 'Offers often expire after 2 weeks.']
                     ],
                     'actions' => [
-                        ['key' => 'mark_resolved', 'label' => 'Case Won', 'to_step' => 'resolved_success'],
-                        ['key' => 'mark_failed', 'label' => 'Case Dismissed', 'to_step' => 'resolved_failed']
+                        ['key' => 'accept_offer', 'label' => 'Accept Offer', 'to_step' => 'case_resolved_success'],
+                        ['key' => 'reject_final', 'label' => 'Reject & Escalate', 'to_step' => 'prepare_neb_escalation']
                     ]
                 ],
-                'resolved_success' => ['label' => 'Won / Settled', 'is_final' => true, 'status_color' => 'emerald'],
-                'resolved_failed' => ['label' => 'Closed / Dismissed', 'is_final' => true, 'status_color' => 'slate']
+                'prepare_neb_escalation' => [
+                    'label' => 'Regulatory Escalation',
+                    'description' => 'Preparing dossier for the Civil Aviation Authority.',
+                    'status_color' => 'purple',
+                    'icon' => 'gavel',
+                    'waiting_for' => 'User',
+                    'escalation_target' => 'Civil Aviation Authority (CAA)',
+                    'escalation_email' => 'passengercomplaints@caa.co.uk',
+                    'actions' => [
+                        ['key' => 'submit_neb', 'label' => 'Submit to Regulator', 'to_step' => 'regulatory_review']
+                    ]
+                ],
+                'regulatory_review' => [
+                    'label' => 'Regulator Review',
+                    'description' => 'Case is with the Aviation Authority.',
+                    'status_color' => 'purple',
+                    'icon' => 'landmark',
+                    'waiting_for' => 'Regulator',
+                    'escalation_target' => 'Alternative Dispute Resolution (ADR)',
+                    'escalation_email' => null, // Typically via web portal
+                    'timeouts' => [
+                        ['days' => 60, 'action' => 'check_status', 'message' => 'It has been 60 days. Check the regulator portal.']
+                    ],
+                    'actions' => [
+                        ['key' => 'ruling_win', 'label' => 'Ruling: Win', 'to_step' => 'case_resolved_success'],
+                        ['key' => 'ruling_loss', 'label' => 'Ruling: Dismissed', 'to_step' => 'case_resolved_failed']
+                    ]
+                ],
+                'case_resolved_success' => ['label' => 'Compensation Secured', 'status_color' => 'emerald', 'icon' => 'check-circle', 'is_final' => true, 'actions' => []],
+                'case_resolved_failed' => ['label' => 'Case Closed', 'status_color' => 'slate', 'icon' => 'x-circle', 'is_final' => true, 'actions' => []]
             ]
         ];
 
-        // ==========================================
-        // 2. BANKING & FINTECH WORKFLOW (Standard Dispute)
-        // ==========================================
-        $financeWorkflow = [
-            'initial_step' => 'draft',
+        // =====================================================================
+        // 2. BANKING & FINTECH WORKFLOW (Fraud / Chargebacks)
+        // =====================================================================
+        $bankingWorkflow = [
+            'initial_step' => 'gathering_evidence',
             'steps' => [
-                'draft' => [
-                    'label' => 'Draft Dispute',
-                    'description' => 'Prepare your transaction dispute details.',
-                    'status_color' => 'gray',
-                    'actions' => [['key' => 'submit', 'label' => 'Submit to Bank', 'to_step' => 'bank_review']]
+                'gathering_evidence' => [
+                    'label' => 'Evidence Collection',
+                    'description' => 'Compile logs and proof of non-delivery.',
+                    'status_color' => 'slate',
+                    'icon' => 'file-search',
+                    'timeouts' => [
+                        ['days' => 60, 'action' => 'chargeback_deadline_warning', 'message' => 'Chargeback window closing soon (typically 60-120 days).']
+                    ],
+                    'actions' => [
+                        ['key' => 'submit_dispute', 'label' => 'File Chargeback', 'to_step' => 'bank_investigation']
+                    ]
                 ],
-                'bank_review' => [
+                'bank_investigation' => [
                     'label' => 'Bank Investigation',
-                    'description' => 'The bank has up to 90 days to investigate.',
+                    'description' => 'The bank has 45-90 days to investigate.',
                     'status_color' => 'amber',
+                    'icon' => 'search',
+                    'waiting_for' => 'Bank',
+                    
+                    // --- ESCALATION DATA ---
+                    'escalation_target' => 'Financial Ombudsman Service',
+                    'escalation_email' => 'complaint.info@financial-ombudsman.org.uk',
+                    
                     'timeouts' => [
-                        ['days' => 10, 'action' => 'temp_credit_check', 'message' => 'Check if temporary credit was applied.']
+                        ['days' => 15, 'action' => 'check_provisional', 'message' => 'Check for provisional credit.'],
+                        ['days' => 45, 'action' => 'check_status', 'message' => 'Investigation taking long. Contact bank support.']
                     ],
                     'actions' => [
-                        ['key' => 'outcome_received', 'label' => 'Outcome Received', 'to_step' => 'outcome_review']
+                        ['key' => 'decision_made', 'label' => 'Decision Received', 'to_step' => 'decision_review'],
+                        ['key' => 'info_request', 'label' => 'Bank Request Info', 'to_step' => 'gathering_evidence']
                     ]
                 ],
-                'outcome_review' => [
-                    'label' => 'Review Outcome',
-                    'description' => 'Did the bank rule in your favor?',
+                'decision_review' => [
+                    'label' => 'Outcome Review',
+                    'description' => 'Review the bank\'s final decision.',
                     'status_color' => 'blue',
+                    'icon' => 'file-check',
+                    'waiting_for' => 'User',
+                    'escalation_target' => 'Financial Ombudsman Service',
+                    'escalation_email' => 'complaint.info@financial-ombudsman.org.uk',
                     'actions' => [
-                        ['key' => 'accept', 'label' => 'Accept Decision', 'to_step' => 'resolved_success'],
-                        ['key' => 'appeal', 'label' => 'File Appeal', 'to_step' => 'appeal_review']
+                        ['key' => 'accept_win', 'label' => 'Dispute Won', 'to_step' => 'case_resolved_success'],
+                        ['key' => 'appeal_decision', 'label' => 'Appeal / Arbitration', 'to_step' => 'ombudsman_appeal']
                     ]
                 ],
-                'appeal_review' => [
-                    'label' => 'Appeal / Ombudsman',
+                'ombudsman_appeal' => [
+                    'label' => 'Ombudsman Appeal',
                     'status_color' => 'purple',
+                    'icon' => 'scale',
+                    'waiting_for' => 'Ombudsman',
+                    'escalation_target' => 'Small Claims Court', // Final step
+                    'escalation_email' => null,
                     'actions' => [
-                        ['key' => 'final_win', 'label' => 'Appeal Won', 'to_step' => 'resolved_success'],
-                        ['key' => 'final_loss', 'label' => 'Appeal Lost', 'to_step' => 'resolved_failed']
+                        ['key' => 'final_ruling_win', 'label' => 'Appeal Upheld', 'to_step' => 'case_resolved_success'],
+                        ['key' => 'final_ruling_loss', 'label' => 'Appeal Rejected', 'to_step' => 'case_resolved_failed']
                     ]
                 ],
-                'resolved_success' => ['label' => 'Dispute Won', 'is_final' => true, 'status_color' => 'emerald'],
-                'resolved_failed' => ['label' => 'Dispute Lost', 'is_final' => true, 'status_color' => 'slate']
+                'case_resolved_success' => ['label' => 'Funds Recovered', 'status_color' => 'emerald', 'icon' => 'wallet', 'is_final' => true, 'actions' => []],
+                'case_resolved_failed' => ['label' => 'Dispute Closed', 'status_color' => 'slate', 'icon' => 'x-circle', 'is_final' => true, 'actions' => []]
             ]
         ];
 
-        // ==========================================
-        // 3. GENERIC WORKFLOW (Fallback for Govt, Telecom, etc.)
-        // ==========================================
+        // =====================================================================
+        // 3. GENERIC / TELECOM / UTILITIES
+        // =====================================================================
         $genericWorkflow = [
-            'initial_step' => 'open',
+            'initial_step' => 'ticket_open',
             'steps' => [
-                'open' => [
-                    'label' => 'Case Open', 
-                    'status_color' => 'gray',
-                    'actions' => [['key' => 'send', 'label' => 'Send Message', 'to_step' => 'waiting']]
+                'ticket_open' => [
+                    'label' => 'Ticket Open',
+                    'description' => 'Complaint sent. Waiting for ticket assignment.',
+                    'status_color' => 'slate',
+                    'icon' => 'ticket',
+                    'actions' => [['key' => 'mark_sent', 'label' => 'Confirm Submission', 'to_step' => 'waiting_support']]
                 ],
-                'waiting' => [
-                    'label' => 'Waiting for Reply',
+                'waiting_support' => [
+                    'label' => 'Waiting for Support',
+                    'description' => 'Pending reply from customer service.',
                     'status_color' => 'amber',
-                    'timeouts' => [['days' => 7, 'action' => 'follow_up', 'message' => 'Time to follow up?']],
-                    'actions' => [['key' => 'reply', 'label' => 'Reply Received', 'to_step' => 'review']]
-                ],
-                'review' => [
-                    'label' => 'In Discussion',
-                    'status_color' => 'blue',
+                    'icon' => 'user-check',
+                    'waiting_for' => 'Support Team',
+                    
+                    // --- ESCALATION DATA ---
+                    'escalation_target' => 'Ombudsman Services',
+                    'escalation_email' => 'contact@ombudsman-services.org',
+                    
+                    'timeouts' => [
+                        ['days' => 8, 'action' => 'escalate_manager', 'message' => '8 weeks passed? You can now go to the Ombudsman.']
+                    ],
                     'actions' => [
-                        ['key' => 'resolve', 'label' => 'Resolve', 'to_step' => 'closed'],
-                        ['key' => 'reply', 'label' => 'Reply Again', 'to_step' => 'waiting']
+                        ['key' => 'reply_received', 'label' => 'Reply Received', 'to_step' => 'active_discussion'],
+                        ['key' => 'auto_close', 'label' => 'Resolved Self', 'to_step' => 'case_closed']
                     ]
                 ],
-                'closed' => ['label' => 'Closed', 'is_final' => true, 'status_color' => 'slate']
+                'active_discussion' => [
+                    'label' => 'In Discussion',
+                    'description' => 'Negotiating a solution.',
+                    'status_color' => 'blue',
+                    'icon' => 'message-circle',
+                    'waiting_for' => 'User',
+                    'escalation_target' => 'Ombudsman Services',
+                    'escalation_email' => 'contact@ombudsman-services.org',
+                    'actions' => [
+                        ['key' => 'escalate_manager', 'label' => 'Ask for Manager', 'to_step' => 'manager_review'],
+                        ['key' => 'solve', 'label' => 'Solution Accepted', 'to_step' => 'case_closed']
+                    ]
+                ],
+                'manager_review' => [
+                    'label' => 'Manager / Tier 2',
+                    'description' => 'Escalated to senior staff.',
+                    'status_color' => 'purple',
+                    'icon' => 'shield-alert',
+                    'waiting_for' => 'Manager',
+                    'escalation_target' => 'Ombudsman Services',
+                    'escalation_email' => 'contact@ombudsman-services.org',
+                    'actions' => [['key' => 'final_resolution', 'label' => 'Final Resolution', 'to_step' => 'case_closed']]
+                ],
+                'case_closed' => ['label' => 'Case Closed', 'status_color' => 'emerald', 'icon' => 'check', 'is_final' => true, 'actions' => []]
             ]
         ];
 
-        // Apply Configs to Existing Categories
-        InstitutionCategory::where('slug', 'airline')->update(['workflow_config' => $airlineWorkflow]);
+        // =====================================================================
+        // APPLY TO DATABASE
+        // =====================================================================
+        $this->applyWorkflow('airline', $aviationWorkflow);
+        $this->applyWorkflow('bank', $bankingWorkflow);
+        $this->applyWorkflow('fintech', $bankingWorkflow);
+        $this->applyWorkflow('telecom', $genericWorkflow);
+        $this->applyWorkflow('subscription', $genericWorkflow);
+        $this->applyWorkflow('government', $genericWorkflow);
         
-        InstitutionCategory::whereIn('slug', ['bank', 'fintech'])->update(['workflow_config' => $financeWorkflow]);
-        
-        InstitutionCategory::whereIn('slug', ['govt', 'insurance', 'telecom'])->update(['workflow_config' => $genericWorkflow]);
+        $this->command->info('Workflow seeding completed successfully.');
+    }
+
+    private function applyWorkflow(string $slug, array $config)
+    {
+        $category = InstitutionCategory::where('slug', $slug)->first();
+        if ($category) {
+            $category->update(['workflow_config' => $config]);
+            $this->command->info("✓ Updated {$slug} workflow.");
+        } else {
+            $this->command->warn("! Category not found: {$slug}");
+        }
     }
 }

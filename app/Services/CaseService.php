@@ -14,8 +14,6 @@ class CaseService
      */
     public function getUserCases(array $filters = [], int $perPage = 10): LengthAwarePaginator
     {
-        // Eager load institution to avoid N+1 queries
-        // We also grab the 'latest' timeline entry to try and find metadata if needed
         $query = Cases::with('institution')
             ->where('user_id', Auth::id());
 
@@ -56,11 +54,9 @@ class CaseService
 
     /**
      * Helper: Extract "Amount" from the timeline metadata.
-     * Since amount isn't on the main table, we look for it in the history.
      */
     public function extractCaseMetadata(Cases $case): array
     {
-        // Look for the timeline event where the dispute was created or details logged
         $creationLog = $case->timeline->first(function ($log) {
             return !empty($log->metadata['amount']);
         });
@@ -76,31 +72,46 @@ class CaseService
         return ['amount' => '0.00', 'txn_date' => '--', 'ref_num' => '--'];
     }
 
+    /**
+     * FIXED: This function now handles STRING steps (e.g., 'draft') 
+     * instead of integer steps.
+     */
     public function getWorkflowDetails(Cases $case): array
     {
         // 1. Get the JSON config from the related Category
-        // defined in the database (or fallback to config file)
-        $config = $case->institution->category->workflow_config 
-                  ?? config('workflow_templates.standard');
-
+        $config = $case->institution->category->workflow_config ?? [];
         $steps = $config['steps'] ?? [];
-        $totalSteps = count($steps);
-        $currentStepIdx = $case->current_workflow_step; // e.g., 1
 
-        // 2. Find the current step name (Arrays are 0-indexed, steps are 1-indexed)
-        // If step is 1, we want index 0.
-        $stepData = $steps[$currentStepIdx - 1] ?? end($steps);
+        // 2. Get Keys (e.g. ['draft', 'waiting_for_response', ...])
+        $stepKeys = array_keys($steps);
+        $totalSteps = count($stepKeys);
         
-        $stepName = $stepData['name'] ?? 'Processing';
+        // 3. Find the INDEX of the current step (0, 1, 2...)
+        $currentStepKey = $case->current_workflow_step;
+        
+        // Safety: If step is missing or invalid, default to 0 (first step)
+        $currentIndex = array_search($currentStepKey, $stepKeys);
+        if ($currentIndex === false) {
+            $currentIndex = 0;
+        }
 
-        // 3. Calculate Percentage
-        $progress = $totalSteps > 0 ? round(($currentStepIdx / $totalSteps) * 100) : 0;
+        // 4. Get readable name
+        // (Use the key to look up the 'label' in the config)
+        $stepLabel = $steps[$currentStepKey]['label'] ?? 'Processing';
+
+        // 5. Calculate Percentage
+        // Avoid Division by Zero
+        if ($totalSteps > 1) {
+            $progress = ($currentIndex / ($totalSteps - 1)) * 100;
+        } else {
+            $progress = 0; // Or 100 if there is only 1 step
+        }
 
         return [
-            'step_name' => $stepName,
-            'current_step' => $currentStepIdx,
+            'step_name' => $stepLabel,
+            'current_step' => $currentIndex + 1, // Human readable (1-based)
             'total_steps' => $totalSteps,
-            'progress_percent' => $progress
+            'progress_percent' => round($progress)
         ];
     }
 }
