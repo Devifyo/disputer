@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class InstitutionCategory extends Model
 {
-    protected $fillable = ['name', 'slug', 'workflow_config', 'is_verified'];
+    protected $fillable = ['name', 'slug', 'workflow_config', 'is_verified', 'fallback_escalation_email'];
 
     protected $casts = [
         'workflow_config' => 'array',

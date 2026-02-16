@@ -11,7 +11,9 @@ class Institution extends Model
         'institution_category_id', // Updated FK
         'contact_email',
         'is_verified',
-        'parent_id'
+        'parent_id',
+        'escalation_email',
+        'escalation_contact_name'
     ];
 
     public function category()

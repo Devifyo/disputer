@@ -1,39 +1,4 @@
-<div class="lg:col-span-5" 
-    x-data="{ 
-        // ... (Keep your existing modal data logic) ...
-        viewModalOpen: false, 
-        viewSubject: '', 
-        viewBody: '', 
-        viewAttachments: [],
-        composeModalOpen: false,
-        replyTo: '',
-        replySubject: '',
-        replyBody: '',
-        replyParentId: null, 
-        
-        openViewer(subject, body, attachments = []) { 
-            this.viewSubject = subject; 
-            this.viewBody = body; 
-            this.viewAttachments = attachments;
-            this.viewModalOpen = true; 
-        },
-
-        openReply(originalSubject, recipient, encryptedParentId = null) {
-            this.replyTo = recipient;
-            let subjectStr = String(originalSubject || 'Case #{{ $case->case_reference_id }}');
-            if (encryptedParentId) {
-                let prefix = subjectStr.toLowerCase().startsWith('re:') ? '' : 'Re: ';
-                this.replySubject = prefix + subjectStr;
-                this.replyBody = '\n\n\n--- Original Message ---\n'; 
-            } else {
-                this.replySubject = subjectStr;
-                this.replyBody = ''; 
-            }
-            this.replyParentId = encryptedParentId; 
-            this.composeModalOpen = true;
-        }
-    }"
->
+<div class="lg:col-span-5 h-full">
     <div class="bg-white rounded-xl border border-slate-200 shadow-sm h-full flex flex-col">
         <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/30">
             <div class="flex items-center gap-2">
@@ -41,7 +6,15 @@
                 <h3 class="font-bold text-slate-800 text-sm">Activity Log</h3>
             </div>
             
-            <button @click="openReply('Case #{{ $case->case_reference_id }}', '', null)" 
+            {{-- NEW EMAIL BUTTON: Dispatch to Parent --}}
+            <button type="button" 
+                    @click="$dispatch('open-compose-modal', { 
+                        subject: 'Case #{{ $case->case_reference_id }}', 
+                        recipient: '',
+                        body: '',
+                        isEscalation: false ,
+                        isFollowUp: false
+                    })" 
                     class="text-xs font-bold text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-1 transition-colors">
                 <i data-lucide="plus" class="w-3 h-3"></i> New Email
             </button>
@@ -53,19 +26,16 @@
 
                 @foreach($case->timeline as $log)
                     @php
-                        // --- FILTER: HIDE INTERNAL AI LOGS ---
-                        // We skip this iteration if the type is 'ai_guidance' or similar system logs
+                        // --- FILTER: HIDE INTERNAL LOGS ---
                         if (in_array($log->type, ['Ai_guidance_workflow', 'system_suggestion', 'debug_log'])) {
                             continue;
                         }
 
-                        // --- Existing Logic ---
+                        // --- Logic ---
                         $direction = $log->metadata['direction'] ?? 'outbound'; 
                         if(str_contains($log->type, 'received')) { $direction = 'inbound'; }
 
                         $rawEmailId = $log->metadata['email_id'] ?? null;
-                        $encryptedEmailId = $rawEmailId ? encrypt_id($rawEmailId) : null;
-
                         $rawSubject = $log->metadata['subject'] ?? 'Case #'.$case->case_reference_id;
                         if (is_array($rawSubject)) { $rawSubject = reset($rawSubject); }
                         $safeSubject = (string) $rawSubject;
@@ -104,18 +74,21 @@
 
                     <div class="relative pl-12 group">
                         <div class="absolute left-0 top-0 border-2 rounded-full w-8 h-8 flex items-center justify-center z-10 shadow-sm bg-white
-                            @if($log->type == 'email_sent' || $log->type == 'email_received')
+                            @if($log->type == 'email_sent' || $log->type == 'email_received' || $log->type == 'escalation_sent')
                                 {{ $direction === 'inbound' ? 'border-emerald-100 text-emerald-600' : 'border-blue-100 text-blue-600' }}
                             @elseif($log->type == 'case_created')
                                 border-slate-100 text-slate-500
                             @elseif($log->type == 'workflow_change')
                                 border-purple-100 text-purple-500
+                            @elseif($log->type == 'escalation_sent')
+                                border-rose-100 text-rose-600
                             @else
                                 border-slate-100 text-slate-400
                             @endif">
                             
                             @if($direction === 'inbound') <i data-lucide="arrow-down-left" class="w-4 h-4"></i>
                             @elseif($log->type == 'email_sent') <i data-lucide="arrow-up-right" class="w-4 h-4"></i>
+                            @elseif($log->type == 'escalation_sent') <i data-lucide="trending-up" class="w-4 h-4"></i>
                             @elseif($log->type == 'case_created') <i data-lucide="flag" class="w-3.5 h-3.5"></i>
                             @elseif($log->type == 'workflow_change') <i data-lucide="git-commit" class="w-3.5 h-3.5"></i>
                             @else <i data-lucide="circle" class="w-3 h-3"></i> @endif
@@ -128,9 +101,13 @@
                                         {{ $log->readable_type ?? ucfirst(str_replace('_', ' ', $log->type)) }}
                                     </span>
                                     
-                                    @if($log->type == 'email_sent' || $log->type == 'email_received')
+                                    @if($log->type == 'email_sent' || $log->type == 'email_received' || $log->type == 'escalation_sent')
                                         @if($direction === 'inbound')
                                             <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700 uppercase tracking-wide border border-emerald-200">Received</span>
+                                        @elseif($log->type == 'escalation_sent')
+                                            <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-700 uppercase tracking-wide border border-rose-200">Escalation</span>
+                                        @elseif($log->metadata['is_followup'] ?? false)
+                                            <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700 uppercase tracking-wide border border-amber-200">Follow Up</span>
                                         @else
                                             <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-700 uppercase tracking-wide border border-blue-200">Sent</span>
                                         @endif
@@ -144,32 +121,35 @@
                                     {{ $log->occurred_at ? $log->occurred_at->diffForHumans(null, true) : 'N/A' }}
                                 </span>
                             </div>
-                            
                             <p class="text-xs text-slate-600 leading-relaxed line-clamp-2">{{ $log->description }}</p>
-
-                            @if($log->type == 'email_sent' || $log->type == 'email_received')
+                            @if(in_array($log->type, ['email_sent', 'email_received', 'escalation_sent']))
                                 <div class="mt-2 flex items-center gap-2">
-                              <button 
-                                    type="button"
-                                    @click="$dispatch('open-email', {
-                                        emailId: '{{ $rawEmailId ?? '' }}',
-                                        subject: '{{ addslashes($safeSubject) }}', 
-                                        body: {{ json_encode($safeBody) }}, 
-                                        attachments: {{ json_encode($attachmentsData) }},
-                                        recipient: '{{ $safeRecipient }}' {{-- <--- ADD THIS --}}
-                                    })"
-                                    class="flex items-center gap-2 px-3.5 py-1.5 rounded-lg border border-indigo-100 bg-indigo-50/50 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700 hover:border-indigo-200 transition-all text-[11px] font-bold shadow-sm active:scale-95"
-                                >
-                                    <i data-lucide="eye" class="w-3.5 h-3.5"></i>
-                                    <span>View Message</span>
-                                </button>
+                                    <button 
+                                        type="button"
+                                        @click="$dispatch('open-email', {
+                                            emailId: '{{ $rawEmailId ?? '' }}',
+                                            subject: '{{ addslashes($safeSubject) }}', 
+                                            body: {{ json_encode($safeBody) }},
+                                            direction: '{{ $direction }}', 
+                                            attachments: {{ json_encode($attachmentsData) }},
+                                            recipient: '{{ $safeRecipient }}'
+                                        })"
+                                        class="flex items-center gap-2 px-3.5 py-1.5 rounded-lg border border-indigo-100 bg-indigo-50/50 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700 hover:border-indigo-200 transition-all text-[11px] font-bold shadow-sm active:scale-95"
+                                    >
+                                        <i data-lucide="eye" class="w-3.5 h-3.5"></i>
+                                        <span>View Message</span>
+                                    </button>
+
                                     @if($direction === 'inbound')
+                                        {{-- REPLY BUTTON: Dispatches to Parent --}}
                                         <button 
-                                            @click="openReply(
-                                                '{{ addslashes($safeSubject) }}', 
-                                                '{{ addslashes($safeRecipient) }}',
-                                                '{{ $encryptedEmailId }}' 
-                                            )"
+                                            type="button"
+                                            @click="$dispatch('open-compose-modal', { 
+                                                subject: 'Re: {{ addslashes($safeSubject) }}', 
+                                                recipient: '{{ addslashes($safeRecipient) }}',
+                                                body: '\n\n\n--- Original Message ---\n',
+                                                isEscalation: false
+                                            })" 
                                             class="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-blue-200 bg-blue-50 hover:bg-blue-100 hover:border-blue-300 transition-all text-xs font-bold text-blue-600 shadow-sm">
                                             <i data-lucide="reply" class="w-3.5 h-3.5"></i> Reply
                                         </button>
@@ -188,7 +168,4 @@
             </div>
         </div>
     </div>
-
-    {{-- @include('user.cases.partials.modals.view_email') --}}
-    @include('user.cases.partials.modals.compose_email')
 </div>

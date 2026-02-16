@@ -5,21 +5,18 @@
         replyTo: @entangle('recipient'),
         replySubject: @entangle('subject'),
         replyBody: @entangle('body'),
-        replyParentId: null,
 
-        /**
-         * Triggered when the user clicks 'Escalate Now'
-         */
-        openEscalation(targetName, targetEmail) {
-            this.replyTo = targetEmail || '';
-            this.replySubject = 'Formal Escalation: Case #{{ $case->case_reference_id }}';
-            this.replyBody = 'To ' + targetName + ',\n\nI am writing to formally escalate my dispute regarding Case #{{ $case->case_reference_id }} as the response deadline has passed.\n\n[Please add specific details regarding the lack of response or resolution here]';
-            this.composeModalOpen = true;
+        init() {
+            Livewire.on('open-compose-modal', (data) => {
+                this.composeModalOpen = true;
+                // If specific data passed from PHP
+                if(data && data[0]) {
+                   // Livewire sometimes wraps args in array
+                   // handled via entangle usually, but safety check
+                }
+            });
         },
 
-        /**
-         * SweetAlert Confirmation for Workflow Actions
-         */
         confirmAction(actionKey, actionLabel) {
             Swal.fire({
                 title: 'Confirm Action',
@@ -38,9 +35,6 @@
             })
         },
 
-        /**
-         * SweetAlert for Manual Overrides
-         */
         confirmManualJump(stepKey, stepLabel) {
             Swal.fire({
                 title: 'Manual Override',
@@ -135,8 +129,6 @@
                     $percentage = min(100, ($daysElapsed / $maxDays) * 100);
                     
                     $waitingFor = $currentStepConfig['waiting_for'] ?? 'Response';
-                    $escalationTarget = $currentStepConfig['escalation_target'] ?? 'the relevant Authority';
-                    $escalationEmail = $currentStepConfig['escalation_email'] ?? '';
                 @endphp
 
                 <div class="rounded-xl border p-5 mb-8 transition-all duration-300 {{ $daysRemaining <= 0 ? 'bg-rose-50 border-rose-200 shadow-sm' : 'bg-slate-50 border-slate-200' }}">
@@ -166,8 +158,13 @@
                             </div>
                             <div class="text-xs text-slate-600 leading-relaxed">
                                 @if($daysRemaining <= 0)
-                                    <p class="font-bold text-rose-800 mb-0.5">Escalation Recommended</p>
-                                    <p>The response deadline of <strong>{{ $maxDays }} days</strong> has passed. It is time to escalate this case to <strong>{{ $escalationTarget }}</strong>.</p>
+                                    @if($case->escalation_level === 0)
+                                        <p class="font-bold text-rose-800 mb-0.5">Escalation Recommended</p>
+                                        <p>The response deadline of <strong>{{ $maxDays }} days</strong> has passed. Please escalate to the authority.</p>
+                                    @else
+                                        <p class="font-bold text-purple-800 mb-0.5">Escalation Active (Level {{ $case->escalation_level }})</p>
+                                        <p>Case escalated {{ $case->last_escalated_at->diffForHumans() }}. Awaiting authority response.</p>
+                                    @endif
                                 @else
                                     <p>Response expected by <strong class="text-slate-900">{{ $case->updated_at->addDays($maxDays)->format('M d, Y') }}</strong>.</p>
                                 @endif
@@ -175,15 +172,41 @@
                         </div>
 
                         @if($daysRemaining <= 0)
-                            <button 
-                                @click="openEscalation('{{ addslashes($escalationTarget) }}', '{{ addslashes($escalationEmail) }}')"
-                                class="shrink-0 flex items-center gap-2 px-6 py-3 bg-rose-600 text-white text-xs font-bold rounded-lg hover:bg-rose-700 transition-all shadow-lg shadow-rose-200 active:scale-95"
-                            >
-                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                                </svg>
-                                Escalate Now
-                            </button>
+                            <div class="flex items-center gap-2">
+                                @if($case->escalation_level === 0)
+                                    <button 
+                                        wire:click="initiateEscalation"
+                                        class="shrink-0 flex items-center gap-2 px-6 py-3 bg-rose-600 text-white text-xs font-bold rounded-lg hover:bg-rose-700 transition-all shadow-lg shadow-rose-200 active:scale-95"
+                                    >
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                        </svg>
+                                        Escalate Now
+                                    </button>
+                                @else
+                                    <button 
+                                        type="button"
+                                        @click="$dispatch('open-compose-modal', { 
+                                            recipient: '{{ $case->institution->escalation_email ?? '' }}', 
+                                            subject: 'Follow Up: Case #{{ $case->case_reference_id }}',
+                                            body: `To {{ $case->institution->escalation_contact_name ?? 'Authority' }},\n\nI am following up on the escalation sent previously regarding Case #{{ $case->case_reference_id }}. I have not yet received a resolution.`,
+                                            isEscalation: false,
+                                            isFollowUp: true
+                                        })"
+                                        class="px-4 py-2 bg-white border border-slate-300 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-50 transition-all shadow-sm active:scale-95"
+                                    >
+                                        <i data-lucide="refresh-cw" class="w-3.5 h-3.5 mr-1 inline-block"></i>
+                                        <span>Send Follow-Up</span>
+                                    </button>
+                                    <button 
+                                        wire:click="initiateEscalation" 
+                                        class="px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-lg hover:bg-slate-800 flex items-center gap-2"
+                                    >
+                                        Escalate Further
+                                        <i data-lucide="arrow-right" class="w-3 h-3"></i>
+                                    </button>
+                                @endif
+                            </div>
                         @endif
                     </div>
                 </div>

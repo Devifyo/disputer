@@ -18,9 +18,18 @@ class SendEmailService
 {
     /**
      * Send email via Custom SMTP, upload files, and record database entries.
+     * * @param array $overrides Optional array to override timeline type, description, etc.
      */
-    public function sendAndLog(User $user, Cases $case, string $recipient, string $subject, string $body, array $attachments = [], Email $parentEmail = null)
-    {
+    public function sendAndLog(
+        User $user, 
+        Cases $case, 
+        string $recipient, 
+        string $subject, 
+        string $body, 
+        array $attachments = [], 
+        Email $parentEmail = null,
+        array $overrides = [] // <--- NEW ARGUMENT (Defaults to empty)
+    ) {
         // 1. Get User's SMTP Config
         $emailConfig = UserEmailConfig::where('user_id', $user->id)->first();
 
@@ -29,7 +38,6 @@ class SendEmailService
         }
 
         // 2. Generate ID (WITHOUT BRACKETS for Symfony Header)
-        // Example: 1670000.random@domain.com
         $domain = substr(strrchr($emailConfig->from_email, "@"), 1);
         $cleanMessageId = time() . "." . bin2hex(random_bytes(8)) . "@" . $domain;
 
@@ -45,15 +53,12 @@ class SendEmailService
                         ->from($emailConfig->from_email, $emailConfig->from_name)
                         ->html($body);
 
-                // A. FIXED: Use addIdHeader (No brackets allowed here)
+                // Add ID Header (No brackets allowed here)
                 $message->getHeaders()->addIdHeader('Message-ID', $cleanMessageId);
 
-                // B. Handle Threading (If this is a reply)
+                // Handle Threading
                 if ($parentEmail && $parentEmail->message_id) {
-                    // Strip brackets from parent ID for the header
                     $cleanParentId = trim($parentEmail->message_id, '<>');
-                    
-                    // FIXED: Use addIdHeader for these too
                     $message->getHeaders()->addIdHeader('In-Reply-To', $cleanParentId);
                     $message->getHeaders()->addIdHeader('References', $cleanParentId);
                 }
@@ -75,25 +80,29 @@ class SendEmailService
         }
 
         // 5. Database Transaction
-        DB::transaction(function () use ($case, $user, $recipient, $subject, $body, $attachments, $emailConfig, $cleanMessageId, $parentEmail) {
+        DB::transaction(function () use ($case, $user, $recipient, $subject, $body, $attachments, $emailConfig, $cleanMessageId, $parentEmail, $overrides) {
             
-            // Format ID with brackets for Database Storage (Standard format)
             $dbMessageId = "<{$cleanMessageId}>";
 
-            // Timeline
+            // --- MERGE OVERRIDES FOR TIMELINE ---
+            $type = $overrides['type'] ?? 'email_sent';
+            $description = $overrides['description'] ?? "Sent email to {$recipient}";
+            $extraMetadata = $overrides['metadata'] ?? [];
+
+            // Timeline Record
             $timeline = CaseTimeline::create([
                 'case_id' => $case->id,
-                'type' => 'email_sent',
+                'type' => $type, // Use overridden type (e.g., 'escalation_sent')
                 'actor' => 'user', 
-                'description' => "Sent email to {$recipient}",
+                'description' => $description, // Use overridden description
                 'occurred_at' => now(),
-                'metadata' => [
+                'metadata' => array_merge([
                     'subject' => $subject,
                     'recipient' => $recipient,
                     'direction' => 'outbound',
-                    'message_id' => $dbMessageId, // Stored with brackets
-                    'email_id' => null // Will update below
-                ]
+                    'message_id' => $dbMessageId, 
+                    'email_id' => null 
+                ], $extraMetadata)
             ]);
 
             // Email Record
@@ -107,10 +116,10 @@ class SendEmailService
                 'subject'         => $subject,
                 'body_text'       => strip_tags($body),
                 'body_html'       => $body,
-                'message_id'      => $dbMessageId, // Stored with brackets
+                'message_id'      => $dbMessageId,
             ]);
 
-            // Update Timeline with Email ID (for UI Reply button)
+            // Update Timeline with Email ID
             $timeline->update(['metadata' => array_merge($timeline->metadata, ['email_id' => $emailRecord->id])]);
 
             // Attachments

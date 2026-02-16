@@ -9,12 +9,14 @@ class Cases extends Model
    protected $fillable = [
         'user_id', 'institution_id', 'institution_name', 
         'case_reference_id', 'email_route_id', 
-        'status', 'stage', 'current_workflow_step', 'next_action_at'
+        'status', 'stage', 'current_workflow_step', 'next_action_at',
+        'escalation_level','last_escalated_at'
     ];
 
     protected $casts = [
         'status' => CaseStatus::class, // Casts string to Enum
         'next_action_at' => 'datetime',
+        'last_escalated_at' => 'datetime'
     ];
 
     public function user()

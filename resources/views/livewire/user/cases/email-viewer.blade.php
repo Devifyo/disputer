@@ -25,12 +25,13 @@
                     </button>
                 </div>
             </div>
-
+ 
             <div class="px-8 py-5 bg-slate-50/50 border-b border-slate-100">
                 <h2 class="text-lg font-bold text-slate-900 mb-3 leading-tight">{{ $subject }}</h2>
                 <div class="flex flex-col sm:flex-row sm:items-center gap-4 text-xs">
                     <div class="flex items-center gap-2">
-                        <span class="text-slate-400 font-medium uppercase tracking-wider">To:</span>
+                       <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest" 
+                            x-text="viewDirection == 'inbound' ? 'From' : 'To'"></span>
                         <span class="font-mono text-slate-600 bg-white px-1.5 py-0.5 rounded border border-slate-200">{{ $recipient_email }}</span>
                     </div>
                     @if(count($attachments) > 0)

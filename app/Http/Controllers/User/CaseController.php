@@ -29,13 +29,14 @@ class CaseController extends Controller
     public function show($case_reference_id)
     {
         $case = $this->caseService->getCaseByReference($case_reference_id);
-        
+        $escalationService = new \App\Services\EscalationService();
+        $escalationDetails = $escalationService->getEscalationDetails($case);
         $metadata = $this->caseService->extractCaseMetadata($case);
         
         // NEW: Get workflow visualization data
         $workflow = $this->caseService->getWorkflowDetails($case);
 
-        return view('user.cases.show', compact('case', 'metadata', 'workflow'));
+       return view('user.cases.show', compact('case', 'metadata', 'workflow', 'escalationDetails'));
     }
 
     /**
@@ -76,40 +77,91 @@ class CaseController extends Controller
 
     public function sendEmail(Request $request, $casId)
     {   
-
         if (!isEmailConfigured()) {
-        return back()
-            ->with('error', 'Your email settings are incomplete. Please configure SMTP & IMAP in your profile.')
-            ->with('smtp_missing', true); // Optional: forces the alert to show if not already visible
-       }
+            return back()
+                ->with('error', 'Your email settings are incomplete. Please configure SMTP & IMAP in your profile.')
+                ->with('smtp_missing', true);
+        }
+
         $request->validate([
             'recipient' => 'required|email',
             'subject' => 'required|string|max:255',
             'body' => 'required|string',
             'attachments' => 'array',
-            'attachments.*' => 'nullable|file|mimes:pdf,jpg,jpeg,png,doc,docx|max:10240', // 10MB Max per file
+            'attachments.*' => 'nullable|file|mimes:pdf,jpg,jpeg,png,doc,docx|max:10240',
+            'is_escalation' => 'nullable|boolean' // Validate as boolean (accepts "1", "0", "true", "false")
         ]);
         
-        $case = Cases::find(decrypt_id($casId));
-        if(!$case){
-            return back()
-            ->with('error', 'Case not found!');
+        try {
+            $caseId = decrypt_id($casId);
+            $case = Cases::find($caseId);
+        } catch (\Exception $e) {
+            return back()->with('error', 'Invalid Case ID');
         }
 
+        if(!$case){
+            return back()->with('error', 'Case not found!');
+        }
+
+        // 1. CHECK INTENT
+        $isEscalation = $request->boolean('is_escalation');
+        $isFollowUp = $request->boolean('is_followup');
         try {
-            // Handle Multiple Attachments
             $files = $request->file('attachments') ?? [];
 
+            // 2. PREPARE TIMELINE OVERRIDES
+            // If escalation, we tell the service to log it differently
+            $timelineOverrides = [];
+            $newLevel = $case->escalation_level; // Default to current
+
+            if ($isEscalation) {
+                $newLevel = $case->escalation_level + 1;
+                $timelineOverrides = [
+                    'type' => 'escalation_sent',
+                    'description' => "Formal Escalation (Level {$newLevel}) initiated via email.",
+                    'metadata' => [
+                        'level' => $newLevel,
+                        'escalation_intent' => true
+                    ]
+                ];
+            }
+
+            if ($isFollowUp) {
+                $timelineOverrides = [
+                    'type' => 'email_sent',
+                    'description' => "Follow-up sent regarding Level {$case->escalation_level} escalation.",
+                    'metadata' => [
+                        'is_followup' => true,
+                        'level' => $case->escalation_level
+                    ]
+                ];
+            }
+
+            // 3. SEND EMAIL (Pass overrides to avoid duplicate logs)
             $this->emailService->sendAndLog(
                 auth()->user(),
                 $case,
                 $request->recipient,
                 $request->subject,
                 $request->body,
-                $files
+                $files,
+                null, // Parent Email (null for new emails)
+                $timelineOverrides // <--- Pass the config here
             );
 
-            return back()->with('success', 'Email sent successfully via your SMTP server.');
+            // 4. UPDATE CASE STATE (Business Logic)
+            if ($isEscalation) {
+                $case->timestamps = false;
+                $case->update([
+                    'escalation_level' => $newLevel,
+                    'last_escalated_at' => now(),
+                    'status' => \App\Enums\CaseStatus::ESCALATED 
+                ]);
+                $case->timestamps = true;
+            }
+
+            $message = $isEscalation ? 'Escalation initiated successfully.' : 'Email sent successfully.';
+            return back()->with('success', $message);
 
         } catch (\Exception $e) {
             return back()->with('error', $e->getMessage());

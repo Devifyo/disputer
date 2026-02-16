@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Livewire\WithFileUploads;
+use App\Services\EscalationService;
 
 class CaseWorkflow extends Component
 {
@@ -24,11 +25,14 @@ class CaseWorkflow extends Component
     public $isAnalyzing = false;
     public $aiResponse = null;
 
-    // --- Email / Escalation State (Synced with Compose Modal) ---
+    // --- Email / Escalation State ---
     public $recipient = '';
     public $subject = '';
     public $body = '';
     public $attachments = []; 
+    
+    // 🚩 CRITICAL FIX: Track escalation mode explicitly
+    public $isEscalationMode = false;
 
     /**
      * Initialize the component with Case data and Workflow configurations
@@ -36,6 +40,8 @@ class CaseWorkflow extends Component
     public function mount(Cases $case)
     {
         $this->case = $case;
+        
+        // Access config via Institution -> Category
         $this->workflowConfig = $this->case->institution->category->workflow_config ?? [];
 
         $dbValue = $this->case->current_workflow_step;
@@ -51,9 +57,6 @@ class CaseWorkflow extends Component
         $this->loadStepConfig();
     }
 
-    /**
-     * Load the specific configuration for the active workflow step
-     */
     public function loadStepConfig()
     {
         $this->currentStepConfig = $this->workflowConfig['steps'][$this->currentStepKey] ?? null;
@@ -64,50 +67,96 @@ class CaseWorkflow extends Component
     // =========================================================================
 
     /**
+     * Triggered when user clicks "Escalate Now" or "Escalate Further"
+     */
+    public function initiateEscalation(EscalationService $service)
+    {
+        // 1. Set the flag so sendEmail knows this is an escalation
+        $this->isEscalationMode = true;
+
+        // 2. Get correct email from hierarchy
+        $details = $service->getEscalationDetails($this->case);
+
+        // 3. Pre-fill the compose modal
+        $this->recipient = $details['email'];
+        $this->subject = 'Formal Escalation: Case #' . $this->case->case_reference_id;
+        
+        $level = $this->case->escalation_level + 1;
+        $contactName = $details['name'] ?? 'Authority';
+        
+        $this->body = "To {$contactName},\n\n" .
+                      "I am formally escalating Dispute Case #{$this->case->case_reference_id}.\n" .
+                      "Current Escalation Level: {$level}\n\n" .
+                      "Reason: The institution has failed to provide a satisfactory response within the required timeframe.\n\n" .
+                      "[Please add specific details here]";
+
+        // 4. Open the modal
+        $this->dispatch('open-compose-modal', [
+            'recipient' => $this->recipient,
+            'subject' => $this->subject,
+            'body' => $this->body,
+            'isEscalation' => true
+        ]); 
+    }
+
+    /**
+     * Triggered when user clicks normal "New Email" or "Reply"
+     */
+    public function openComposeModal()
+    {
+        $this->isEscalationMode = false; // Reset flag for normal emails
+        $this->reset(['recipient', 'subject', 'body']);
+        $this->dispatch('open-compose-modal');
+    }
+
+    /**
      * Handles the final submission from the Compose Email Modal
      */
     public function sendEmail()
-    {
+    {   
         $this->validate([
             'recipient' => 'required|email',
             'subject'   => 'required|string|max:255',
             'body'      => 'required|string',
         ]);
 
-        // 1. Log the Email in the Activity Timeline
+        // 1. Determine if this is an escalation based on our flag OR subject fallback
+        $isEscalation = $this->isEscalationMode || str_contains(strtolower($this->subject), 'escalat');
+
+        // 2. Log to Timeline
         CaseTimeline::create([
             'case_id'     => $this->case->id,
-            'type'        => 'email_sent',
+            'type'        => $isEscalation ? 'escalation_sent' : 'email_sent',
             'actor'       => 'user',
-            'description' => "Formal escalation email sent to {$this->recipient}",
+            'description' => $isEscalation 
+                ? "Escalation (Level " . ($this->case->escalation_level + 1) . ") sent to {$this->recipient}" 
+                : "Email sent to {$this->recipient}",
             'occurred_at' => now(),
             'metadata'    => [
                 'recipient'    => $this->recipient,
                 'sender_email' => Auth::user()->email,
                 'subject'      => $this->subject,
                 'body'         => $this->body,
-                'direction'    => 'outbound'
+                'direction'    => 'outbound',
+                'level'        => $isEscalation ? ($this->case->escalation_level + 1) : null
             ]
         ]);
 
-        // 2. Aggressive Transition: Auto-move workflow if an escalation action exists
-        if ($this->currentStepConfig) {
-            $actions = collect($this->currentStepConfig['actions'] ?? []);
-            
-            // Search for keys that signify escalation to move the stage forward
-            $nextAction = $actions->first(fn($a) => 
-                str_contains($a['key'], 'escalate') || 
-                str_contains($a['key'], 'submit') || 
-                str_contains($a['key'], 'send')
-            );
-            
-            if ($nextAction) {
-                $this->transitionTo($nextAction['to_step'], "System: Auto-transitioned after escalation email.");
-            }
+        // 3. Update State if Escalation
+        if ($isEscalation) {
+            $this->case->update([
+                'escalation_level' => $this->case->escalation_level + 1,
+                'last_escalated_at' => now(),
+                // Use the string if you don't have the Enum imported, or \App\Enums\CaseStatus::ESCALATED
+                'status' => 'escalated' 
+            ]);
+
+            // Refresh model so UI updates immediately
+            $this->case->refresh();
         }
 
-        // 3. Reset fields and close modal via browser event
-        $this->reset(['recipient', 'subject', 'body', 'attachments']);
+        // 4. Reset & Close
+        $this->reset(['recipient', 'subject', 'body', 'attachments', 'isEscalationMode']);
         $this->dispatch('email-sent'); 
         $this->dispatch('workflow-updated');
     }
@@ -129,23 +178,17 @@ class CaseWorkflow extends Component
             return;
         }
 
-        // Logic for the prompt variables
         $daysInStage = (int)$this->case->updated_at->diffInDays(now());
         $totalDeadlineDays = $this->currentStepConfig['timeouts'][0]['days'] ?? 14;
         $isDeadlinePassed = $daysInStage >= $totalDeadlineDays ? 'Yes' : 'No';
 
-        // Using your refined prompt structure
         $prompt = "You are a legal workflow assistant. " .
                 "Institution: {$this->case->institution_name}. " .
                 "Current stage: {$this->currentStepKey}. " .
-                "Days elapsed in this stage: {$daysInStage}. " .
-                "Total deadline for this stage: {$totalDeadlineDays} days. " .
-                "Has deadline passed: {$isDeadlinePassed}. " .
-                "INSTRUCTION: Suggest the single most appropriate next step based strictly on timing and stage context. " .
-                "Do NOT suggest escalation if the deadline has not passed unless there is exceptional reason. " .
-                "If early in the timeline, recommend waiting or monitoring. " .
-                "STRICT LIMITS: 30–45 words. Plain text only. " .
-                "FORBIDDEN: No markdown, no bullet points, no labels, no legal disclaimers.";
+                "Days elapsed: {$daysInStage}. " .
+                "Deadline passed: {$isDeadlinePassed}. " .
+                "INSTRUCTION: Suggest the single most appropriate next step based strictly on timing. " .
+                "STRICT LIMITS: 30–45 words. Plain text only.";
 
         try {
             $response = Http::post("https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={$apiKey}", [
@@ -153,9 +196,7 @@ class CaseWorkflow extends Component
             ]);
 
             if ($response->successful()) {
-                $rawText = $response->json()['candidates'][0]['content']['parts'][0]['text'] ?? 'Please check back once the deadline has passed.';
-                
-                // Clean up: Remove any lingering markdown or HTML tags for a purely plain-text feel
+                $rawText = $response->json()['candidates'][0]['content']['parts'][0]['text'] ?? 'Please check back later.';
                 $this->aiResponse = trim(strip_tags($rawText));
             } else {
                 $this->aiResponse = "I'm unable to analyze the case details at this moment.";
@@ -201,14 +242,11 @@ class CaseWorkflow extends Component
         try {
             $oldStep = $this->currentStepKey;
             
-            // Update Case Model
             $this->case->update(['current_workflow_step' => $newStep]);
             
-            // Update Local State
             $this->currentStepKey = $newStep;
             $this->loadStepConfig();
 
-            // Create Audit Log in Timeline
             CaseTimeline::create([
                 'case_id'     => $this->case->id,
                 'type'        => 'workflow_change',
