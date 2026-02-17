@@ -59,7 +59,32 @@
         overflow-y: auto !important;
     }
     </style>
-    
+    <style>
+        /* Clean up the huge Gmail history blocks */
+        .email-content .gmail_quote, 
+        .email-content blockquote {
+            border-left: 3px solid #cbd5e1 !important;
+            padding-left: 1rem !important;
+            margin-top: 1.5rem !important;
+            color: #64748b !important;
+            font-size: 0.85rem !important;
+            opacity: 0.8;
+        }
+        
+        /* Hide the 'On Mon, Feb 16...' text or make it subtle */
+        .email-content .gmail_attr {
+            font-size: 0.75rem !important;
+            color: #94a3b8 !important;
+        }
+
+        /* Ensure images inside emails don't overflow */
+        .email-content img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 0.5rem;
+        }
+    </style>
+    @stack('style')
     @livewireStyles
 </head>
 

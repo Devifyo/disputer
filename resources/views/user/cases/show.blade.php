@@ -3,11 +3,6 @@
 @section('title', 'Case #' . $case->case_reference_id)
 
 @section('content')
-    {{-- 
-        GLOBAL STATE MANAGER 
-        This x-data block controls the single instance of the Compose Modal.
-        It listens for 'open-compose-modal' events from any child component.
-    --}}
     <div class="h-full flex flex-col" 
          x-data="{ 
             composeModalOpen: false,
@@ -16,14 +11,10 @@
             replyBody: '',
             isEscalation: false,
             isFollowUp: false,
-            viewDirection: '',
-            viewRecipient: '',
-            // Central function to open modal with specific details
+            
+            // Central function to open Compose/Reply modal
             openCompose(detail) {
-                // Handle different data structures (Livewire array vs JS object)
-                let data = detail;
-                if(Array.isArray(detail) && detail[0]) data = detail[0];
-
+                let data = Array.isArray(detail) ? detail[0] : detail;
                 this.replyTo = data.recipient || '';
                 this.replySubject = data.subject || '';
                 this.replyBody = data.body || '';
@@ -32,11 +23,11 @@
                 this.composeModalOpen = true;
             }
          }"
-         {{-- Listen for the event from Livewire or Alpine --}}
          @open-compose-modal.window="openCompose($event.detail)"
     >
 
         <header class="bg-white border-b border-slate-200 h-16 sticky top-0 z-30 flex items-center justify-between px-4 sm:px-6 lg:px-8 bg-opacity-90 backdrop-blur-md">
+            {{-- Header content remains exactly the same --}}
             <div class="flex items-center gap-4">
                 <a href="{{ route('user.cases.index') }}" class="group p-2 -ml-2 rounded-lg hover:bg-slate-100 transition-colors text-slate-400 hover:text-slate-700">
                     <i data-lucide="arrow-left" class="w-5 h-5 transition-transform group-hover:-translate-x-0.5"></i>
@@ -76,11 +67,9 @@
 
                 @livewire('user.cases.case-workflow', ['case' => $case])
 
-
                 <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
-                    
+                    {{-- Dispute Info Column --}}
                     <div class="lg:col-span-7 space-y-6">
-                        
                         <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                             <div class="px-6 py-4 border-b border-slate-100 flex items-center gap-2 bg-slate-50/30">
                                 <i data-lucide="file-text" class="w-4 h-4 text-slate-400"></i>
@@ -195,13 +184,11 @@
                     <div class="lg:col-span-5">
                         @include('user.cases.partials.timeline', ['case' => $case])
                     </div>
-                    
                 </div>
             </div>
         </div>
         
         @include('user.cases.partials.modals.compose_email')
-
         @livewire('user.cases.email-viewer')
     </div>
 @endsection

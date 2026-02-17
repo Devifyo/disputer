@@ -30,9 +30,13 @@
                 <h2 class="text-lg font-bold text-slate-900 mb-3 leading-tight">{{ $subject }}</h2>
                 <div class="flex flex-col sm:flex-row sm:items-center gap-4 text-xs">
                     <div class="flex items-center gap-2">
-                       <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest" 
-                            x-text="viewDirection == 'inbound' ? 'From' : 'To'"></span>
-                        <span class="font-mono text-slate-600 bg-white px-1.5 py-0.5 rounded border border-slate-200">{{ $recipient_email }}</span>
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                            {{ $direction === 'inbound' ? 'From' : 'To' }}
+                        </span>
+                        
+                        <span class="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
+                            {{ $recipient_email }}
+                        </span>
                     </div>
                     @if(count($attachments) > 0)
                     <div class="flex items-center gap-2">
@@ -183,7 +187,8 @@
 
                 <div class="p-8">
                     <div class="prose prose-sm prose-slate max-w-none text-slate-700">
-                        {!! nl2br(e($body)) !!}
+                        {{-- {!! nl2br(e($body)) !!} --}}
+                        {!! $body !!}
                     </div>
                     {{-- attachment of email --}}
                     @if(count($attachments) > 0)

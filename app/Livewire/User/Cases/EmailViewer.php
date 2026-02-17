@@ -17,8 +17,11 @@ class EmailViewer extends Component
     public $isAnalyzing = false;
     public $analysis = null;
     public $emailId = '';
+
+    // 1. ADD THESE NEW PROPERTIES
+    public $direction = 'outbound'; 
     #[On('open-email')]
-    public function loadEmail($emailId, $subject, $body, $attachments = [], $recipient = 'Support Team')
+    public function loadEmail($emailId, $subject, $body, $attachments = [], $recipient = 'Support Team', $direction = 'outbound',)
     {   
         $this->subject = $subject;
         $this->body = $body;
@@ -29,6 +32,7 @@ class EmailViewer extends Component
         if ($emailId) {
             \App\Models\Email::where('id', $emailId)->update(['is_read' => true]);
         }
+        $this->direction = $direction;
     }
 
     public function close()

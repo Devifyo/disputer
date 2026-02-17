@@ -19,7 +19,7 @@
          x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
          x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95">
         
-        <div class="px-6 py-4 border-b border-slate-100 flex items-start justify-between bg-slate-50">
+        {{-- <div class="px-6 py-4 border-b border-slate-100 flex items-start justify-between bg-slate-50">
             <div class="min-w-0 flex-1 mr-4">
                 <h3 class="text-lg font-bold text-slate-900 leading-tight truncate" x-text="viewSubject"></h3>
                 <p class="text-xs text-slate-500 mt-1">Archived Message</p>
@@ -27,8 +27,25 @@
             <button @click="viewModalOpen = false" class="p-2 -mr-2 rounded-lg hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition-colors">
                 <i data-lucide="x" class="w-5 h-5"></i>
             </button>
+        </div> --}}
+        <div class="px-6 py-4 border-b border-slate-100 flex items-start justify-between bg-slate-50">
+            <div class="min-w-0 flex-1 mr-4">
+                <h3 class="text-lg font-bold text-slate-900 leading-tight truncate" x-text="viewSubject"></h3>
+                
+                <div class="flex items-center gap-3 mt-1.5">
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest" 
+                            x-text="viewDirection === 'inbound' ? 'From' : 'To'"></span>
+                        <span class="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100" 
+                            x-text="viewRecipient"></span>
+                    </div>
+                </div>
+            </div>
+            <button @click="viewModalOpen = false" class="p-2 -mr-2 rounded-lg hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition-colors">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
         </div>
-
+        {{--  --}}
         <div class="p-8 overflow-y-auto bg-white flex-1 flex flex-col">
             <div class="text-sm text-slate-700 leading-relaxed select-text prose prose-sm max-w-none mb-6" 
                  x-html="viewBody">
