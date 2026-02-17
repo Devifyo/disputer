@@ -13,7 +13,6 @@ use App\Http\Controllers\User\{DashboardController, CaseController, DocumentCont
 */
 
 Route::middleware(['auth', 'verified'])->name('user.')->group(function () {
-
     Route::get('/dashboard', [DashboardController::class, 'index'])
         ->name('dashboard');
 
