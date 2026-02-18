@@ -3,10 +3,12 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Livewire\Admin\Users\Index as UserIndex;
+use App\Livewire\Admin\Institutions\Index as InstitutionIndex;
 Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/users', UserIndex::class)->name('users.index');
-    });
+    Route::get('/institutions', InstitutionIndex::class)->name('institutions.index');
+});
 
 
     // 1. Leave Impersonation Route

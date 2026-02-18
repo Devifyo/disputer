@@ -70,7 +70,7 @@
 
             <div class="px-2 mt-8 mb-3 text-[10px] uppercase tracking-wider font-bold text-slate-600 font-mono">Institutes</div>
 
-            <a href="#" class="{{ $navClass('admin.institutes.*') }} group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all">
+            <a href="{{ route('admin.institutions.index') }}" class="{{ $navClass('admin.institutes.*') }} group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all">
                 <i data-lucide="building-2" class="w-5 h-5 transition-colors"></i>
                 All Institutes
             </a>

@@ -8,3 +8,13 @@ docker compose exec app php artisan config:cache
 # 3. Clear the encryption keys/cookies
 docker compose exec app php artisan key:generate
 docker compose exec app php artisan optimize
+
+
+
+-----------------------------------------------
+
+docker compose exec app chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+
+docker compose exec app chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
+
+docker compose exec --user www-data app php artisan optimize:clear
