@@ -29,7 +29,7 @@
         
         <button wire:click="create" 
                 wire:loading.attr="disabled"
-                class="min-w-[140px] flex items-center justify-center gap-2 px-5 py-2.5 bg-violet-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-violet-200 hover:bg-violet-700 transition-all active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed">
+                class="bg-slate-900 hover:bg-slate-800 text-white px-3 sm:px-4 py-2 rounded-lg text-xs font-bold shadow-lg shadow-slate-900/20 transition-all flex items-center gap-2 hover:scale-105 active:scale-95">
             <span wire:loading.remove wire:target="create" class="inline-flex items-center gap-2">
                 <i data-lucide="plus" class="w-4 h-4"></i> Add Institute
             </span>
