@@ -12,16 +12,26 @@
             darkMode: 'class',
             theme: {
                 extend: {
+                    colors: {
+                        slate: { 850: '#1e293b', 900: '#0f172a', 950: '#020617' },
+                        // Explicitly defining the blue palette ensures the CDN never fails
+                        primary: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            200: '#bfdbfe',
+                            300: '#93c5fd',
+                            400: '#60a5fa',
+                            500: '#3b82f6',
+                            600: '#2563eb', /* Your exact blue */
+                            700: '#1d4ed8',
+                            800: '#1e40af',
+                            900: '#1e3a8a',
+                            950: '#172554',
+                        }
+                    },
                     fontFamily: {
                         sans: ['Inter', 'sans-serif'],
                         mono: ['JetBrains Mono', 'monospace'],
-                    },
-                    colors: {
-                        slate: {
-                            850: '#1e293b', 
-                            900: '#0f172a',
-                            950: '#020617',
-                        }
                     },
                     boxShadow: {
                         'glow': '0 0 20px rgba(37, 99, 235, 0.15)',
@@ -29,7 +39,6 @@
                 }
             }
         }
-        
     </script>
 
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -194,6 +203,21 @@
     </aside>
 
     <main class="flex-1 flex flex-col h-full overflow-hidden bg-slate-50 relative min-w-0">
+        {{-- IMPERSONATION BANNER --}}
+        @impersonating
+            <div class="bg-primary-600 text-white px-6 py-3 flex items-center justify-between shrink-0 z-40 shadow-md">
+                <div class="flex items-center gap-3">
+                    <i data-lucide="shield-alert" class="w-5 h-5 opacity-90"></i>
+                    <span class="text-sm font-medium">
+                        Viewing as <strong class="ml-1">{{ auth()->user()->name }}</strong>
+                    </span>
+                </div>
+                <a href="{{ route('admin.leave.impersonation') }}" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition-all shadow-lg active:scale-95 flex items-center gap-2">
+                    <i data-lucide="log-out" class="w-3.5 h-3.5"></i> Return to Admin
+                </a>
+            </div>
+        @endImpersonating
+        {{--  --}}
         <div class="lg:hidden h-16 flex items-center px-4 bg-white border-b border-slate-200 justify-between shrink-0 z-30">
             <div class="flex items-center gap-3">
                 <button @click="sidebarOpen = true" class="text-slate-500 hover:text-slate-700 p-2 -ml-2 rounded-md hover:bg-slate-100">
