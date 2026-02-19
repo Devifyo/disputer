@@ -3,9 +3,11 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class InstitutionCategory extends Model
-{
+{   
+    use SoftDeletes;
     protected $fillable = ['name', 'slug', 'workflow_config', 'is_verified', 'fallback_escalation_email'];
 
     protected $casts = [

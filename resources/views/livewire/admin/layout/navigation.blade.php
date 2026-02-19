@@ -75,7 +75,7 @@
                 All Institutes
             </a>
 
-            <a href="#" class="{{ $navClass('admin.categories.*') }} group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all">
+            <a href="{{ route('admin.categories.index') }}" class="{{ $navClass('admin.categories.*') }} group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all">
                 <i data-lucide="layers" class="w-5 h-5 transition-colors"></i>
                 Categories
             </a>
@@ -87,7 +87,7 @@
                 Audit Logs
             </a>
             
-            <a href="#" class="{{ $navClass('admin.settings.*') }} group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all">
+            <a href="{{ route('admin.settings.index') }}" class="{{ $navClass('admin.settings.*') }} group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all">
                 <i data-lucide="settings" class="w-5 h-5 transition-colors"></i>
                 Settings
             </a>
