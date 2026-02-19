@@ -65,7 +65,7 @@
 
             <a href="#" class="{{ $navClass('admin.disputes.*') }} group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all">
                 <i data-lucide="gavel" class="w-5 h-5 transition-colors"></i>
-                Disputes
+                Templates
             </a>
 
             <div class="px-2 mt-8 mb-3 text-[10px] uppercase tracking-wider font-bold text-slate-600 font-mono">Institutes</div>
@@ -82,31 +82,33 @@
 
             <div class="px-2 mt-8 mb-3 text-[10px] uppercase tracking-wider font-bold text-slate-600 font-mono">System</div>
 
-            <a href="#" class="{{ $navClass('admin.logs.*') }} group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all">
+            {{-- <a href="#" class="{{ $navClass('admin.logs.*') }} group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all">
                 <i data-lucide="scroll-text" class="w-5 h-5 transition-colors"></i>
                 Audit Logs
-            </a>
+            </a> --}}
             
             <a href="{{ route('admin.settings.index') }}" class="{{ $navClass('admin.settings.*') }} group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all">
                 <i data-lucide="settings" class="w-5 h-5 transition-colors"></i>
-                Settings
+                Account Settings
             </a>
         </nav>
 
         <div class="p-4 border-t border-white/5 bg-slate-950 shrink-0 mt-auto">
             <div class="flex items-center gap-1 p-2 rounded-xl bg-slate-900/50 border border-white/5 hover:border-white/10 transition-all">
-                <div class="flex items-center gap-3 flex-1 min-w-0 p-1.5">
-                    <div class="relative shrink-0">
-                        <div class="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-sm text-white font-bold ring-2 ring-transparent">
-                            {{ substr(Auth::user()->name ?? 'A', 0, 2) }}
+                <a href="{{ route('admin.settings.index') }}">
+                    <div class="flex items-center gap-3 flex-1 min-w-0 p-1.5">
+                        <div class="relative shrink-0">
+                            <div class="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-sm text-white font-bold ring-2 ring-transparent">
+                                {{ substr(Auth::user()->name ?? 'A', 0, 2) }}
+                            </div>
+                            <div class="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-slate-900 rounded-full"></div>
                         </div>
-                        <div class="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-slate-900 rounded-full"></div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-semibold text-white truncate">{{ Auth::user()->name ?? 'Admin' }}</p>
+                            <p class="text-[10px] text-slate-500 truncate">Super Admin</p>
+                        </div>
                     </div>
-                    <div class="flex-1 min-w-0">
-                        <p class="text-sm font-semibold text-white truncate">{{ Auth::user()->name ?? 'Admin' }}</p>
-                        <p class="text-[10px] text-slate-500 truncate">Super Admin</p>
-                    </div>
-                </div>
+                </a>
 
                 <button wire:click="logout" class="p-2.5 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors" title="Log Out">
                     <i data-lucide="log-out" class="w-4.5 h-4.5"></i>
