@@ -79,7 +79,7 @@
                             @elseif($status === 'current') <div class="w-1.5 h-1.5 bg-blue-600 rounded-full"></div> @endif
                         </div>
                         <div class="transition-opacity duration-300 {{ $status === 'current' ? 'opacity-100' : 'opacity-60 group-hover:opacity-100' }}">
-                            <p class="text-sm font-bold leading-tight {{ $status === 'current' ? 'text-blue-700' : 'text-slate-700' }}">{{ $stepConfig['label'] }}</p>
+                            <p class="text-sm font-bold leading-tight {{ $status === 'current' ? 'text-blue-700' : 'text-slate-700' }}">{{ $stepConfig['label'] ?? 'N\A' }}</p>
                         </div>
                     </div>
                 @endforeach
@@ -97,7 +97,7 @@
                             {{ $daysInStage < 1 ? 'Updated today' : "$daysInStage days in stage" }}
                         </span>
                     </div>
-                    <h2 class="text-2xl font-bold text-slate-900 tracking-tight">{{ $currentStepConfig['label'] }}</h2>
+                    <h2 class="text-2xl font-bold text-slate-900 tracking-tight">{{ $currentStepConfig['label'] ?? 'N/A' }}</h2>
                 </div>
 
                 <button wire:click="askAiForHelp" 
@@ -237,7 +237,7 @@
                     <div x-show="open" @click.away="open = false" style="display: none;" class="absolute right-0 bottom-full mb-2 w-56 bg-white rounded-lg shadow-xl border border-slate-100 py-1 z-50">
                         @foreach($steps as $key => $step)
                             @if($key !== $currentStepKey)
-                                <button @click="confirmManualJump('{{ $key }}', '{{ $step['label'] }}'); open = false" class="block w-full text-left px-4 py-2.5 text-xs text-slate-600 hover:bg-slate-50 hover:text-blue-600 transition-colors">{{ $step['label'] }}</button>
+                                <button @click="confirmManualJump('{{ $key }}', '{{ $step['label'] }}'); open = false" class="block w-full text-left px-4 py-2.5 text-xs text-slate-600 hover:bg-slate-50 hover:text-blue-600 transition-colors">{{ $step['label'] ?? 'N\A' }}</button>
                             @endif
                         @endforeach
                     </div>

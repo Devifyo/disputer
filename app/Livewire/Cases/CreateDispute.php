@@ -317,7 +317,6 @@ class CreateDispute extends Component
             }
             return null;
         } catch (\Exception $e) {
-            dd($e);
             return null;
         }
     }

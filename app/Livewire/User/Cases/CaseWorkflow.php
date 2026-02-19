@@ -241,8 +241,13 @@ class CaseWorkflow extends Component
     {
         try {
             $oldStep = $this->currentStepKey;
-            
-            $this->case->update(['current_workflow_step' => $newStep]);
+
+            if($this->isStepFinal($newStep)){
+                $this->case->update(['current_workflow_step' => $newStep, 'status' => \App\Enums\CaseStatus::CLOSED]);
+            }else{
+
+                $this->case->update(['current_workflow_step' => $newStep]);
+            }
             
             $this->currentStepKey = $newStep;
             $this->loadStepConfig();
@@ -265,6 +270,26 @@ class CaseWorkflow extends Component
         } catch (\Exception $e) {
             Log::error("Workflow Transition Error: " . $e->getMessage());
         }
+    }
+
+    /**
+     * Check if a given workflow step key is marked as final in the category config.
+     */
+    private function isStepFinal(string $stepKey): bool
+    {
+        // Safely get the category from the case's institution
+        $category = $this->case->institution->category ?? null;
+        
+        // If there is no category or workflow config, it defaults to false
+        if (!$category || empty($category->workflow_config['steps'])) {
+            return false;
+        }
+
+        // Safely extract the configuration for the requested step
+        $stepConfig = $category->workflow_config['steps'][$stepKey] ?? null;
+
+        // Check if the 'is_final' key exists and is strictly set to true
+        return isset($stepConfig['is_final']) && $stepConfig['is_final'] === true;
     }
 
     public function render()

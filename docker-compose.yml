@@ -6,7 +6,7 @@ services:
     container_name: dispute_app
     restart: unless-stopped
     working_dir: /var/www/html
-    user: root
+    user: "82:82"
     volumes:
        - ./:/var/www/html
     environment:
