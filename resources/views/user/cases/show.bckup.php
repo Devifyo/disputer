@@ -61,7 +61,7 @@
             </div>
         </header>
 
-        <div class="flex-1 overflow-y-auto bg-slate-50/50 p-4 sm:p-6 lg:p-8 mb-12">
+        <div class="flex-1 overflow-y-auto bg-slate-50/50 p-4 sm:p-6 lg:p-8">
             <div class="max-w-7xl mx-auto space-y-6">
                 @include('user.cases.partials.alerts')
 
