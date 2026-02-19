@@ -1,4 +1,4 @@
-<div class="p-6 pb-24 min-h-full relative">
+<div class="h-full overflow-y-auto p-6 pb-24 relative">
     <x-flash />
 
     {{-- SweetAlert2 Asset --}}
@@ -230,11 +230,11 @@
 
     {{-- SCRIPTS --}}
     <script>
-        document.addEventListener('livewire:init', () => {
-           Livewire.hook('morph.updated', ({ el, component }) => {
-                if (typeof lucide !== 'undefined') lucide.createIcons();
-           });
-        });
+        // document.addEventListener('livewire:init', () => {
+        //    Livewire.hook('morph.updated', ({ el, component }) => {
+        //         if (typeof lucide !== 'undefined') lucide.createIcons();
+        //    });
+        // });
 
         function closeModalFast() {
             const modal = document.getElementById('modal-overlay');
