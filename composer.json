@@ -33,7 +33,8 @@
         },
         "files": [
             "app/Helpers/IdHelper.php",
-             "app/Helpers/UserHelper.php"
+             "app/Helpers/UserHelper.php",
+             "app/Helpers/EmailHelper.php"
         ]
     },
     "autoload-dev": {

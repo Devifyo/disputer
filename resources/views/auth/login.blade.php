@@ -7,7 +7,14 @@
         <h2 class="text-2xl font-bold text-slate-900 tracking-tight">Welcome back</h2>
         <p class="mt-2 text-sm text-slate-500">Enter your credentials to access your dashboard.</p>
     </div>
-
+    {{-- x alert --}}
+    @if (session('status'))
+        <div class="mb-6 p-4 bg-emerald-50 text-emerald-700 text-sm font-medium rounded-xl border border-emerald-100 flex items-start gap-3">
+            <i data-lucide="check-circle-2" class="w-5 h-5 shrink-0 text-emerald-500"></i>
+            <p>{{ session('status') }}</p>
+        </div>
+    @endif
+    {{-- end x-alert --}}
     <form x-data="{ loading: false }" @submit="loading = true" method="POST" action="{{ route('login') }}" class="space-y-5">
         @csrf
 
