@@ -14,8 +14,7 @@ class UserDashboardService
     public function getStats(int $userId): array
     {
         return [
-            'active' => Cases::where('user_id', $userId)
-                ->whereIn('status', ['sent', 'waiting_institution']) // Adjust status keys as needed
+            'total_cases' => Cases::where('user_id', $userId)
                 ->count(),
             
             'replies' => Email::whereHas('case', fn($q) => $q->where('user_id', $userId))
@@ -23,12 +22,13 @@ class UserDashboardService
                 ->where('is_read', false) // Optional: only count unread
                 ->count(),
 
-            'drafts' => Cases::where('user_id', $userId)
-                ->where('status', 'draft')
+            'active_cases' => Cases::where('user_id', $userId)
+                ->whereNot('status', 'closed')
                 ->count(),
 
             'resolved' => Cases::where('user_id', $userId)
                 ->where('status', 'resolved')
+                ->orWhere('current_workflow_step','case_resolved_success')
                 ->count(),
         ];
     }

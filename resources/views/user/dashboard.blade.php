@@ -41,11 +41,21 @@
                 
                 <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex justify-between items-start group hover:border-blue-300 transition-all cursor-default">
                     <div>
-                        <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Active Cases</p>
-                        <h3 class="text-2xl font-extrabold text-slate-800 mt-1">{{ $stats['active'] ?? 0 }}</h3>
+                        <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Total Cases</p>
+                        <h3 class="text-2xl font-extrabold text-slate-800 mt-1">{{ $stats['total_cases'] ?? 0 }}</h3>
                     </div>
                     <div class="bg-slate-50 p-2.5 rounded-lg text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
                         <i data-lucide="layers" class="w-5 h-5"></i>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex justify-between items-start group hover:border-amber-300 transition-all cursor-default">
+                    <div>
+                        <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Active Cases</p>
+                        <h3 class="text-2xl font-extrabold text-amber-600 mt-1">{{ $stats['active_cases'] ?? 0 }}</h3>
+                    </div>
+                    <div class="bg-amber-50 p-2.5 rounded-lg text-amber-600 group-hover:bg-amber-100 transition-colors">
+                        <i data-lucide="scale" class="w-5 h-5"></i>
                     </div>
                 </div>
 
@@ -62,15 +72,6 @@
                     @endif
                 </div>
 
-                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex justify-between items-start group hover:border-amber-300 transition-all cursor-default">
-                    <div>
-                        <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Drafts Pending</p>
-                        <h3 class="text-2xl font-extrabold text-amber-600 mt-1">{{ $stats['drafts'] ?? 0 }}</h3>
-                    </div>
-                    <div class="bg-amber-50 p-2.5 rounded-lg text-amber-600 group-hover:bg-amber-100 transition-colors">
-                        <i data-lucide="edit-3" class="w-5 h-5"></i>
-                    </div>
-                </div>
 
                 <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex justify-between items-start group hover:border-emerald-300 transition-all cursor-default">
                     <div>
