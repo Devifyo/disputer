@@ -27,26 +27,34 @@ class CheckImap extends Command
      */
     public function handle()
     {
-        $this->info('Starting IMAP check...');
+        $this->info('Starting continuous IMAP fetcher...');
+        $sleepInterval = 15; // Check every 15 seconds
 
-        if ($this->option('sync')) {
-            // Run immediately in this process (Good for debugging/testing)
-            $this->info('Running synchronously (please wait)...');
+        // The infinite loop keeps the command running forever
+        while (true) {
+            \Illuminate\Support\Facades\Log::info('IMAP Check ticked at: ' . now());
             
-            try {
-                // Dispatch logic directly via dispatchSync or instantiating the class
-                $job = new CheckImapReplies();
-                $job->handle();
+            if ($this->option('sync')) {
+                // Run immediately in this process (Good for debugging/testing)
+                $this->info('[' . now() . '] Running synchronously...');
                 
-                $this->info('✅ IMAP check completed successfully.');
-            } catch (\Exception $e) {
-                $this->error('❌ Error: ' . $e->getMessage());
-                Log::error('Manual IMAP Check Failed: ' . $e->getMessage());
+                try {
+                    $job = new CheckImapReplies();
+                    $job->handle();
+                    
+                    $this->info('✅ IMAP check completed.');
+                } catch (\Exception $e) {
+                    $this->error('❌ Error: ' . $e->getMessage());
+                    Log::error('Manual IMAP Check Failed: ' . $e->getMessage());
+                }
+            } else {
+                // Dispatch to the queue (Background worker)
+                CheckImapReplies::dispatch();
+                $this->info('[' . now() . '] 🚀 Job dispatched to queue.');
             }
-        } else {
-            // Dispatch to the queue (Background worker)
-            CheckImapReplies::dispatch();
-            $this->info('🚀 Job dispatched to queue successfully.');
+
+            // CRITICAL: Pause the script so we don't crash the server or get IP banned
+            sleep($sleepInterval);
         }
     }
 }
