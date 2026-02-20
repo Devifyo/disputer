@@ -248,10 +248,10 @@
                                             
                                             <div class="flex justify-between items-end mt-1.5">
                                                 <p class="text-[10px] text-slate-500 truncate max-w-[140px]">
-                                                    {{ $email->direction === 'inbound' ? 'From: ' . $email->sender : 'To: ' . $email->recipient }}
+                                                    {{ $email->direction === 'inbound' ? 'From: ' . $email->sender_email : 'To: ' . $email->recipient_email }}
                                                 </p>
                                                 <span class="text-[9px] font-mono text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
-                                                    #{{ $email->case_id }}
+                                                    #{{ $email->case->case_reference_id }}
                                                 </span>
                                             </div>
                                         </div>

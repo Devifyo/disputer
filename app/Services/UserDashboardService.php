@@ -63,7 +63,7 @@ class UserDashboardService
     public function getRecentActivity(int $userId)
     {
         return Email::whereHas('case', fn($q) => $q->where('user_id', $userId))
-            ->with('case:id,institution_name') // Optimize query
+            ->with('case:id,institution_name,case_reference_id,status') // Optimize query
             ->latest('created_at')
             ->take(6)
             ->get();
