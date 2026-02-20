@@ -31,6 +31,15 @@ Route::middleware('auth')->group(function () {
     // Password Update
     Route::put('password', [PasswordController::class, 'update'])->name('password.update');
 });
+
+Route::get('/privacy', function () {
+    return view('common.privacy');
+})->name('privacy');
+
+Route::get('/terms', function () {
+    return view('common.terms');
+})->name('terms');
+
 Route::impersonate();
 require __DIR__.'/auth.php';
 require __DIR__.'/user.php';

@@ -159,8 +159,8 @@
 
         <footer class="py-6 shrink-0">
             <div class="max-w-7xl mx-auto px-6 flex flex-wrap justify-center gap-x-6 gap-y-2">
-                <a href="#" class="text-xs text-slate-400 hover:text-blue-600 transition-colors">Privacy Policy</a>
-                <a href="#" class="text-xs text-slate-400 hover:text-blue-600 transition-colors">Terms of Service</a>
+                <a href="{{ route('privacy') }}" class="text-xs text-slate-400 hover:text-blue-600 transition-colors">Privacy Policy</a>
+                <a href="{{ route('terms') }}" class="text-xs text-slate-400 hover:text-blue-600 transition-colors">Terms of Service</a>
             </div>
         </footer>
 
