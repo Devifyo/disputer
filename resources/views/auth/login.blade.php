@@ -7,15 +7,17 @@
         <h2 class="text-2xl font-bold text-slate-900 tracking-tight">Welcome back</h2>
         <p class="mt-2 text-sm text-slate-500">Enter your credentials to access your dashboard.</p>
     </div>
-    {{-- x alert --}}
+    
+    {{-- Success Alert --}}
     @if (session('status'))
         <div class="mb-6 p-4 bg-emerald-50 text-emerald-700 text-sm font-medium rounded-xl border border-emerald-100 flex items-start gap-3">
             <i data-lucide="check-circle-2" class="w-5 h-5 shrink-0 text-emerald-500"></i>
             <p>{{ session('status') }}</p>
         </div>
     @endif
-    {{-- end x-alert --}}
-    <form x-data="{ loading: false }" @submit="loading = true" method="POST" action="{{ route('login') }}" class="space-y-5">
+
+    {{-- Added id="loginForm", novalidate, and @valid-submit --}}
+    <form id="loginForm" novalidate x-data="{ loading: false }" @valid-submit="loading = true" method="POST" action="{{ route('login') }}" class="space-y-5">
         @csrf
 
         <div>
@@ -24,7 +26,7 @@
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <i data-lucide="mail" class="h-4 w-4 text-slate-400 group-focus-within:text-blue-500 transition-colors"></i>
                 </div>
-                <input id="email" name="email" type="email" autocomplete="email" required autofocus
+                <input id="email" name="email" type="email" autocomplete="email" autofocus
                     class="block w-full pl-10 pr-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all shadow-sm"
                     placeholder="name@company.com" value="{{ old('email') }}">
             </div>
@@ -43,7 +45,7 @@
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <i data-lucide="lock" class="h-4 w-4 text-slate-400 group-focus-within:text-blue-500 transition-colors"></i>
                 </div>
-                <input id="password" name="password" type="password" required autocomplete="current-password"
+                <input id="password" name="password" type="password" autocomplete="current-password"
                     class="block w-full pl-10 pr-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all shadow-sm"
                     placeholder="••••••••">
             </div>
@@ -89,3 +91,30 @@
         </p>
     </form>
 @endsection
+
+@push('scripts')
+    <script>
+        $(document).ready(function () {
+            $("#loginForm").validate({
+                rules: {
+                    email: {
+                        required: true,
+                        email: true
+                    },
+                    password: {
+                        required: true
+                    }
+                },
+                messages: {
+                    email: {
+                        required: "Please enter your email address.",
+                        email: "Please enter a valid email format."
+                    },
+                    password: {
+                        required: "Please enter your password."
+                    }
+                }
+            });
+        });
+    </script>
+@endpush

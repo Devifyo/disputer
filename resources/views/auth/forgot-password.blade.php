@@ -17,7 +17,8 @@
         </div>
     @endif
 
-    <form x-data="{ loading: false }" @submit="loading = true" method="POST" action="{{ route('password.email') }}" class="space-y-6">
+    {{-- Added id="forgotPasswordForm", novalidate, and @valid-submit --}}
+    <form id="forgotPasswordForm" novalidate x-data="{ loading: false }" @valid-submit="loading = true" method="POST" action="{{ route('password.email') }}" class="space-y-6">
         @csrf
 
         <div>
@@ -26,7 +27,8 @@
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <i data-lucide="mail" class="h-4 w-4 text-slate-400 group-focus-within:text-blue-500 transition-colors"></i>
                 </div>
-                <input id="email" name="email" type="email" required autofocus
+                {{-- Removed HTML 'required' to let jQuery handle it cleanly --}}
+                <input id="email" name="email" type="email" autofocus
                     class="block w-full pl-10 pr-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all shadow-sm"
                     placeholder="name@company.com" value="{{ old('email') }}">
             </div>
@@ -63,3 +65,24 @@
         </p>
     </form>
 @endsection
+
+@push('scripts')
+    <script>
+        $(document).ready(function () {
+            $("#forgotPasswordForm").validate({
+                rules: {
+                    email: {
+                        required: true,
+                        email: true
+                    }
+                },
+                messages: {
+                    email: {
+                        required: "Please enter your email address.",
+                        email: "Please enter a valid email format."
+                    }
+                }
+            });
+        });
+    </script>
+@endpush

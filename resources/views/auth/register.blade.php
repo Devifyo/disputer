@@ -8,7 +8,7 @@
         <p class="mt-2 text-sm text-slate-500">Join thousands of users resolving disputes today.</p>
     </div>
 
-    <form x-data="{ loading: false }" @submit="loading = true" method="POST" action="{{ route('register') }}" class="space-y-5">
+    <form id="registerForm" novalidate x-data="{ loading: false }" @valid-submit="loading = true" method="POST" action="{{ route('register') }}" class="space-y-5">
         @csrf
 
         <div>
@@ -17,7 +17,7 @@
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <i data-lucide="user" class="h-4 w-4 text-slate-400 group-focus-within:text-blue-500 transition-colors"></i>
                 </div>
-                <input id="name" name="name" type="text" required autofocus
+                <input id="name" name="name" type="text" autofocus
                     class="block w-full pl-10 pr-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all shadow-sm"
                     placeholder="John Doe" value="{{ old('name') }}">
             </div>
@@ -34,7 +34,7 @@
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <i data-lucide="mail" class="h-4 w-4 text-slate-400 group-focus-within:text-blue-500 transition-colors"></i>
                 </div>
-                <input id="email" name="email" type="email" required
+                <input id="email" name="email" type="email"
                     class="block w-full pl-10 pr-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all shadow-sm"
                     placeholder="name@company.com" value="{{ old('email') }}">
             </div>
@@ -51,7 +51,7 @@
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <i data-lucide="lock" class="h-4 w-4 text-slate-400 group-focus-within:text-blue-500 transition-colors"></i>
                 </div>
-                <input id="password" name="password" type="password" required
+                <input id="password" name="password" type="password"
                     class="block w-full pl-10 pr-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all shadow-sm"
                     placeholder="Min 8 characters">
             </div>
@@ -68,7 +68,7 @@
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <i data-lucide="check-circle-2" class="h-4 w-4 text-slate-400 group-focus-within:text-blue-500 transition-colors"></i>
                 </div>
-                <input id="password_confirmation" name="password_confirmation" type="password" required
+                <input id="password_confirmation" name="password_confirmation" type="password"
                     class="block w-full pl-10 pr-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all shadow-sm"
                     placeholder="Repeat password">
             </div>
@@ -100,3 +100,33 @@
         </p>
     </form>
 @endsection
+
+@push('scripts')
+    <script>
+        $(document).ready(function () {
+            $("#registerForm").validate({
+                rules: {
+                    name: { required: true, minlength: 2 },
+                    email: { required: true, email: true },
+                    password: { required: true, minlength: 8 },
+                    password_confirmation: { required: true, equalTo: "#password" }
+                },
+                messages: {
+                    name: {
+                        required: "Please enter your full name.",
+                        minlength: "Your name must be at least 2 characters long."
+                    },
+                    email: "Please enter a valid email address.",
+                    password: {
+                        required: "Please provide a password.",
+                        minlength: "Your password must be at least 8 characters long."
+                    },
+                    password_confirmation: {
+                        required: "Please confirm your password.",
+                        equalTo: "Passwords do not match."
+                    }
+                }
+            });
+        });
+    </script>
+@endpush

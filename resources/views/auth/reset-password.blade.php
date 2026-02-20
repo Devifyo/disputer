@@ -18,7 +18,11 @@
         </div>
     @endif
 
-    <form x-data="{ loading: false }" @submit="loading = true" method="POST" action="{{ route('password.update') }}" class="space-y-6">
+    {{-- 
+        Added id="resetPasswordForm" 
+        Changed @submit to @valid-submit so it only triggers when jQuery says it's okay 
+    --}}
+    <form id="resetPasswordForm" x-data="{ loading: false }" @valid-submit="loading = true" method="POST" action="{{ route('password.update') }}" class="space-y-6">
         @csrf
 
         {{-- Hidden Token & Email --}}
@@ -31,10 +35,11 @@
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <i data-lucide="lock" class="h-4 w-4 text-slate-400 group-focus-within:text-blue-500 transition-colors"></i>
                 </div>
-                <input id="password" name="password" type="password" required autofocus
+                <input id="password" name="password" type="password" autofocus
                     class="block w-full pl-10 pr-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all shadow-sm"
                     placeholder="••••••••">
             </div>
+            {{-- Backend error fallback --}}
             @error('password')
                 <p class="text-red-600 text-xs mt-1 font-medium flex items-center gap-1">
                     <i data-lucide="alert-circle" class="w-3 h-3"></i> {{ $message }}
@@ -48,7 +53,7 @@
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <i data-lucide="lock" class="h-4 w-4 text-slate-400 group-focus-within:text-blue-500 transition-colors"></i>
                 </div>
-                <input id="password_confirmation" name="password_confirmation" type="password" required
+                <input id="password_confirmation" name="password_confirmation" type="password"
                     class="block w-full pl-10 pr-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all shadow-sm"
                     placeholder="••••••••">
             </div>
@@ -73,3 +78,32 @@
         </button>
     </form>
 @endsection
+
+@push('scripts')
+    <script>
+        $(document).ready(function () {
+            $("#resetPasswordForm").validate({
+                rules: {
+                    password: {
+                        required: true,
+                        minlength: 8
+                    },
+                    password_confirmation: {
+                        required: true,
+                        equalTo: "#password"
+                    }
+                },
+                messages: {
+                    password: {
+                        required: "Please provide a new password.",
+                        minlength: "Your password must be at least 8 characters long."
+                    },
+                    password_confirmation: {
+                        required: "Please confirm your password.",
+                        equalTo: "Passwords do not match."
+                    }
+                }
+            });
+        });
+    </script>
+@endpush

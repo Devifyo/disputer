@@ -165,10 +165,41 @@
         </footer>
 
     </div>
-
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validate/1.20.0/jquery.validate.min.js"></script>
     @stack('scripts')
     <script>
         lucide.createIcons();
+        if (typeof $.validator !== 'undefined') {
+            $.validator.setDefaults({
+                errorElement: "p",
+                errorPlacement: function (error, element) {
+                    error.addClass("text-red-600 text-xs mt-1 font-medium flex items-center gap-1");
+                    error.prepend('<i data-lucide="alert-circle" class="w-3 h-3"></i>');
+                    
+                    // Insert after the input's wrapper
+                    error.insertAfter(element.parent(".relative"));
+                    
+                    // Re-render icons for the newly injected error message
+                    lucide.createIcons();
+                },
+                highlight: function (element) {
+                    $(element)
+                        .removeClass("border-slate-200 focus:border-blue-500 focus:ring-blue-500/10")
+                        .addClass("border-red-500 focus:border-red-500 focus:ring-red-500/10");
+                },
+                unhighlight: function (element) {
+                    $(element)
+                        .removeClass("border-red-500 focus:border-red-500 focus:ring-red-500/10")
+                        .addClass("border-slate-200 focus:border-blue-500 focus:ring-blue-500/10");
+                },
+                submitHandler: function (form) {
+                    // Trigger Alpine.js loading animation globally
+                    form.dispatchEvent(new CustomEvent('valid-submit'));
+                    form.submit();
+                }
+            });
+        }
     </script>
 </body>
 </html>
