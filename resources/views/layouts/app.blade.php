@@ -113,9 +113,7 @@
         <div class="h-20 flex items-center px-6 border-b border-white/5 bg-slate-950 shrink-0">
             <div class="flex items-center gap-3 text-white">
                 <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center shadow-glow">
-                    <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
+                    <img src="/icon.svg" class="w-6 h-6 invert brightness-0 invert-[1]" alt="Icon" />            
                 </div>
                 <div>
                     <span class="font-bold tracking-tight text-lg block leading-none">{{ config('app.name') }}</span>
