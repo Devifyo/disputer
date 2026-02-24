@@ -124,7 +124,6 @@ class CreateDispute extends Component
 
         // 1. Get raw AI response
         $rawContent = $this->generateDisputeLetter();
-
         if ($rawContent) {
             // 2. Parse Subject and Body
             // We expect the AI to return "Subject: ... \n Body..."
@@ -291,7 +290,10 @@ class CreateDispute extends Component
     private function generateDisputeLetter()
     {
         $apiKey = config('services.gemini.api_key');
-        if (!$apiKey) return null;
+        if (!$apiKey) {
+            \Log::error('Gemini API Error: API Key is missing.');
+            return null;
+        }
 
         $user = Auth::user();
 
@@ -308,15 +310,25 @@ class CreateDispute extends Component
                   "3. Use plain text only. Use dashes (-) for lists if needed.";
 
         try {
-            $response = Http::withHeaders(['Content-Type' => 'application/json'])
+            // Added timeout(30) to give the AI enough time to generate the text
+            $response = Http::timeout(30)
+                ->withHeaders(['Content-Type' => 'application/json'])
                 ->post("https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={$apiKey}", [
-                'contents' => [[ 'parts' => [['text' => $prompt]] ]]
-            ]);
+                    'contents' => [[ 'parts' => [['text' => $prompt]] ]]
+                ]);
+
             if ($response->successful()) {
-                return $response->json()['candidates'][0]['content']['parts'][0]['text'] ?? null;
+                $data = $response->json();
+                return $data['candidates'][0]['content']['parts'][0]['text'] ?? null;
             }
+            
+            // If the API returns a 400 or 500 error, log it so we know WHY it failed
+            \Log::error('Gemini API Request Failed', ['status' => $response->status(), 'body' => $response->body()]);
             return null;
+
         } catch (\Exception $e) {
+            // If the request times out or Laravel can't reach the internet, log it
+            \Log::error('Gemini API Exception Caught', ['message' => $e->getMessage()]);
             return null;
         }
     }
