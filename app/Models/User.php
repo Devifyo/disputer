@@ -71,4 +71,9 @@ class User extends Authenticatable
         // Prevent admins from impersonating other admins
         return !$this->hasRole('admin'); 
     }
+
+    public function scopeCustomers($query)
+    {
+        return $query->role('user');
+    }
 }

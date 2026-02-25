@@ -16,7 +16,7 @@ class DashboardController extends Controller
     public function index()
     {   
         $stats = [
-            'total_users' => User::count(),
+            'total_users' => User::customers()->count(),
             'total_cases' => Cases::count(),
             'pending_cases' => Cases::where('status', CaseStatus::SENT)->count(), // Adjust based on your enum
             'resolved_today' => Cases::where('status', CaseStatus::RESOLVED)

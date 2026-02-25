@@ -173,8 +173,8 @@
                                 <div>
                                     <label class="block text-[11px] font-bold text-slate-400 uppercase mb-2">Role</label>
                                     <select wire:model="role" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:bg-white focus:border-primary-600 transition-all">
-                                        <option value="user">User</option>
-                                        <option value="admin">Admin</option>
+                                        <option selected value="user">User</option>
+                                        <!-- <option value="admin">Admin</option> -->
                                     </select>
                                     @error('role') <p class="text-rose-500 text-[10px] mt-1 font-bold">{{ $message }}</p> @enderror
                                 </div>
@@ -188,7 +188,7 @@
                                         <i data-lucide="check" class="w-3.5 h-3.5 text-white absolute opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity"></i>
                                     </div>
                                     <div class="flex flex-col">
-                                        <span class="text-sm font-bold text-slate-700 group-hover:text-slate-900 transition-colors">Setup Custom Mail Server</span>
+                                        <span class="text-sm font-bold text-slate-700 group-hover:text-slate-900 transition-colors">Setup Email configuration</span>
                                         <span class="text-xs text-slate-400 font-normal">Add SMTP and IMAP details for this user</span>
                                     </div>
                                 </label>
