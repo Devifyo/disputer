@@ -6,11 +6,12 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-
+use Spatie\Permission\Traits\HasRoles;
+use Lab404\Impersonate\Models\Impersonate;
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, HasRoles, Impersonate;
 
     /**
      * The attributes that are mass assignable.
@@ -21,6 +22,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'status'
     ];
 
     /**
@@ -49,5 +51,24 @@ class User extends Authenticatable
     public function cases()
     {
         return $this->hasMany(Cases::class);
+    }
+
+    public function emailConfig()
+    {
+        return $this->hasOne(UserEmailConfig::class);
+    }
+
+    public function canImpersonate()
+    {
+        return $this->hasRole('admin'); 
+    }
+
+    /**
+     * Optional: Control who can be impersonated
+     */
+    public function canBeImpersonated()
+    {
+        // Prevent admins from impersonating other admins
+        return !$this->hasRole('admin'); 
     }
 }

@@ -17,6 +17,8 @@ Route::middleware('guest')->group(function () {
 
     // Forgot Password (Action - Placeholder for now)
     Route::post('forgot-password', [AuthController::class, 'storeForgotPassword'])->name('password.email');
+    Route::get('/reset-password/{token}', [AuthController::class, 'showResetPassword'])->name('password.reset');
+    Route::post('/reset-password', [AuthController::class, 'submitResetPassword'])->name('password.update');
 });
 
 Route::middleware('auth')->group(function () {

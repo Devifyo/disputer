@@ -15,7 +15,9 @@ class Email extends Model
         'subject',
         'body_text',
         'body_html',
-        'message_id'
+        'message_id',
+        'parent_id',
+        'is_read'
     ];
 
     public function case()

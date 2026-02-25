@@ -1,5 +1,5 @@
 <div class="w-full min-h-screen h-auto bg-gray-50 pb-32 overflow-y-auto">
-
+    
     <div class="max-w-4xl mx-auto px-4 sm:px-6 pt-6">
 
         <div class="mb-8">
@@ -79,7 +79,7 @@
                         </div>
                         @endif
                     @endif
-
+                    
                     @if($mode === 'create_custom')
                          <div class="max-w-md mx-auto animate-fade-in-up">
                             <div class="flex items-center justify-between mb-6">
@@ -103,7 +103,7 @@
 
             @if($step === 2)
                 <div class="animate-fade-in block h-auto">
-
+                    
                     <div class="px-8 pt-6 pb-4 border-b border-slate-100 flex items-center justify-between">
                         <div>
                             <h1 class="text-xl font-bold text-slate-900">Case Details</h1>
@@ -146,14 +146,50 @@
                             @error('issueDescription') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
                         </div>
 
+                        <div class="mb-6">
+                            <label class="block text-xs font-bold text-slate-700 mb-1.5">Evidence (Optional)</label>
+                            
+                            <div class="flex items-center justify-center w-full">
+                                <label for="dropzone-file" class="flex flex-col items-center justify-center w-full h-32 border-2 border-slate-300 border-dashed rounded-xl cursor-pointer bg-slate-50 hover:bg-slate-100 transition-colors">
+                                    <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                                        <i data-lucide="upload-cloud" class="w-8 h-8 text-slate-400 mb-2"></i>
+                                        <p class="mb-1 text-sm text-slate-500"><span class="font-semibold">Click to upload</span> or drag and drop</p>
+                                        <p class="text-xs text-slate-400">PDF, JPG, PNG (Max 10MB)</p>
+                                    </div>
+                                    <input id="dropzone-file" type="file" class="hidden" wire:model="attachments" multiple />
+                                </label>
+                            </div>
+                            @error('attachments.*') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+
+                            @if($attachments)
+                                <ul class="mt-4 space-y-2">
+                                    @foreach($attachments as $index => $file)
+                                        <li class="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-lg shadow-sm">
+                                            <div class="flex items-center gap-3 overflow-hidden">
+                                                <div class="w-8 h-8 bg-blue-50 text-blue-600 rounded flex items-center justify-center">
+                                                    <i data-lucide="file-text" class="w-4 h-4"></i>
+                                                </div>
+                                                <div class="flex flex-col min-w-0">
+                                                    <span class="text-sm font-medium text-slate-700 truncate block">{{ $file->getClientOriginalName() }}</span>
+                                                    <span class="text-[10px] text-slate-400">{{ round($file->getSize() / 1024, 2) }} KB</span>
+                                                </div>
+                                            </div>
+                                            <button wire:click="removeAttachment({{ $index }})" class="p-1 text-slate-400 hover:text-red-500 transition-colors">
+                                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                            </button>
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            @endif
+                        </div>
+
                         <div class="flex items-center justify-between pt-5 border-t border-slate-100">
                             <button wire:click="goToStep(1)" class="px-5 py-2.5 text-slate-500 font-medium hover:bg-slate-50 rounded-lg transition-colors text-sm">Back</button>
-
-                            {{-- FIXED BUTTON: Uses Class Toggling to ensure flex alignment --}}
-                            <button wire:click="generateReview"
-                                    wire:loading.attr="disabled"
+                            
+                            <button wire:click="generateReview" 
+                                    wire:loading.attr="disabled" 
                                     class="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl shadow-lg flex items-center justify-center transition-all min-w-[160px] text-sm">
-
+                                
                                 <div wire:loading.class="hidden" wire:target="generateReview" class="flex items-center gap-2">
                                     <span>Generate Draft</span>
                                     <i data-lucide="sparkles" class="w-4 h-4 text-yellow-400"></i>
@@ -164,7 +200,7 @@
                                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                     </svg>
-                                    <span>Thinking...</span>
+                                    <span>AI is writing... Please wait.</span>
                                 </div>
                             </button>
                         </div>
@@ -180,18 +216,18 @@
                     </div>
 
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
+                        
                         <div class="lg:col-span-2 space-y-4">
                             <div>
                                 <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Subject Line</label>
-                                <input wire:model="generatedSubject" type="text"
+                                <input wire:model="generatedSubject" type="text" 
                                     class="w-full px-4 py-2.5 font-bold text-slate-800 bg-white border border-slate-300 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all shadow-sm text-sm">
                                 @error('generatedSubject') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
                             </div>
 
                             <div class="relative">
                                 <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Email Body</label>
-                                <textarea wire:model="generatedLetter" rows="12"
+                                <textarea wire:model="generatedLetter" rows="12" 
                                     class="w-full p-4 bg-white border border-slate-300 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all font-mono text-sm leading-relaxed shadow-sm resize-none"></textarea>
                                 <div class="absolute top-8 right-3"><span class="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded border border-slate-200">AI Generated</span></div>
                             </div>
@@ -215,7 +251,7 @@
                                 <div wire:loading.class="hidden" wire:target="finalizeDispute" class="flex items-center gap-2"><span>Send Dispute</span><i data-lucide="send" class="w-4 h-4"></i></div>
                                 <div wire:loading.class.remove="hidden" wire:target="finalizeDispute" class="hidden flex items-center gap-2"><svg class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Sending...</div>
                             </button>
-
+                            
                             <button wire:click="goToStep(2)" class="w-full mt-2 py-2.5 text-slate-500 font-medium hover:text-slate-800 transition-colors text-sm">Go Back & Edit</button>
                         </div>
                     </div>

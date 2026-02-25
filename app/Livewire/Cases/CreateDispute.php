@@ -11,9 +11,11 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
-
+use Livewire\WithFileUploads;
+use App\Models\Attachment;
 class CreateDispute extends Component
-{
+{   
+    use WithFileUploads;
     public $step = 1;
 
     // Step 1 Data
@@ -38,7 +40,7 @@ class CreateDispute extends Component
     public $generatedSubject = ''; // New Field
     public $generatedLetter = '';
     public $institutionEmail = '';
-
+    public $attachments = [];
     public function mount()
     {
         $this->results = collect();
@@ -65,6 +67,13 @@ class CreateDispute extends Component
     {
         $this->selectedInstitutionId = $id;
         $this->selectedInstitutionName = $name;
+        $institution = Institution::find($id);
+        if ($institution && $institution->contact_email) {
+            $this->institutionEmail = $institution->contact_email;
+        } else {
+            $this->institutionEmail = ''; // Reset if no email exists
+        }
+
         $this->goToStep(2);
     }
 
@@ -110,11 +119,11 @@ class CreateDispute extends Component
             'transactionDate' => 'required|date',
             'transactionAmount' => 'required|numeric|min:0',
             'issueDescription' => 'required|min:10',
+            'attachments.*' => 'nullable|file|max:10240',
         ]);
 
         // 1. Get raw AI response
         $rawContent = $this->generateDisputeLetter();
-
         if ($rawContent) {
             // 2. Parse Subject and Body
             // We expect the AI to return "Subject: ... \n Body..."
@@ -143,41 +152,108 @@ class CreateDispute extends Component
         ]);
 
         DB::transaction(function () {
+            
+            // ====================================================
+            // 1. HANDLE INSTITUTION & CATEGORY LOGIC
+            // ====================================================
+            
+            $finalCategoryId = null;
 
             if (is_null($this->selectedInstitutionId)) {
+                // User creates a NEW Institution
+                
                 $finalCategoryId = $this->categoryId;
+
+                // A. User created a completely NEW Category (e.g., "Crypto")
                 if ($this->categoryId === 'other') {
+                    $defaultWorkflow = config('workflow_templates.standard');
+
                     $newCat = InstitutionCategory::firstOrCreate(
                         ['name' => ucfirst($this->customCategoryName)],
-                        ['slug' => Str::slug($this->customCategoryName)]
+                        [
+                            'slug' => Str::slug($this->customCategoryName),
+                            'workflow_config' => $defaultWorkflow, // Save Template
+                            'is_verified' => false 
+                        ]
                     );
                     $finalCategoryId = $newCat->id;
                 }
+
+                // B. Create the Institution
                 $newInst = Institution::create([
                     'name' => $this->selectedInstitutionName,
                     'institution_category_id' => $finalCategoryId,
                     'is_verified' => false,
                 ]);
                 $this->selectedInstitutionId = $newInst->id;
+                
+            } else {
+                // User selected an EXISTING Institution
+                // We must look up the category ID from the existing record
+                $institution = Institution::find($this->selectedInstitutionId);
+                if ($institution) {
+                    $finalCategoryId = $institution->institution_category_id;
+                }
             }
+
+            // ====================================================
+            // 2. CALCULATE WORKFLOW DEADLINE (The Fix)
+            // ====================================================
+
+            // Try to load category config, fallback to standard template if missing
+            $category = InstitutionCategory::find($finalCategoryId);
+            $workflowConfig = $category->workflow_config ?? config('workflow_templates.standard');
+
+            // Get wait days for Step 1 (Index 0). Default to 14 days if config is broken.
+            $stepOneWaitDays = $workflowConfig['steps'][0]['wait_days'] ?? 14;
+            $nextActionDate = now()->addDays($stepOneWaitDays);
+
+            // ====================================================
+            // 3. CREATE THE CASE
+            // ====================================================
 
             $case = Cases::create([
                 'user_id' => Auth::id(),
                 'institution_id' => $this->selectedInstitutionId,
                 'institution_name' => $this->selectedInstitutionName,
-                'case_reference_id' => strtoupper(Str::random(6)),
-                'email_route_id' => (string) Str::uuid(),
-                'status' => 'Active',
+                'case_reference_id' => strtoupper(Str::random(6)), 
+                'email_route_id' => (string) Str::uuid(), 
+                'status' => \App\Enums\CaseStatus::SENT,
                 'stage' => 'Sent',
+                'current_workflow_step' => 1,
+                'next_action_at' => $nextActionDate, // <--- SAVED CORRECTLY NOW
             ]);
 
+            // ====================================================
+            // 4. SAVE ATTACHMENTS
+            // ====================================================
+
+            if (!empty($this->attachments)) {
+                foreach ($this->attachments as $file) {
+                    $path = $file->store('attachments', 'public');
+
+                    Attachment::create([
+                        'case_id' => $case->id,
+                        'file_path' => $path,
+                        'file_name' => $file->getClientOriginalName(),
+                        'mime_type' => $file->getMimeType(),
+                        'ai_analysis_status' => 'pending',
+                    ]);
+                }
+            }
+
+            // ====================================================
+            // 5. LOG TIMELINE EVENTS
+            // ====================================================
+
+            // Log Creation
             CaseTimeline::create([
                 'case_id' => $case->id,
-                'type' => 'case_created',
-                'actor' => 'User',
-                'description' => "Dispute created & sent to {$this->institutionEmail}",
-                'occurred_at' => now(),
-                'metadata' => [
+                'type' => 'case_created',            
+                'actor' => 'User',                   
+                'description' => "Dispute created & sent to {$this->institutionEmail}", 
+                'occurred_at' => now(),              
+                'metadata' => [                      
                     'amount' => $this->transactionAmount,
                     'transaction_date' => $this->transactionDate,
                     'reference_number' => $this->referenceNumber ?? 'N/A',
@@ -185,16 +261,18 @@ class CreateDispute extends Component
                 ]
             ]);
 
-            // Save Metadata including Subject
+            // Log Email Sent
             CaseTimeline::create([
                 'case_id' => $case->id,
                 'type' => 'email_sent',
                 'actor' => 'System',
-                'description' => $this->generatedLetter,
+                'description' => 'Formal dispute notice generated and logged.', 
                 'occurred_at' => now()->addSecond(),
                 'metadata' => [
                     'recipient' => $this->institutionEmail,
-                    'subject' => $this->generatedSubject // Saved here
+                    'subject' => $this->generatedSubject,
+                    // Storing body might be heavy, consider storing snippet or file ref
+                    'full_body' => $this->generatedLetter
                 ]
             ]);
         });
@@ -203,10 +281,19 @@ class CreateDispute extends Component
         return redirect()->route('user.dashboard');
     }
 
+    public function removeAttachment($index)
+    {
+        unset($this->attachments[$index]);
+        $this->attachments = array_values($this->attachments);
+    }
+
     private function generateDisputeLetter()
     {
-        $apiKey = env('GEMINI_API_KEY');
-        if (!$apiKey) return null;
+        $apiKey = config('services.gemini.api_key');
+        if (!$apiKey) {
+            \Log::error('Gemini API Error: API Key is missing.');
+            return null;
+        }
 
         $user = Auth::user();
 
@@ -223,16 +310,25 @@ class CreateDispute extends Component
                   "3. Use plain text only. Use dashes (-) for lists if needed.";
 
         try {
-            $response = Http::withHeaders(['Content-Type' => 'application/json'])
+            // Added timeout(30) to give the AI enough time to generate the text
+            $response = Http::timeout(30)
+                ->withHeaders(['Content-Type' => 'application/json'])
                 ->post("https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={$apiKey}", [
-                'contents' => [[ 'parts' => [['text' => $prompt]] ]]
-            ]);
+                    'contents' => [[ 'parts' => [['text' => $prompt]] ]]
+                ]);
 
             if ($response->successful()) {
-                return $response->json()['candidates'][0]['content']['parts'][0]['text'] ?? null;
+                $data = $response->json();
+                return $data['candidates'][0]['content']['parts'][0]['text'] ?? null;
             }
+            
+            // If the API returns a 400 or 500 error, log it so we know WHY it failed
+            \Log::error('Gemini API Request Failed', ['status' => $response->status(), 'body' => $response->body()]);
             return null;
+
         } catch (\Exception $e) {
+            // If the request times out or Laravel can't reach the internet, log it
+            \Log::error('Gemini API Exception Caught', ['message' => $e->getMessage()]);
             return null;
         }
     }

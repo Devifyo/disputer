@@ -1,20 +1,56 @@
 FROM php:8.2-fpm-alpine
 
-# 1. Install dependencies (Using apk for Alpine)
-RUN apk add --no-cache git curl libpng-dev oniguruma-dev libxml2-dev zip unzip shadow
+# 1. System Dependencies
+RUN apk add --no-cache \
+    git \
+    curl \
+    libpng-dev \
+    oniguruma-dev \
+    libxml2-dev \
+    zip \
+    libzip-dev \
+    unzip \
+    shadow
 
-# 2. Install PHP extensions
-RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
+# 2. PHP Extensions
+RUN docker-php-ext-install \
+    pdo_mysql \
+    mbstring \
+    exif \
+    pcntl \
+    bcmath \
+    gd \
+    zip
 
-# 3. Force PHP-FPM to listen on 0.0.0.0:9000 (Fixes communication issues)
-RUN sed -i 's/listen = 127.0.0.1:9000/listen = 0.0.0.0:9000/g' /usr/local/etc/php-fpm.d/www.conf || true
+# 3. PHP-FPM Config
+RUN sed -i 's|listen = 127.0.0.1:9000|listen = 0.0.0.0:9000|' \
+    /usr/local/etc/php-fpm.d/www.conf
 
-# 4. Get Composer
+# 4. Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# 5. Set Permissions
-WORKDIR /var/www
-RUN chown -R www-data:www-data /var/www
+# 5. Application Root
+WORKDIR /var/www/html
 
-# 6. Switch to user
-USER www-data
+# --------------------------------------------------
+# 6. COPY PHP CONFIG (CRITICAL STEP)
+# --------------------------------------------------
+# This copies your local.ini to the correct spot in the container
+COPY ./php/local.ini /usr/local/etc/php/conf.d/local.ini
+
+# 7. Copy App Code
+COPY . .
+
+# 8. Laravel Directories & Permissions
+RUN mkdir -p \
+    storage/framework/sessions \
+    storage/framework/views \
+    storage/framework/cache \
+    bootstrap/cache
+
+# Fix permissions for User 82 (www-data)
+RUN chown -R 82:82 /var/www/html \
+ && chmod -R 775 storage bootstrap/cache
+
+# 9. Switch to User 82
+USER 82

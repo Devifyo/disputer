@@ -3,17 +3,20 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-
+use App\Enums\CaseStatus;
 class Cases extends Model
 {
    protected $fillable = [
-        'user_id',
-        'institution_id',
-        'institution_name',
-        'case_reference_id',
-        'email_route_id',
-        'status',
-        'stage'
+        'user_id', 'institution_id', 'institution_name', 
+        'case_reference_id', 'email_route_id', 
+        'status', 'stage', 'current_workflow_step', 'next_action_at',
+        'escalation_level','last_escalated_at'
+    ];
+
+    protected $casts = [
+        'status' => CaseStatus::class, // Casts string to Enum
+        'next_action_at' => 'datetime',
+        'last_escalated_at' => 'datetime'
     ];
 
     public function user()
@@ -39,5 +42,35 @@ class Cases extends Model
     public function attachments()
     {
         return $this->hasMany(Attachment::class, 'case_id');
+    }
+
+    public function getStatusColorAttribute()
+    {
+        return match($this->status?->value ?? $this->status) {
+            'open', 'active' => 'bg-emerald-50 text-emerald-700 border-emerald-100',
+            'pending', 'sent', 'waiting_reply' => 'bg-amber-50 text-amber-700 border-amber-100',
+            'resolved', 'closed' => 'bg-slate-100 text-slate-600 border-slate-200',
+            'escalated' => 'bg-purple-50 text-purple-700 border-purple-100',
+            default => 'bg-blue-50 text-blue-700 border-blue-100'
+        };
+    }
+    
+    // Accessor for human readable Timeline Type
+    public function getReadableTypeAttribute($value)
+    {
+        // Convert "case_created" to "Case Created"
+        return ucwords(str_replace('_', ' ', $value)); 
+    }
+
+    public function suggestions()
+    {
+        return $this->hasMany(AiSuggestion::class, 'case_id');
+    }
+
+    public function getPendingSuggestionsAttPribute()
+    {
+        // It uses the relationship above ('suggestions') 
+        // and filters it to only show ones waiting for approval.
+        return $this->suggestions()->where('status', 'pending')->get();
     }
 }

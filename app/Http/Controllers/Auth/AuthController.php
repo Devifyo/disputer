@@ -7,21 +7,18 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\Rules;
+use Illuminate\Auth\Events\PasswordReset;
+use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
-    /**
-     * Show the login page.
-     */
     public function createLogin()
-    {
+    {   
         return view('auth.login');
     }
 
-    /**
-     * Handle an incoming login request.
-     */
     public function storeLogin(Request $request)
     {
         $credentials = $request->validate([
@@ -31,26 +28,20 @@ class AuthController extends Controller
 
         if (Auth::attempt($credentials, $request->boolean('remember'))) {
             $request->session()->regenerate();
-
-            return redirect()->route('user.dashboard');
+            
+            return Auth::user()->hasRole('admin') 
+                ? redirect()->route('admin.dashboard') 
+                : redirect()->route('user.dashboard');
         }
 
-        return back()->withErrors([
-            'email' => 'The provided credentials do not match our records.',
-        ])->onlyInput('email');
+        return back()->withErrors(['email' => 'The provided credentials do not match our records.'])->onlyInput('email');
     }
 
-    /**
-     * Show the registration page.
-     */
     public function createRegister()
     {
         return view('auth.register');
     }
 
-    /**
-     * Handle an incoming registration request.
-     */
     public function storeRegister(Request $request)
     {
         $request->validate([
@@ -64,43 +55,71 @@ class AuthController extends Controller
             'email' => $request->email,
             'password' => Hash::make($request->password),
         ]);
-
+        
+        $user->assignRole('user');
         Auth::login($user);
 
         return redirect()->route('user.dashboard');
     }
 
-    /**
-     * Show the forgot password page.
-     */
     public function createForgotPassword()
     {
         return view('auth.forgot-password');
     }
 
-    /**
-     * Handle password reset link request.
-     */
     public function storeForgotPassword(Request $request)
     {
         $request->validate(['email' => 'required|email']);
 
-        // Logic to send email would go here (Standard Laravel functionality)
-        // Password::sendResetLink($request->only('email'));
+        if ($user = User::where('email', $request->email)->first()) {
+            $token = Password::broker()->createToken($user);
+            
+            send_dynamic_email($user->email, 'forgot-password', [
+                '[USER_NAME]' => $user->name,
+                '[RESET_LINK]' => route('password.reset', ['token' => $token, 'email' => $user->email])
+            ]);
+        }
 
-        return back()->with('status', 'We have emailed your password reset link!');
+        return back()->with('status', 'If that email matches an account, we have sent a password reset link!');
     }
 
-    /**
-     * Destroy an authenticated session.
-     */
+    public function showResetPassword(Request $request, $token)
+    {
+        return view('auth.reset-password', ['token' => $token, 'email' => $request->email]);
+    }
+
+    public function submitResetPassword(Request $request)
+    {
+        $request->validate([
+            'token' => 'required',
+            'email' => 'required|email',
+            'password' => 'required|min:8|confirmed',
+        ]);
+
+        $status = Password::broker()->reset(
+            $request->only('email', 'password', 'password_confirmation', 'token'),
+            function ($user, $password) {
+                $user->forceFill(['password' => Hash::make($password)])
+                     ->setRememberToken(Str::random(60));
+                     
+                $user->save();
+                event(new PasswordReset($user));
+            }
+        );
+
+        // Redirect to login with a custom success message, or back with the error
+        return $status == Password::PASSWORD_RESET
+            ? redirect()->route('login')->with('status', 'Your password has been successfully reset! You can now log in.')
+            : back()->withErrors(['email' => [__($status)]]);
+    }
+
     public function destroy(Request $request)
     {
         Auth::guard('web')->logout();
-
+        
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect('/');
+        return redirect()->route('login');
     }
 }

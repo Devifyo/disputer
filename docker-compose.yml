@@ -1,75 +1,106 @@
 services:
   app:
     build:
-      context: ./
+      context: .
       dockerfile: Dockerfile
-    image: disputer-app
-    container_name: disputer-app
+    container_name: dispute_app
     restart: unless-stopped
-    working_dir: /var/www
+    working_dir: /var/www/html
+    user: "82:82"
     volumes:
-      - ./:/var/www
-    networks:
-      - disputer-network
-
-  # Optimized Database (Low Memory Usage)
-  db:
-    image: mariadb:10.6
-    container_name: disputer-db
-    restart: unless-stopped
-    command: --innodb-buffer-pool-size=64M
+       - ./:/var/www/html
     environment:
-      MYSQL_DATABASE: ${DB_DATABASE}
-      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
-      MYSQL_PASSWORD: ${DB_PASSWORD}
-      MYSQL_USER: ${DB_USERNAME}
-    volumes:
-      - db_data:/var/lib/mysql
+      - APP_ENV=production
+      - APP_URL=https://dispute.devifyo.cloud
+      - DB_CONNECTION=mysql
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_DATABASE=${DB_DATABASE}
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+    entrypoint: >
+      sh -c "chown -R 82:82 /var/www/html/storage /var/www/html/bootstrap/cache && 
+             chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache && 
+             php-fpm"
     networks:
-      - disputer-network
+      - default
+    depends_on:
+      - db
+
+  # --- NEW: IMAP Continuous Fetcher ---
+  imap_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dispute_imap_worker
+    restart: unless-stopped # <-- Docker's version of Supervisor! Auto-restarts on crash.
+    working_dir: /var/www/html
+    user: "82:82"
+    volumes:
+       - ./:/var/www/html
+    environment:
+      - APP_ENV=production
+      - DB_CONNECTION=mysql
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_DATABASE=${DB_DATABASE}
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+    # Override the entrypoint to run your infinite loop instead of php-fpm
+    entrypoint: ["php", "artisan", "imap:check", "--sync"]
+    networks:
+      - default
+    depends_on:
+      - db
 
   nginx:
     image: nginx:alpine
-    container_name: disputer-nginx
+    container_name: dispute_web
     restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
     volumes:
-      - ./:/var/www
-      - ./docker-compose/nginx:/etc/nginx/conf.d
-      - certbot_conf:/etc/letsencrypt
-      - certbot_www:/var/www/certbot
+      - ./:/var/www/html
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+    ports:
+      - "127.0.0.1:8002:80"
     networks:
-      - disputer-network
+      - web_network
+      - default
     depends_on:
       - app
-      - db
 
-  phpmyadmin:
-    image: phpmyadmin:latest
-    container_name: disputer-pma
+  db:
+    image: mariadb:10.6
+    container_name: dispute_db
     restart: unless-stopped
     environment:
-      PMA_HOST: db
-      PMA_ABSOLUTE_URI: http://dispute.devifyo.cloud/phpmyadmin/
-      UPLOAD_LIMIT: 64M
-    networks:
-      - disputer-network
-
-  # --- THIS WAS MISSING ---
-  certbot:
-    image: certbot/certbot
+      - MYSQL_ROOT_PASSWORD=${DB_PASSWORD}
+      - MYSQL_DATABASE=${DB_DATABASE}
+      - MYSQL_USER=${DB_USERNAME}
+      - MYSQL_PASSWORD=${DB_PASSWORD}
     volumes:
-      - certbot_conf:/etc/letsencrypt
-      - certbot_www:/var/www/certbot
-  # ------------------------
+      - disputer_db_data:/var/lib/mysql
+    networks:
+      - default
 
-networks:
-  disputer-network:
-    driver: bridge
+  phpmyadmin:
+    image: phpmyadmin
+    container_name: dispute_pma
+    restart: unless-stopped
+    environment:
+      - PMA_HOST=db
+      - PMA_ABSOLUTE_URI=https://dispute.devifyo.cloud/dbase/
+    ports:
+      - "127.0.0.1:8083:80"
+    networks:
+      - default
+    depends_on:
+      - db
 
 volumes:
-  db_data:
-  certbot_conf:
-  certbot_www:
+  disputer_db_data:
+
+networks:
+  web_network:
+    external: true
+  default:
+    driver: bridge
