@@ -18,6 +18,7 @@ class DatabaseSeeder extends Seeder
             InstitutionSeeder::class,
             LetterTemplateSeeder::class,
             WorkflowConfigSeeder::class,
+            EmailTemplateSeeder::class,
         ]);
     }
 }
