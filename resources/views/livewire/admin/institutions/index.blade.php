@@ -159,43 +159,31 @@
 
                 {{-- Body --}}
                 <div class="p-8 overflow-y-auto custom-scrollbar">
+                    {{-- updated --}}
                     <div class="space-y-6">
+                        {{-- Basic Details --}}
                         <div class="grid grid-cols-2 gap-6">
                             <div class="col-span-2">
                                 <input type="text" wire:model="name" placeholder="Institute Name" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:border-violet-500 outline-none">
-                                @error('name') <span class="text-rose-500 text-[10px] font-bold">{{ $message }}</span> @enderror
                             </div>
                             <div>
-                                <select wire:model="institution_category_id" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:border-violet-500 outline-none">
+                                <select wire:model.live="institution_category_id" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:border-violet-500 outline-none">
                                     <option value="">Select Category</option>
                                     @foreach($this->categories as $cat)
                                         <option value="{{ $cat->id }}">{{ $cat->name }}</option>
                                     @endforeach
                                 </select>
-                                @error('institution_category_id') <span class="text-rose-500 text-[10px] font-bold">{{ $message }}</span> @enderror
                             </div>
                             <div>
-                                <input type="email" wire:model="contact_email" placeholder="Contact Email" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:border-violet-500 outline-none">
-                                @error('contact_email') <span class="text-rose-500 text-[10px] font-bold">{{ $message }}</span> @enderror
-                            </div>
-                            
-                            {{-- Verification Checkbox --}}
-                            <div class="flex items-center">
-                                <label class="flex items-center gap-2 cursor-pointer group">
-                                    <div class="relative flex items-center">
-                                        <input type="checkbox" wire:model="is_verified" class="peer appearance-none w-5 h-5 border-2 border-slate-300 rounded checked:bg-violet-600 checked:border-violet-600 transition-all">
-                                        <i data-lucide="check" class="absolute w-3.5 h-3.5 text-white opacity-0 peer-checked:opacity-100 left-1 transition-all pointer-events-none"></i>
-                                    </div>
-                                    <span class="text-sm font-bold text-slate-600 group-hover:text-slate-800 transition-colors">Verified Institute</span>
-                                </label>
+                                <input type="email" wire:model="contact_email" placeholder="Primary Contact Email" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:border-violet-500 outline-none">
                             </div>
                         </div>
 
-                        {{-- Escalation --}}
+                        {{-- Restored Escalation Details --}}
                         <div class="bg-slate-50 p-5 rounded-xl border border-slate-100 grid grid-cols-2 gap-4">
                             <div class="col-span-2 flex items-center gap-2 mb-1">
                                 <i data-lucide="shield-alert" class="w-4 h-4 text-violet-500"></i>
-                                <span class="text-[10px] font-black uppercase tracking-widest text-slate-400">Escalation Details</span>
+                                <span class="text-[10px] font-black uppercase tracking-widest text-slate-400">Escalation Details (Global Fallback)</span>
                             </div>
                             <div>
                                 <input type="text" wire:model="escalation_contact_name" placeholder="Contact Name (e.g. Director)" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs focus:border-violet-500 outline-none bg-white">
@@ -204,7 +192,115 @@
                                 <input type="email" wire:model="escalation_email" placeholder="Email (e.g. director@bank.com)" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs focus:border-violet-500 outline-none bg-white">
                             </div>
                         </div>
+                        {{-- DYNAMIC STEP ROUTING --}}
+                        @if($institution_category_id)
+                            <div class="pt-4 border-t border-slate-100">
+                                <div class="flex items-center justify-between mb-4 pb-2">
+                                    <div class="flex items-center gap-2">
+                                        <div class="bg-violet-100 p-1.5 rounded-lg text-violet-600"><i data-lucide="git-merge" class="w-4 h-4"></i></div>
+                                        <h3 class="text-sm font-black text-slate-800 uppercase tracking-wider">Workflow Step Routing</h3>
+                                    </div>
+                                    
+                                    {{-- UPDATED: Add Routing Button with Loader --}}
+                                    <button type="button" 
+                                            wire:click="addContact" 
+                                            wire:loading.attr="disabled"
+                                            class="text-xs font-bold text-violet-600 hover:text-violet-700 bg-violet-50 hover:bg-violet-100 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm disabled:opacity-50 disabled:cursor-wait">
+                                        
+                                        {{-- Default State --}}
+                                        <span wire:loading.remove wire:target="addContact" class="flex items-center gap-1.5">
+                                            <i data-lucide="plus" class="w-3 h-3"></i> Add Routing
+                                        </span>
+                                        
+                                        {{-- Loading State --}}
+                                        <span wire:loading.flex wire:target="addContact" class="flex items-center gap-1.5">
+                                            <i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i> Adding...
+                                        </span>
+                                    </button>
+                                </div>
+
+                                <div class="space-y-4">
+                                    @forelse($contacts as $index => $contact)
+                                        {{-- Repeater Card --}}
+                                        <div class="bg-slate-50 border border-slate-200 rounded-xl p-5 relative group shadow-sm transition-all hover:border-violet-200">
+                                            
+                                            {{-- UPDATED: Delete Button with Loader --}}
+                                            <button type="button" 
+                                                    wire:click="removeContact({{ $index }})" 
+                                                    wire:loading.attr="disabled"
+                                                    class="absolute top-3 right-3 p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-wait" 
+                                                    title="Remove routing">
+                                                
+                                                {{-- Default State --}}
+                                                <div wire:loading.remove wire:target="removeContact({{ $index }})">
+                                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                                </div>
+                                                
+                                                {{-- Loading State --}}
+                                                <div wire:loading.flex wire:target="removeContact({{ $index }})">
+                                                    <i data-lucide="loader-2" class="w-4 h-4 animate-spin text-rose-500"></i>
+                                                </div>
+                                            </button>
+
+                                            {{-- 2x2 Grid Layout --}}
+                                            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 pr-6">
+                                                
+                                                {{-- Workflow Step --}}
+                                                <div>
+                                                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Workflow Step</label>
+                                                    <select wire:model="contacts.{{ $index }}.step_key" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:border-violet-500 outline-none bg-white">
+                                                        <option value="">Select Workflow Step</option>
+                                                        @foreach($this->availableSteps as $key => $label)
+                                                            <option value="{{ $key }}">{{ $label }}</option>
+                                                        @endforeach
+                                                    </select>
+                                                    @error('contacts.'.$index.'.step_key') <span class="text-rose-500 text-[10px] font-bold">{{ $message }}</span> @enderror
+                                                </div>
+
+                                                {{-- Department Name --}}
+                                                <div>
+                                                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Department Name</label>
+                                                    <input type="text" wire:model="contacts.{{ $index }}.department_name" placeholder="e.g. Appeals, BBB" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:border-violet-500 outline-none bg-white">
+                                                    @error('contacts.'.$index.'.department_name') <span class="text-rose-500 text-[10px] font-bold">{{ $message }}</span> @enderror
+                                                </div>
+
+                                                {{-- Channel --}}
+                                                <div>
+                                                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Channel Type</label>
+                                                    <select wire:model="contacts.{{ $index }}.channel" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:border-violet-500 outline-none bg-white">
+                                                        <option value="email">Email</option>
+                                                        <option value="url">URL Link</option>
+                                                    </select>
+                                                    @error('contacts.'.$index.'.channel') <span class="text-rose-500 text-[10px] font-bold">{{ $message }}</span> @enderror
+                                                </div>
+
+                                                {{-- Contact Value (Email/URL) --}}
+                                                <div>
+                                                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Email / URL Value</label>
+                                                    <input type="text" wire:model="contacts.{{ $index }}.contact_value" placeholder="support@bank.com OR https://..." class="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:border-violet-500 outline-none bg-white">
+                                                    @error('contacts.'.$index.'.contact_value') <span class="text-rose-500 text-[10px] font-bold">{{ $message }}</span> @enderror
+                                                </div>
+
+                                            </div>
+                                        </div>
+                                    @empty
+                                        <div class="text-center p-8 border-2 border-dashed border-slate-200 rounded-xl text-slate-500 text-sm bg-slate-50/50">
+                                            <i data-lucide="split" class="w-6 h-6 mx-auto mb-2 text-slate-300"></i>
+                                            No custom step routing added.<br>
+                                            <span class="text-xs text-slate-400">Will default to primary/escalation emails if left empty.</span>
+                                        </div>
+                                    @endforelse
+                                </div>
+                            </div>
+                        @else
+                            <div class="p-4 bg-amber-50 rounded-xl border border-amber-100 text-xs text-amber-700 flex items-center gap-2">
+                                <i data-lucide="info" class="w-4 h-4"></i>
+                                Select an Institution Category first to configure specific workflow step routing.
+                            </div>
+                        @endif
+                        {{-- End Dynamic Step --}}
                     </div>
+                    {{--end updated --}}
                 </div>
 
                 {{-- Footer --}}

@@ -32,4 +32,20 @@ class Institution extends Model
     {
         return $this->belongsTo(Institution::class, 'parent_id');
     }
+
+    public function contacts()
+    {
+        return $this->hasMany(InstitutionContact::class);
+    }
+
+    /**
+     * Helper to get the correct contact for the app's current dispute stage.
+     */
+    public function getContactForStage(int $stage)
+    {
+        return $this->contacts()
+            ->where('step_key', $stage)
+            ->where('is_primary', true)
+            ->get(); 
+    }
 }

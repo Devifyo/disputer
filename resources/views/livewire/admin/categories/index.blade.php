@@ -254,11 +254,50 @@
                                         
                                         {{-- Row 1: Core details --}}
                                         <div class="grid grid-cols-12 gap-4">
-                                            <div class="col-span-12 sm:col-span-4 relative">
+                                            {{-- <div class="col-span-12 sm:col-span-4 relative">
                                                 <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Step Key (ID) <span class="text-rose-500">*</span></label>
                                                 <input type="text" wire:model.live.debounce.500ms="workflow_steps.{{ $index }}.step_key" placeholder="e.g. awaiting_reply" class="w-full px-3 py-2 rounded-lg border {{ $errors->has('workflow_steps.'.$index.'.step_key') ? 'border-rose-400 bg-rose-50' : 'border-slate-200' }} text-xs font-mono focus:border-primary-500 outline-none">
                                                 @error('workflow_steps.'.$index.'.step_key') <p class="text-[9px] text-rose-500 mt-1 font-bold absolute">{{ $message }}</p> @enderror
+                                            </div> --}}
+                                            {{--  step key --}}
+                                            <div class="col-span-12 sm:col-span-4 relative">
+                                                <div class="flex items-center justify-between mb-1">
+                                                    <label class="block text-[10px] font-bold text-slate-500 uppercase">Step Key (ID) <span class="text-rose-500">*</span></label>
+                                                    
+                                                    {{-- Lock Icon & Guide Message Tooltip (Only shows on existing steps) --}}
+                                                    @if($isEditMode && !isset($step['is_new']))
+                                                        <div class="group/tooltip relative flex items-center cursor-help">
+                                                            <i data-lucide="lock" class="w-3 h-3 text-slate-400 hover:text-primary-600 transition-colors"></i>
+                                                            
+                                                            {{-- Tooltip Bubble --}}
+                                                            <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-slate-800 text-white text-[9px] rounded-lg shadow-xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all z-50 text-center leading-relaxed pointer-events-none">
+                                                                Keys are locked to prevent breaking active disputes and routing links.
+                                                                <div class="absolute -bottom-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+                                                            </div>
+                                                        </div>
+                                                    @endif
+                                                </div>
+                                                
+                                                <input type="text" 
+                                                    wire:model.live.debounce.500ms="workflow_steps.{{ $index }}.step_key" 
+                                                    placeholder="e.g. awaiting_reply" 
+                                                    
+                                                    {{-- If editing an existing step, make it read-only and look locked --}}
+                                                    @if($isEditMode && !isset($step['is_new'])) 
+                                                        readonly 
+                                                        class="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-400 text-xs font-mono cursor-not-allowed outline-none select-none"
+                                                    
+                                                    {{-- Otherwise, standard editable input --}}
+                                                    @else
+                                                        class="w-full px-3 py-2 rounded-lg border {{ $errors->has('workflow_steps.'.$index.'.step_key') ? 'border-rose-400 bg-rose-50' : 'border-slate-200 bg-white' }} text-xs font-mono focus:border-primary-500 outline-none"
+                                                    @endif
+                                                >
+                                                
+                                                @error('workflow_steps.'.$index.'.step_key') 
+                                                    <p class="text-[9px] text-rose-500 mt-1 font-bold absolute">{{ $message }}</p> 
+                                                @enderror
                                             </div>
+                                            {{-- end step key--}}
                                             <div class="col-span-12 sm:col-span-4">
                                                 <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Display Label <span class="text-rose-500">*</span></label>
                                                 <input type="text" wire:model="workflow_steps.{{ $index }}.label" placeholder="e.g. Awaiting Reply" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs focus:border-primary-500 outline-none">
