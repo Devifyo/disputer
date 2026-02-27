@@ -25,7 +25,7 @@ Route::middleware(['auth', 'verified'])->name('user.')->group(function () {
 
     Route::get('/cases/{case_reference_id}', [CaseController::class, 'show'])
         ->name('cases.show');
-
+    Route::get('/cases/{case}/export', [CaseController::class, 'exportPdf'])->name('cases.export');
     Route::get('/api/institutions/search', [CaseController::class, 'searchInstitutions'])
         ->name('api.institutions.search');
 

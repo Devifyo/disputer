@@ -68,10 +68,12 @@
             </div>
 
             <div class="flex items-center gap-3">
-                <button class="hidden sm:flex items-center gap-2 px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 shadow-sm transition-all">
+                <a href="{{ route('user.cases.export', encrypt_id($case->id)) }}" 
+                    target="_blank"
+                    class="hidden sm:flex items-center gap-2 px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 shadow-sm transition-all">
                     <i data-lucide="download" class="w-4 h-4"></i>
                     <span>Export PDF</span>
-                </button>
+                </a>
             </div>
         </header>
 

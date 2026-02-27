@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use App\Models\{Institution, Cases}; // Import your Model
 use App\Services\CaseService;
 use App\Services\SendEmailService;
+use Barryvdh\DomPDF\Facade\Pdf;
 class CaseController extends Controller
 {   
     protected $caseService;
@@ -170,4 +171,25 @@ class CaseController extends Controller
             return back()->with('error', $e->getMessage());
         }
     }
+
+    public function exportPdf($id)
+    {
+        $realId = decrypt_id($id); 
+        
+        // 1. ADD 'timeline.email' to the eager-loading array!
+        $case = \App\Models\Cases::with(['timeline.email', 'institution'])->findOrFail($realId);
+        
+        $metadata = $this->caseService->extractCaseMetadata($case);
+
+        $publicTimeline = $case->timeline->filter(function($log) {
+            return !in_array($log->type, ['Ai_guidance_workflow', 'system_suggestion', 'debug_log']);
+        });
+
+        $pdf = Pdf::loadView('user.cases.pdf', compact('case', 'metadata', 'publicTimeline'));
+        $pdf->setPaper('A4', 'portrait');
+
+        return $pdf->download('Dispute_Case_' . $case->case_reference_id . '.pdf');
+    }
+
+    
 }
