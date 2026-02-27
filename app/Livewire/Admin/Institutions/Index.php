@@ -44,16 +44,48 @@ class Index extends Component
             'name' => 'required|string|max:255',
             'institution_category_id' => 'required|exists:institution_categories,id',
             'contact_email' => 'required|email|max:255',
-            'escalation_email' => 'nullable|email|max:255',
-            'escalation_contact_name' => 'nullable|string|max:255',
             'is_verified' => 'boolean',
             
-            // Validate contacts against step_key instead of stage integer
-            'contacts' => 'array',
-            'contacts.*.step_key' => 'required|string',
+            // Dynamic Contacts Validation
+            'contacts.*.step_key' => 'required',
             'contacts.*.department_name' => 'required|string|max:255',
             'contacts.*.channel' => 'required|in:email,url,portal,phone',
-            'contacts.*.contact_value' => 'required|string|max:255',
+            
+            // Conditional Validation for the contact value
+            'contacts.*.contact_value' => [
+                'required',
+                'string',
+                'max:255',
+                function ($attribute, $value, $fail) {
+                    // Extract the index from the attribute name (e.g., contacts.0.contact_value)
+                    preg_match('/contacts\.(\d+)\.contact_value/', $attribute, $matches);
+                    $index = $matches[1] ?? null;
+
+                    if ($index !== null && isset($this->contacts[$index])) {
+                        $channel = $this->contacts[$index]['channel'];
+
+                        if ($channel === 'email' && !filter_var($value, FILTER_VALIDATE_EMAIL)) {
+                            $fail('The contact email must be a valid email address.');
+                        }
+
+                        if (in_array($channel, ['url', 'portal']) && !filter_var($value, FILTER_VALIDATE_URL)) {
+                            $fail('The contact URL must be a valid URL.');
+                        }
+                    }
+                },
+            ],
+        ];
+    }
+
+    /**
+     * Customizing the error attribute names for cleaner messages
+     */
+    protected function validationAttributes()
+    {
+        return [
+            'contacts.*.contact_value' => 'contact email/URL',
+            'contacts.*.step_key' => 'workflow step',
+            'contacts.*.department_name' => 'department name',
         ];
     }
 

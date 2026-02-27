@@ -248,7 +248,7 @@
                                                 {{-- Workflow Step --}}
                                                 <div>
                                                     <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Workflow Step</label>
-                                                    <select wire:model="contacts.{{ $index }}.step_key" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:border-violet-500 outline-none bg-white">
+                                                    <select wire:model="contacts.{{ $index }}.step_key" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:border-violet-500 outline-none bg-white {{ $errors->has('contacts.'.$index.'.step_key') ? 'border-rose-400 bg-rose-50' : 'border-slate-200' }}">
                                                         <option value="">Select Workflow Step</option>
                                                         @foreach($this->availableSteps as $key => $label)
                                                             <option value="{{ $key }}">{{ $label }}</option>
@@ -260,7 +260,7 @@
                                                 {{-- Department Name --}}
                                                 <div>
                                                     <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Department Name</label>
-                                                    <input type="text" wire:model="contacts.{{ $index }}.department_name" placeholder="e.g. Appeals, BBB" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:border-violet-500 outline-none bg-white">
+                                                    <input type="text" wire:model="contacts.{{ $index }}.department_name" placeholder="e.g. Appeals, BBB" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:border-violet-500 outline-none bg-white {{ $errors->has('contacts.'.$index.'.department_name') ? 'border-rose-400 bg-rose-50' : 'border-slate-200' }}">
                                                     @error('contacts.'.$index.'.department_name') <span class="text-rose-500 text-[10px] font-bold">{{ $message }}</span> @enderror
                                                 </div>
 
@@ -277,10 +277,16 @@
                                                 {{-- Contact Value (Email/URL) --}}
                                                 <div>
                                                     <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Email / URL Value</label>
-                                                    <input type="text" wire:model="contacts.{{ $index }}.contact_value" placeholder="support@bank.com OR https://..." class="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:border-violet-500 outline-none bg-white">
-                                                    @error('contacts.'.$index.'.contact_value') <span class="text-rose-500 text-[10px] font-bold">{{ $message }}</span> @enderror
+                                                    <input type="text" 
+                                                        wire:model="contacts.{{ $index }}.contact_value" 
+                                                        placeholder="{{ $contact['channel'] === 'email' ? 'support@bank.com' : 'https://...' }}" 
+                                                        class="w-full px-3 py-2.5 rounded-lg border {{ $errors->has('contacts.'.$index.'.contact_value') ? 'border-rose-400 bg-rose-50' : 'border-slate-200' }} text-sm focus:border-violet-500 outline-none bg-white">
+                                                    
+                                                    {{-- This specific error message display is key --}}
+                                                    @error('contacts.'.$index.'.contact_value') 
+                                                        <span class="text-rose-500 text-[10px] font-bold mt-1 block">{{ $message }}</span> 
+                                                    @enderror
                                                 </div>
-
                                             </div>
                                         </div>
                                     @empty

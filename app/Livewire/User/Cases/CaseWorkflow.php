@@ -251,7 +251,15 @@ class CaseWorkflow extends Component
             
             $this->currentStepKey = $newStep;
             $this->loadStepConfig();
-
+            // =========================================================
+            // NEW CODE: Update Dynamic Recipient Email for the Frontend
+            // =========================================================
+            $recipientData = $this->case->institution->getStepRecipient($newStep);
+            $newEmail = ($recipientData && $recipientData['type'] === 'email') ? $recipientData['value'] : '';
+            $newUrl = ($recipientData && $recipientData['type'] === 'url') ? $recipientData['value'] : '';
+            // dd($recipientData, $newEmail);
+            $this->dispatch('workflow-step-changed', email: $newEmail, url: $newUrl);
+            // =========================================================
             CaseTimeline::create([
                 'case_id'     => $this->case->id,
                 'type'        => 'workflow_change',

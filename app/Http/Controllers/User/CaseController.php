@@ -35,8 +35,11 @@ class CaseController extends Controller
         
         // NEW: Get workflow visualization data
         $workflow = $this->caseService->getWorkflowDetails($case);
+        $recipientData = $case->institution->getStepRecipient($workflow['current_step_key']);
+        $recipientEmail = ($recipientData && $recipientData['type'] === 'email')  ? $recipientData['value'] : '';
+        $recipientUrl = ($recipientData && $recipientData['type'] === 'url') ? $recipientData['value'] : '';
 
-       return view('user.cases.show', compact('case', 'metadata', 'workflow', 'escalationDetails'));
+       return view('user.cases.show', compact('case', 'metadata', 'workflow', 'escalationDetails', 'recipientData','recipientEmail', 'recipientUrl'));
     }
 
     /**

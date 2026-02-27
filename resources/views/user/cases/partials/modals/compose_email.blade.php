@@ -22,10 +22,39 @@
 
             <div class="flex-1 overflow-y-auto">
                 <div class="px-6 pt-4 pb-2 space-y-1">
-                    <div class="flex items-center border-b border-slate-100 focus-within:border-blue-500 transition-colors">
+                    {{-- <div class="flex items-center border-b border-slate-100 focus-within:border-blue-500 transition-colors">
                         <label class="text-xs font-semibold text-slate-500 w-12 shrink-0">To</label>
-                        <input type="email" name="recipient" x-model="replyTo" class="w-full py-3 text-sm font-medium text-slate-900 border-0 focus:ring-0 placeholder:text-slate-300" required>
+                        <input type="email" name="recipient" x-model="replyTo" :readonly="replyTo !== ''" class="w-full py-3 text-sm font-medium text-slate-900 border-0 focus:ring-0 placeholder:text-slate-300" required>
+                    </div> --}}
+                    {{-- To --}}
+                    <div class="flex items-center border-b border-slate-100 transition-colors" 
+                    :class="isLocked ? 'bg-slate-50' : 'focus-within:border-blue-500 bg-white'">
+                    
+                        <label class="text-xs font-semibold text-slate-500 w-12 shrink-0 pl-6">To</label>
+                        
+                        <input type="email" 
+                            name="recipient" 
+                            x-model="replyTo" 
+                            
+                            {{-- Use the dedicated lock variable --}}
+                            :readonly="isLocked" 
+                            :class="isLocked ? 'cursor-not-allowed text-slate-500' : 'text-slate-900'"
+                            
+                            class="w-full py-3 text-sm font-medium border-0 focus:ring-0 bg-transparent placeholder:text-slate-300" 
+                            placeholder="Enter recipient email..."
+                            required>
+
+                        {{-- Lock Icon uses the dedicated lock variable --}}
+                        <template x-if="isLocked">
+                            <div class="pr-6 text-slate-400" title="Recipient automatically locked by workflow">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect>
+                                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                                </svg>
+                            </div>
+                        </template>
                     </div>
+                    {{--  --}}
                     <div class="flex items-center border-b border-slate-100 focus-within:border-blue-500 transition-colors">
                         <label class="text-xs font-semibold text-slate-500 w-12 shrink-0">Subject</label>
                         <input type="text" name="subject" x-model="replySubject" class="w-full py-3 text-sm font-bold text-slate-900 border-0 focus:ring-0 placeholder:text-slate-300" required>

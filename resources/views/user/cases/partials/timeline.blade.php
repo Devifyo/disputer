@@ -2,26 +2,35 @@
     {{-- Added this wrapper to force the height to match the left column --}}
     <div class="lg:absolute lg:inset-0 h-full w-full">
         <div class="bg-white rounded-xl border border-slate-200 shadow-sm h-full flex flex-col overflow-hidden">
+            {{-- button area --}}
             <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/30 shrink-0">
                 <div class="flex items-center gap-2">
                     <i data-lucide="activity" class="w-4 h-4 text-slate-400"></i>
                     <h3 class="font-bold text-slate-800 text-sm">Activity Log</h3>
                 </div>
                 
-                {{-- NEW EMAIL BUTTON: Dispatch to Parent --}}
-                <button type="button" 
-                        @click="$dispatch('open-compose-modal', { 
-                            subject: 'Case #{{ $case->case_reference_id }}', 
-                            recipient: '',
-                            body: '',
-                            isEscalation: false ,
-                            isFollowUp: false
-                        })" 
-                        class="text-xs font-bold text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-1 transition-colors">
-                    <i data-lucide="plus" class="w-3 h-3"></i> New Email
-                </button>
+                <div class="flex items-center gap-3">
+                    {{-- EXTERNAL PORTAL BUTTON: Only shows if a URL exists --}}
+                    <template x-if="dynamicRecipientUrl">
+                        <a :href="dynamicRecipientUrl" target="_blank" class="text-xs font-bold text-violet-600 hover:text-violet-700 hover:underline flex items-center gap-1.5 transition-colors bg-violet-50 px-2 py-1.5 rounded border border-violet-100">
+                            <i data-lucide="external-link" class="w-3.5 h-3.5"></i> External Escalation
+                        </a>
+                    </template>
+
+                    {{-- NEW EMAIL BUTTON --}}
+                    <button type="button" 
+                            @click="$dispatch('open-compose-modal', { 
+                                subject: 'Case #{{ $case->case_reference_id }}',
+                                body: '',
+                                isEscalation: false,
+                                isFollowUp: false
+                            })" 
+                            class="text-xs font-bold text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-1 transition-colors">
+                        <i data-lucide="plus" class="w-3 h-3"></i> New Email
+                    </button>
+                </div>
             </div>
-            
+            {{-- button area  --}}
             <div class="p-6 flex-1 min-h-0 overflow-y-auto custom-scrollbar">
                 <div class="relative space-y-8">
                     <div class="absolute top-2 bottom-2 left-4 w-0.5 bg-slate-100"></div>

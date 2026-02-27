@@ -67,13 +67,23 @@ class CreateDispute extends Component
     {
         $this->selectedInstitutionId = $id;
         $this->selectedInstitutionName = $name;
-        $institution = Institution::find($id);
-        if ($institution && $institution->contact_email) {
-            $this->institutionEmail = $institution->contact_email;
-        } else {
-            $this->institutionEmail = ''; // Reset if no email exists
-        }
+        $institution = Institution::with(['category'])->find($id);
+        if ($institution) {
+            $initialStep = $institution->category->workflow_config['initial_step'] ?? null;
+            // Pass 'true' to only fetch email contacts for this step
+            $recipient = $initialStep ? $institution->getStepRecipient($initialStep, true) : null;
 
+            if ($recipient) {
+                $this->recipientType = $recipient['type'];   
+                $this->institutionEmail = $recipient['value']; 
+                $this->recipientLabel = $recipient['label']; 
+            } else {
+                // Absolute fallback logic
+                $this->institutionEmail = $institution->contact_email ?? '';
+                $this->recipientType = 'email';
+                $this->recipientLabel = 'General Support';
+            }
+        }
         $this->goToStep(2);
     }
 

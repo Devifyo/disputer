@@ -3,28 +3,42 @@
 @section('title', 'Case #' . $case->case_reference_id)
 
 @section('content')
-    <div class="h-full flex flex-col" 
-         x-data="{ 
-            composeModalOpen: false,
-            replyTo: '',
-            replySubject: '',
-            replyBody: '',
-            isEscalation: false,
-            isFollowUp: false,
+<div class="h-full flex flex-col" 
+     x-data="{ 
+        composeModalOpen: false,
+        dynamicRecipientEmail: '{{ addslashes($recipientEmail ?? '') }}',
+        dynamicRecipientUrl: '{{ addslashes($recipientUrl ?? '') }}', // NEW: Store the URL
+        
+        replyTo: '',
+        replySubject: '',
+        replyBody: '',
+        isEscalation: false,
+        isFollowUp: false,
+        isLocked: false, // NEW: Dedicated lock state
+        
+        // Central function to open Compose/Reply modal
+        openCompose(detail) {
+            let data = Array.isArray(detail) ? detail[0] : (detail || {});
             
-            // Central function to open Compose/Reply modal
-            openCompose(detail) {
-                let data = Array.isArray(detail) ? detail[0] : detail;
-                this.replyTo = data.recipient || '';
-                this.replySubject = data.subject || '';
-                this.replyBody = data.body || '';
-                this.isEscalation = data.isEscalation || false;
-                this.isFollowUp   = !!data.isFollowUp;
-                this.composeModalOpen = true;
-            }
-         }"
-         @open-compose-modal.window="openCompose($event.detail)"
-    >
+            // Determine the email to use
+            let targetEmail = data.recipient !== undefined ? data.recipient : this.dynamicRecipientEmail;
+            
+            this.replyTo = targetEmail || '';
+            this.isLocked = targetEmail ? true : false; // Lock ONLY if the system provided the email
+            
+            this.replySubject = data.subject || '';
+            this.replyBody = data.body || '';
+            this.isEscalation = data.isEscalation || false;
+            this.isFollowUp   = !!data.isFollowUp;
+            this.composeModalOpen = true;
+        }
+     }"
+     @open-compose-modal.window="openCompose($event.detail)"
+     @workflow-step-changed.window="
+        dynamicRecipientEmail = $event.detail.email || ($event.detail[0] && $event.detail[0].email) || '';
+        dynamicRecipientUrl = $event.detail.url || ($event.detail[0] && $event.detail[0].url) || '';
+     "
+>
 
         <header class="bg-white border-b border-slate-200 h-16 sticky top-0 z-30 flex items-center justify-between px-4 sm:px-6 lg:px-8 bg-opacity-90 backdrop-blur-md">
             {{-- Header content remains exactly the same --}}
