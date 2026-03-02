@@ -4,8 +4,8 @@ namespace App\Http\Controllers\User;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use App\Models\{Institution, Cases}; // Import your Model
-use App\Services\CaseService;
+use App\Models\{Institution, Cases};
+use App\Services\{CaseService, SendEmailService};
 use App\Services\SendEmailService;
 use Barryvdh\DomPDF\Facade\Pdf;
 class CaseController extends Controller
@@ -34,7 +34,7 @@ class CaseController extends Controller
         $escalationDetails = $escalationService->getEscalationDetails($case);
         $metadata = $this->caseService->extractCaseMetadata($case);
         
-        // NEW: Get workflow visualization data
+        //workflow visualization data
         $workflow = $this->caseService->getWorkflowDetails($case);
         $recipientData = $case->institution->getStepRecipient($workflow['current_step_key']);
         $recipientEmail = ($recipientData && $recipientData['type'] === 'email')  ? $recipientData['value'] : '';
@@ -44,15 +44,11 @@ class CaseController extends Controller
     }
 
     /**
-     * Step 1: Show the Institution Selection Wizard
+     * Show the Institution Selection Wizard
      */
     public function createStep1()
     {   
-        // Pass popular institutions for the "Quick Pick" section
         $popular = Institution::where('is_verified', true)->limit(4)->get();
-
-        // 2. All Categories (for when user creates a custom institution)
-        // We pluck them to make a simple dropdown list
         $categories = \App\Models\InstitutionCategory::orderBy('name')->get();
 
         return view('user.cases.create_wizard', compact('popular','categories'));
@@ -70,9 +66,9 @@ class CaseController extends Controller
         }
 
         // Search logic using the Model you provided
-        $institutions = Institution::with('category') // Eager load category
+        $institutions = Institution::with('category') 
             ->where('name', 'LIKE', "%{$query}%")
-            ->where('is_verified', true) // Only show verified ones in search
+            ->where('is_verified', true) 
             ->limit(5)
             ->get();
 
@@ -93,7 +89,7 @@ class CaseController extends Controller
             'body' => 'required|string',
             'attachments' => 'array',
             'attachments.*' => 'nullable|file|mimes:pdf,jpg,jpeg,png,doc,docx|max:10240',
-            'is_escalation' => 'nullable|boolean' // Validate as boolean (accepts "1", "0", "true", "false")
+            'is_escalation' => 'nullable|boolean' 
         ]);
         
         try {
@@ -141,7 +137,7 @@ class CaseController extends Controller
                 ];
             }
 
-            // 3. SEND EMAIL (Pass overrides to avoid duplicate logs)
+            // 3. SEND EMAIL 
             $this->emailService->sendAndLog(
                 auth()->user(),
                 $case,
@@ -149,11 +145,11 @@ class CaseController extends Controller
                 $request->subject,
                 $request->body,
                 $files,
-                null, // Parent Email (null for new emails)
-                $timelineOverrides // <--- Pass the config here
+                null, 
+                $timelineOverrides 
             );
 
-            // 4. UPDATE CASE STATE (Business Logic)
+            // 4. UPDATE CASE STATE
             if ($isEscalation) {
                 $case->timestamps = false;
                 $case->update([
@@ -175,10 +171,7 @@ class CaseController extends Controller
     public function exportPdf($id)
     {
         $realId = decrypt_id($id); 
-        
-        // 1. ADD 'timeline.email' to the eager-loading array!
-        $case = \App\Models\Cases::with(['timeline.email', 'institution'])->findOrFail($realId);
-        
+        $case = Cases::with(['timeline.email', 'institution'])->findOrFail($realId);
         $metadata = $this->caseService->extractCaseMetadata($case);
 
         $publicTimeline = $case->timeline->filter(function($log) {
