@@ -287,6 +287,23 @@
                                                         <span class="text-rose-500 text-[10px] font-bold mt-1 block">{{ $message }}</span> 
                                                     @enderror
                                                 </div>
+                                                {{-- NEW: Email Tone (Spans both columns) --}}
+                                                {{-- NEW: Email Tone (Spans both columns) --}}
+                                                <div class="col-span-1 md:col-span-2 pt-2">
+                                                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                                                        Communication Tone <span class="text-rose-500">*</span>
+                                                    </label>
+                                                    <select wire:model="contacts.{{ $index }}.tone" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:border-violet-500 outline-none bg-white {{ $errors->has('contacts.'.$index.'.tone') ? 'border-rose-400 bg-rose-50' : 'border-slate-200' }}">
+                                                        <option value="">Select Required Tone</option>
+                                                        <option value="polite">Polite</option>
+                                                        <option value="firm">Firm</option>
+                                                        <option value="escalation">Escalation</option>
+                                                    </select>
+                                                    @error('contacts.'.$index.'.tone') 
+                                                        <span class="text-rose-500 text-[10px] font-bold mt-1 block">{{ $message }}</span> 
+                                                    @enderror
+                                                </div>
+                                                {{-- End of tone --}}
                                             </div>
                                         </div>
                                     @empty

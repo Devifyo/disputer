@@ -16,7 +16,8 @@ class InstitutionContact extends Model
         'department_name',
         'channel',
         'contact_value',
-        'is_primary'
+        'is_primary',
+        'tone'
     ];
 
     protected $casts = [

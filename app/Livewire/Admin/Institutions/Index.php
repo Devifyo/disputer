@@ -45,7 +45,7 @@ class Index extends Component
             'institution_category_id' => 'required|exists:institution_categories,id',
             'contact_email' => 'required|email|max:255',
             'is_verified' => 'boolean',
-            
+            'contacts.*.tone' => 'required|string|in:polite,firm,escalation',
             // Dynamic Contacts Validation
             'contacts.*.step_key' => 'required',
             'contacts.*.department_name' => 'required|string|max:255',
@@ -86,6 +86,7 @@ class Index extends Component
             'contacts.*.contact_value' => 'contact email/URL',
             'contacts.*.step_key' => 'workflow step',
             'contacts.*.department_name' => 'department name',
+            'contacts.*.tone' => 'communication tone', // <-- NEW
         ];
     }
 
@@ -118,6 +119,7 @@ class Index extends Component
             'department_name' => '',
             'channel' => 'email',
             'contact_value' => '',
+            'tone' => '',
         ];
     }
 
