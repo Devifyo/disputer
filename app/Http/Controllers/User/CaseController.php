@@ -4,7 +4,7 @@ namespace App\Http\Controllers\User;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use App\Models\{Institution, Cases};
+use App\Models\{Institution, Cases, InstitutionContact};
 use App\Services\{CaseService, SendEmailService};
 use Barryvdh\DomPDF\Facade\Pdf;
 class CaseController extends Controller
@@ -99,9 +99,10 @@ class CaseController extends Controller
             'body' => 'required|string',
             'attachments' => 'array',
             'attachments.*' => 'nullable|file|mimes:pdf,jpg,jpeg,png,doc,docx|max:10240',
-            'is_escalation' => 'nullable|boolean' 
+            'is_escalation' => 'nullable|boolean',
+            'save_contact' => 'nullable|in:0,1'
         ]);
-        
+
         try {
             $caseId = decrypt_id($casId);
             $case = Cases::find($caseId);
@@ -158,6 +159,28 @@ class CaseController extends Controller
                 null, 
                 $timelineOverrides 
             );
+
+            // ==========================================
+            // NEW: SAVE CONTACT IF USER CONFIRMED
+            // ==========================================
+            if ($request->input('save_contact') == '1' && $case->institution_id) {
+                    InstitutionContact::updateOrCreate(
+                    [
+                        // Match existing contact for this institution, step, and channel
+                        'institution_id' => $case->institution_id,
+                        'step_key' => $case->current_workflow_step,
+                        'channel' => 'email'
+                    ],
+                    [
+                        // Update or create with these values
+                        'contact_value' => $request->recipient,
+                        'is_primary' => true,
+                        'department_name' => ucwords(str_replace('_', ' ', $case->current_workflow_step)) . ' Contact',
+                        'tone' => 'firm'
+                    ]
+                );
+            }
+            // ==========================================
 
             // 4. UPDATE CASE STATE
             if ($isEscalation) {

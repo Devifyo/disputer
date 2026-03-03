@@ -9,10 +9,12 @@
     <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden max-h-[90vh]"
          x-data="{ ...fileManager() }">
          
-        <form action="{{ route('user.cases.send_email', encrypt_id($case->id)) }}" method="POST" enctype="multipart/form-data" class="flex flex-col h-full">
+        {{-- ADDED @submit.prevent to intercept the submission --}}
+        <form @submit.prevent="submitForm" action="{{ route('user.cases.send_email', encrypt_id($case->id)) }}" method="POST" enctype="multipart/form-data" class="flex flex-col h-full">
             @csrf
             <input type="hidden" name="is_escalation" :value="isEscalation ? 1 : 0">
             <input type="hidden" name="is_followup"   :value="isFollowUp ? 1 : 0">
+            
             <div class="px-6 py-4 bg-slate-900 flex justify-between items-center text-white shrink-0">
                 <h3 class="font-bold text-sm flex items-center gap-2">New Message</h3>
                 <button type="button" @click="composeModalOpen = false" class="text-slate-400 hover:text-white transition-colors">
@@ -38,18 +40,9 @@
                             placeholder="Enter recipient email..."
                             required>
 
-                        {{-- Lock Icon & Edit Button --}}
+                        {{-- Edit Button (Pencil Icon) --}}
                         <template x-if="isLocked">
                             <div class="pr-6 flex items-center gap-2">
-                                {{-- 
-                                <div class="text-slate-400" title="Recipient automatically locked by workflow">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect>
-                                        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-                                    </svg>
-                                </div> 
-                                --}}
-                                
                                 <button type="button" 
                                         @click="isLocked = false" 
                                         title="Edit Recipient"
@@ -127,6 +120,57 @@
         function fileManager() {
             return {
                 files: [],
+                
+                // NEW: Intercept Form Submission for SweetAlert
+                async submitForm(e) {
+                    const form = e.target;
+                    
+                    // If isLocked is true, it means they didn't manually type/edit the email. 
+                    // We can just submit immediately.
+                    if (this.isLocked) {
+                        form.submit();
+                        return;
+                    }
+
+                    // If it's unlocked, they typed a new email. Ask if they want to save it!
+                    const result = await Swal.fire({
+                        title: 'Save this contact?',
+                        text: 'Save this contact for this institution?',
+                        icon: 'question',
+                        showDenyButton: true,
+                        showCancelButton: true,
+                        confirmButtonText: 'Yes, save it',
+                        denyButtonText: 'No, just send',
+                        cancelButtonText: 'Cancel',
+                        confirmButtonColor: '#2563eb', // Blue for primary action
+                        denyButtonColor: '#64748b'     // Slate for secondary action
+                    });
+
+                    // result.isConfirmed = Clicked "Yes, save it"
+                    // result.isDenied = Clicked "No, just send"
+                    // result.isDismissed = Clicked "Cancel" or backdrop
+                    
+                    if (result.isConfirmed) {
+                        this.appendHiddenInput(form, 'save_contact', '1');
+                        form.submit();
+                    } else if (result.isDenied) {
+                        this.appendHiddenInput(form, 'save_contact', '0');
+                        form.submit();
+                    }
+                },
+
+                // Helper to attach the user's decision to the form request
+                appendHiddenInput(form, name, value) {
+                    let input = form.querySelector(`input[name="${name}"]`);
+                    if (!input) {
+                        input = document.createElement('input');
+                        input.type = 'hidden';
+                        input.name = name;
+                        form.appendChild(input);
+                    }
+                    input.value = value;
+                },
+
                 addFiles(e) {
                     const newFiles = Array.from(e.target.files);
                     this.files = [...this.files, ...newFiles];
