@@ -22,11 +22,8 @@
 
             <div class="flex-1 overflow-y-auto">
                 <div class="px-6 pt-4 pb-2 space-y-1">
-                    {{-- <div class="flex items-center border-b border-slate-100 focus-within:border-blue-500 transition-colors">
-                        <label class="text-xs font-semibold text-slate-500 w-12 shrink-0">To</label>
-                        <input type="email" name="recipient" x-model="replyTo" :readonly="replyTo !== ''" class="w-full py-3 text-sm font-medium text-slate-900 border-0 focus:ring-0 placeholder:text-slate-300" required>
-                    </div> --}}
-                    {{-- To --}}
+                    
+                    {{-- To Field --}}
                     <div class="flex items-center border-b border-slate-100 transition-colors" 
                     :class="isLocked ? 'bg-slate-50' : 'focus-within:border-blue-500 bg-white'">
                     
@@ -35,28 +32,39 @@
                         <input type="email" 
                             name="recipient" 
                             x-model="replyTo" 
-                            
-                            {{-- Use the dedicated lock variable --}}
                             :readonly="isLocked" 
                             :class="isLocked ? 'cursor-not-allowed text-slate-500' : 'text-slate-900'"
-                            
                             class="w-full py-3 text-sm font-medium border-0 focus:ring-0 bg-transparent placeholder:text-slate-300" 
                             placeholder="Enter recipient email..."
                             required>
 
-                        {{-- Lock Icon uses the dedicated lock variable --}}
+                        {{-- Lock Icon & Edit Button --}}
                         <template x-if="isLocked">
-                            <div class="pr-6 text-slate-400" title="Recipient automatically locked by workflow">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect>
-                                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-                                </svg>
+                            <div class="pr-6 flex items-center gap-2">
+                                {{-- 
+                                <div class="text-slate-400" title="Recipient automatically locked by workflow">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect>
+                                        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                                    </svg>
+                                </div> 
+                                --}}
+                                
+                                <button type="button" 
+                                        @click="isLocked = false" 
+                                        title="Edit Recipient"
+                                        class="p-1.5 bg-white border border-slate-200 hover:border-blue-300 hover:text-blue-600 text-slate-400 rounded shadow-sm transition-all flex items-center justify-center">
+                                    <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+                                    </svg>
+                                </button>
                             </div>
                         </template>
                     </div>
-                    {{--  --}}
+                    
+                    {{-- Subject Field --}}
                     <div class="flex items-center border-b border-slate-100 focus-within:border-blue-500 transition-colors">
-                        <label class="text-xs font-semibold text-slate-500 w-12 shrink-0">Subject</label>
+                        <label class="text-xs font-semibold text-slate-500 w-12 shrink-0 pl-6">Subject</label>
                         <input type="text" name="subject" x-model="replySubject" class="w-full py-3 text-sm font-bold text-slate-900 border-0 focus:ring-0 placeholder:text-slate-300" required>
                     </div>
                 </div>

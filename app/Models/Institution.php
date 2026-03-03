@@ -70,7 +70,8 @@ class Institution extends Model
             return [
                 'type'  => in_array($specificContact->channel, ['url', 'portal']) ? 'url' : 'email',
                 'value' => $specificContact->contact_value,
-                'label' => $specificContact->department_name
+                'label' => $specificContact->department_name,
+                'fallback_email' => $this->contact_email,
             ];
         }
 

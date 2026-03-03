@@ -34,10 +34,11 @@
         }
      }"
      @open-compose-modal.window="openCompose($event.detail)"
-     @workflow-step-changed.window="
-        dynamicRecipientEmail = $event.detail.email || ($event.detail[0] && $event.detail[0].email) || '';
-        dynamicRecipientUrl = $event.detail.url || ($event.detail[0] && $event.detail[0].url) || '';
-     "
+        @workflow-step-changed.window="
+            let data = $event.detail[0] || $event.detail;
+            dynamicRecipientEmail = data.email || data.fallbackEmail || '';
+            dynamicRecipientUrl = data.url || '';
+        "
 >
 
         <header class="bg-white border-b border-slate-200 h-16 sticky top-0 z-30 flex items-center justify-between px-4 sm:px-6 lg:px-8 bg-opacity-90 backdrop-blur-md">

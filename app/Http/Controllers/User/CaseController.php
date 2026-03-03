@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\{Institution, Cases};
 use App\Services\{CaseService, SendEmailService};
-use App\Services\SendEmailService;
 use Barryvdh\DomPDF\Facade\Pdf;
 class CaseController extends Controller
 {   
@@ -37,8 +36,19 @@ class CaseController extends Controller
         //workflow visualization data
         $workflow = $this->caseService->getWorkflowDetails($case);
         $recipientData = $case->institution->getStepRecipient($workflow['current_step_key']);
-        $recipientEmail = ($recipientData && $recipientData['type'] === 'email')  ? $recipientData['value'] : '';
-        $recipientUrl = ($recipientData && $recipientData['type'] === 'url') ? $recipientData['value'] : '';
+        // Handle Email and Fallback Logic
+        $recipientEmail = '';
+        $recipientUrl = '';
+
+        if ($recipientData) {
+            if ($recipientData['type'] === 'email') {
+                $recipientEmail = $recipientData['value'];
+            } elseif ($recipientData['type'] === 'url') {
+                $recipientUrl = $recipientData['value'];
+                // Auto-fill the fallback email if the primary type is a URL
+                $recipientEmail = $recipientData['fallback_email'] ?? '';
+            }
+        }
 
        return view('user.cases.show', compact('case', 'metadata', 'workflow', 'escalationDetails', 'recipientData','recipientEmail', 'recipientUrl'));
     }

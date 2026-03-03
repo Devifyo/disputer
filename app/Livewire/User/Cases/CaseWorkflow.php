@@ -255,9 +255,20 @@ class CaseWorkflow extends Component
             // NEW CODE: Update Dynamic Recipient Email for the Frontend
             // =========================================================
             $recipientData = $this->case->institution->getStepRecipient($newStep);
-            $newEmail = ($recipientData && $recipientData['type'] === 'email') ? $recipientData['value'] : '';
-            $newUrl = ($recipientData && $recipientData['type'] === 'url') ? $recipientData['value'] : '';
-            // dd($recipientData, $newEmail);
+            
+            $newEmail = '';
+            $newUrl = '';
+
+            if ($recipientData) {
+                if ($recipientData['type'] === 'email') {
+                    $newEmail = $recipientData['value'];
+                } elseif ($recipientData['type'] === 'url') {
+                    $newUrl = $recipientData['value'];
+                    // If it's a URL, auto-fill the email variable with the fallback!
+                    $newEmail = $recipientData['fallback_email'] ?? '';
+                }
+            }
+            // Now $newEmail contains either the real email OR the fallback email.
             $this->dispatch('workflow-step-changed', email: $newEmail, url: $newUrl);
             // =========================================================
             CaseTimeline::create([
