@@ -16,7 +16,9 @@ class Institution extends Model
         'is_verified',
         'parent_id',
         'escalation_email',
-        'escalation_contact_name'
+        'escalation_contact_name',
+        'is_internal',
+        'created_by'  
     ];
 
     public function category()
@@ -28,6 +30,11 @@ class Institution extends Model
         return $this->hasMany(Cases::class);
     }
 
+    public function creator()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+    
     public function parent()
     {
         return $this->belongsTo(Institution::class, 'parent_id');

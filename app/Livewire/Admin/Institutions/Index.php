@@ -155,9 +155,18 @@ class Index extends Component
     }
 
     public function store()
-    {
+    {   
+        if (!auth()->user()->isAdmin()) {
+            abort(403, 'Only administrators can create internal institutions.');
+        }
+        
         $this->validate();
-        $institution = Institution::create($this->formArray());
+        $data = array_merge($this->formArray(), [
+            'is_internal' => true,
+            'created_by'   => auth()->id(),
+        ]);
+
+        $institution = Institution::create($data);
         if (!empty($this->contacts)) $institution->contacts()->createMany($this->contacts);
         
         $this->closeModal();
