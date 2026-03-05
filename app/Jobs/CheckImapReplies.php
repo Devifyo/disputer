@@ -143,6 +143,7 @@ class CheckImapReplies implements ShouldQueue
         // ---------------------------------------------------------
         if (!$matchedCase) {
             echo "Skipping.\n";
+            $message->setFlag('SEEN');
             return;
         }
 

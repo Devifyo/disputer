@@ -153,7 +153,8 @@ class CreateDispute extends Component
         $this->goToStep(3);
     }
 
-    public function finalizeDispute()
+    // 1. New method to intercept and check contact status
+    public function checkAndPromptContact()
     {
         $this->validate([
             'institutionEmail' => 'required|email',
@@ -161,67 +162,97 @@ class CreateDispute extends Component
             'generatedLetter'  => 'required|min:10',
         ]);
 
-        DB::transaction(function () {
-            
-            // ====================================================
-            // 1. HANDLE INSTITUTION & CATEGORY LOGIC
-            // ====================================================
-            
-            $finalCategoryId = null;
+        $needsPrompt = false;
 
+        if (is_null($this->selectedInstitutionId)) {
+            $needsPrompt = true; // New institution
+        } else {
+            $inst = Institution::find($this->selectedInstitutionId);
+            if (!$inst || empty($inst->contact_email)) {
+                $needsPrompt = true; // Existing but no email
+            }
+        }
+
+        if ($needsPrompt) {
+            $this->dispatch('trigger-save-contact-prompt');
+        } else {
+            $this->executeFinalize(false); // Has email, proceed normally
+        }
+    }
+
+    // 2. The actual execution method (receives $saveContact from SweetAlert)
+    public function executeFinalize($saveContact = false)
+    {
+        $case = null;
+
+        DB::transaction(function () use (&$case, $saveContact) {
+            
+            $finalCategoryId = $this->selectedInstitutionId 
+                ? Institution::find($this->selectedInstitutionId)?->institution_category_id 
+                : $this->categoryId;
+
+            // Handle Institution Creation
             if (is_null($this->selectedInstitutionId)) {
-                // User creates a NEW Institution
-                
-                $finalCategoryId = $this->categoryId;
-
-                // A. User created a completely NEW Category (e.g., "Crypto")
                 if ($this->categoryId === 'other') {
-                    $defaultWorkflow = config('workflow_templates.standard');
-
                     $newCat = InstitutionCategory::firstOrCreate(
                         ['name' => ucfirst($this->customCategoryName)],
                         [
                             'slug' => Str::slug($this->customCategoryName),
-                            'workflow_config' => $defaultWorkflow, // Save Template
+                            'workflow_config' => config('workflow_templates.standard'),
                             'is_verified' => false 
                         ]
                     );
                     $finalCategoryId = $newCat->id;
                 }
 
-                // B. Create the Institution
                 $newInst = Institution::create([
                     'name' => $this->selectedInstitutionName,
                     'institution_category_id' => $finalCategoryId,
+                    'is_internal' => false,
+                    'created_by' => auth()->id(),
                     'is_verified' => false,
                 ]);
                 $this->selectedInstitutionId = $newInst->id;
-                
-            } else {
-                // User selected an EXISTING Institution
-                // We must look up the category ID from the existing record
-                $institution = Institution::find($this->selectedInstitutionId);
-                if ($institution) {
-                    $finalCategoryId = $institution->institution_category_id;
-                }
             }
 
-            // ====================================================
-            // 2. CALCULATE WORKFLOW DEADLINE (The Fix)
-            // ====================================================
+            // --- NEW: Save Contact Logic ---
+            if ($saveContact) {
+                $inst = Institution::find($this->selectedInstitutionId);
+                
+                // Update primary contact email if empty
+                if ($inst && empty($inst->contact_email)) {
+                    $inst->update(['contact_email' => $this->institutionEmail]);
+                }
 
-            // Try to load category config, fallback to standard template if missing
+                // Get initial step key for InstitutionContact
+                $category = InstitutionCategory::find($finalCategoryId);
+                $workflowConfig = $category->workflow_config ?? config('workflow_templates.standard');
+                $stepKeys = array_keys($workflowConfig['steps'] ?? ['initial_dispute' => []]);
+                $initialStepKey = $stepKeys[0] ?? 1;
+
+                // Save to routing table
+                \App\Models\InstitutionContact::updateOrCreate(
+                    [
+                        'institution_id' => $this->selectedInstitutionId,
+                        'step_key' => $initialStepKey,
+                        'channel' => 'email'
+                    ],
+                    [
+                        'contact_value' => $this->institutionEmail,
+                        'is_primary' => true,
+                        'department_name' => 'Initial Dispute Contact',
+                        'tone' => 'formal'
+                    ]
+                );
+            }
+            // --------------------------------
+
+            // Calculate Workflow Deadline
             $category = InstitutionCategory::find($finalCategoryId);
             $workflowConfig = $category->workflow_config ?? config('workflow_templates.standard');
+            $nextActionDate = now()->addDays($workflowConfig['steps'][0]['wait_days'] ?? 14);
 
-            // Get wait days for Step 1 (Index 0). Default to 14 days if config is broken.
-            $stepOneWaitDays = $workflowConfig['steps'][0]['wait_days'] ?? 14;
-            $nextActionDate = now()->addDays($stepOneWaitDays);
-
-            // ====================================================
-            // 3. CREATE THE CASE
-            // ====================================================
-
+            // Create Case
             $case = Cases::create([
                 'user_id' => Auth::id(),
                 'institution_id' => $this->selectedInstitutionId,
@@ -231,65 +262,146 @@ class CreateDispute extends Component
                 'status' => \App\Enums\CaseStatus::SENT,
                 'stage' => 'Sent',
                 'current_workflow_step' => 1,
-                'next_action_at' => $nextActionDate, // <--- SAVED CORRECTLY NOW
+                'next_action_at' => $nextActionDate, 
             ]);
 
-            // ====================================================
-            // 4. SAVE ATTACHMENTS
-            // ====================================================
-
-            if (!empty($this->attachments)) {
-                foreach ($this->attachments as $file) {
-                    $path = $file->store('attachments', 'public');
-
-                    Attachment::create([
-                        'case_id' => $case->id,
-                        'file_path' => $path,
-                        'file_name' => $file->getClientOriginalName(),
-                        'mime_type' => $file->getMimeType(),
-                        'ai_analysis_status' => 'pending',
-                    ]);
-                }
-            }
-
-            // ====================================================
-            // 5. LOG TIMELINE EVENTS
-            // ====================================================
-
-            // Log Creation
+            // Log Timeline
             CaseTimeline::create([
                 'case_id' => $case->id,
                 'type' => 'case_created',            
                 'actor' => 'User',                   
-                'description' => "Dispute created & sent to {$this->institutionEmail}", 
+                'description' => "Dispute case opened against {$this->selectedInstitutionName}", 
                 'occurred_at' => now(),              
                 'metadata' => [                      
                     'amount' => $this->transactionAmount,
                     'transaction_date' => $this->transactionDate,
                     'reference_number' => $this->referenceNumber ?? 'N/A',
-                    'institution_email' => $this->institutionEmail
-                ]
-            ]);
-
-            // Log Email Sent
-            CaseTimeline::create([
-                'case_id' => $case->id,
-                'type' => 'email_sent',
-                'actor' => 'System',
-                'description' => 'Formal dispute notice generated and logged.', 
-                'occurred_at' => now()->addSecond(),
-                'metadata' => [
-                    'recipient' => $this->institutionEmail,
-                    'subject' => $this->generatedSubject,
-                    // Storing body might be heavy, consider storing snippet or file ref
-                    'full_body' => $this->generatedLetter
                 ]
             ]);
         });
 
-        session()->flash('message', 'Dispute Sent Successfully!');
+        // Send Email
+        try {
+            $emailService = app(\App\Services\SendEmailService::class);
+            
+            $emailService->sendAndLog(
+                Auth::user(),
+                $case,
+                $this->institutionEmail,
+                $this->generatedSubject,
+                $this->generatedLetter,
+                $this->attachments 
+            );
+
+            session()->flash('message', 'Dispute Sent Successfully!');
+            
+        } catch (\Exception $e) {
+            \Log::error("Initial dispute email failed: " . $e->getMessage());
+            session()->flash('error', 'Case created, but failed to send the email. Please check your SMTP settings and try again.');
+        }
+
         return redirect()->route('user.dashboard');
     }
+
+    // public function finalizeDispute()
+    // {
+    //     $this->validate([
+    //         'institutionEmail' => 'required|email',
+    //         'generatedSubject' => 'required|min:5',
+    //         'generatedLetter'  => 'required|min:10',
+    //     ]);
+
+    //     $case = null;
+
+    //     DB::transaction(function () use (&$case) {
+            
+    //         // 1. Determine Category & Institution
+    //         $finalCategoryId = $this->selectedInstitutionId 
+    //             ? Institution::find($this->selectedInstitutionId)?->institution_category_id 
+    //             : $this->categoryId;
+
+    //         if (is_null($this->selectedInstitutionId)) {
+    //             if ($this->categoryId === 'other') {
+    //                 $newCat = InstitutionCategory::firstOrCreate(
+    //                     ['name' => ucfirst($this->customCategoryName)],
+    //                     [
+    //                         'slug' => Str::slug($this->customCategoryName),
+    //                         'workflow_config' => config('workflow_templates.standard'),
+    //                         'is_verified' => false 
+    //                     ]
+    //                 );
+    //                 $finalCategoryId = $newCat->id;
+    //             }
+
+    //             $newInst = Institution::create([
+    //                 'name' => $this->selectedInstitutionName,
+    //                 'institution_category_id' => $finalCategoryId,
+    //                 'is_internal' => false,
+    //                 'created_by' => auth()->id(),
+    //                 'is_verified' => false,
+    //             ]);
+    //             $this->selectedInstitutionId = $newInst->id;
+    //         }
+
+    //         // 2. Calculate Workflow Deadline
+    //         $category = InstitutionCategory::find($finalCategoryId);
+    //         $workflowConfig = $category->workflow_config ?? config('workflow_templates.standard');
+    //         $nextActionDate = now()->addDays($workflowConfig['steps'][0]['wait_days'] ?? 14);
+
+    //         // 3. Create the Case
+    //         $case = Cases::create([
+    //             'user_id' => Auth::id(),
+    //             'institution_id' => $this->selectedInstitutionId,
+    //             'institution_name' => $this->selectedInstitutionName,
+    //             'case_reference_id' => strtoupper(Str::random(6)), 
+    //             'email_route_id' => (string) Str::uuid(), 
+    //             'status' => \App\Enums\CaseStatus::SENT,
+    //             'stage' => 'Sent',
+    //             'current_workflow_step' => 1,
+    //             'next_action_at' => $nextActionDate, 
+    //         ]);
+
+    //         // 4. Log the "Birth" of the Case
+    //         CaseTimeline::create([
+    //             'case_id' => $case->id,
+    //             'type' => 'case_created',            
+    //             'actor' => 'User',                   
+    //             'description' => "Dispute case opened against {$this->selectedInstitutionName}", 
+    //             'occurred_at' => now(),              
+    //             'metadata' => [                      
+    //                 'amount' => $this->transactionAmount,
+    //                 'transaction_date' => $this->transactionDate,
+    //                 'reference_number' => $this->referenceNumber ?? 'N/A',
+    //             ]
+    //         ]);
+            
+    //         // NOTE: Attachment saving logic was completely removed from here!
+    //         // The SendEmailService handles both storing the file and creating the DB record.
+    //     });
+
+    //     // 5. Actually Send the Email via Service
+    //     try {
+    //         $emailService = app(\App\Services\SendEmailService::class);
+
+    //         // Pass the raw Livewire attachments. The service will store them and log the email.
+    //         $emailService->sendAndLog(
+    //             Auth::user(),
+    //             $case,
+    //             $this->institutionEmail,
+    //             $this->generatedSubject,
+    //             $this->generatedLetter,
+    //             $this->attachments 
+    //         );
+
+    //         session()->flash('message', 'Dispute Sent Successfully!');
+            
+    //     } catch (\Exception $e) {
+    //         \Log::error("Initial dispute email failed: " . $e->getMessage());
+    //         session()->flash('error', 'Case created, but failed to send the email. Please check your SMTP settings and try again.');
+    //     }
+
+    //     return redirect()->route('user.dashboard');
+    // }
 
     public function removeAttachment($index)
     {
