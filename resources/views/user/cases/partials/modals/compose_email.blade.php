@@ -7,7 +7,7 @@
          @click="composeModalOpen = false"></div>
     
     <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden max-h-[90vh]"
-         x-data="{ ...fileManager() }">
+         x-data="fileManager('{{ encrypt_id($case->id) ?? $case->id }}')">
          
         {{-- ADDED @submit.prevent to intercept the submission --}}
         <form @submit.prevent="submitForm" action="{{ route('user.cases.send_email', encrypt_id($case->id)) }}" method="POST" enctype="multipart/form-data" class="flex flex-col h-full">
@@ -62,10 +62,34 @@
                     </div>
                 </div>
 
-                <div class="px-6 py-2 h-full min-h-[200px]">
+                {{-- <div class="px-6 py-2 h-full min-h-[200px]">
                     <textarea name="body" x-model="replyBody" class="w-full h-full text-sm text-slate-700 leading-relaxed border-0 focus:ring-0 resize-none placeholder:text-slate-300 outline-none" placeholder="Type your message here..."></textarea>
+                </div> --}}
+                {{-- EMAIL BODY WITH 1-CLICK AI BUTTON --}}
+                <div class="px-6 py-3 flex-1 flex flex-col min-h-[250px]">
+                    
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="text-xs font-semibold text-slate-500">Message</label>
+                        
+{{-- 1-Click AI Generate Button --}}
+                        <button type="button" 
+                                @click="generateAIReply('{{ encrypt_id($case->id) ?? $case->id }}', replySubject, isEscalation, isFollowUp, replyEmailId)"
+                                :disabled="isGenerating"
+                                class="text-[10px] font-bold px-3 py-1.5 rounded-md border transition-all flex items-center gap-1.5 bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100 shadow-sm disabled:opacity-50 disabled:cursor-wait">
+                            <span x-show="!isGenerating" class="flex items-center gap-1.5">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                                Auto-Draft with AI
+                            </span>
+                            <span x-show="isGenerating" class="flex items-center gap-1.5">
+                                <svg class="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                AI is writing...
+                            </span>
+                        </button>
+                    </div>
+
+                    <textarea name="body" x-model="replyBody" class="w-full flex-1 text-sm text-slate-700 leading-relaxed border-0 focus:ring-0 resize-none placeholder:text-slate-300 outline-none" placeholder="Type your message here..."></textarea>
                 </div>
-                
+                {{-- text area end --}}
                 <div class="px-6 pb-6 pt-2 bg-slate-50 border-t border-slate-100">
                     <div class="flex items-center justify-between mb-3">
                         <label class="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-300 rounded-md shadow-sm text-xs font-bold text-slate-700 hover:bg-slate-100 cursor-pointer transition-all">
@@ -120,19 +144,52 @@
         function fileManager() {
             return {
                 files: [],
+                isGenerating: false, 
                 
-                // NEW: Intercept Form Submission for SweetAlert
+                // Function now accepts the variables explicitly
+                async generateAIReply(caseId, currentSubject, isEscalation, isFollowUp, emailId) {
+                    this.isGenerating = true;
+                    
+                    try {
+                        const response = await fetch(`/cases/${caseId}/ai-reply`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                            },
+                            body: JSON.stringify({ 
+                                subject: currentSubject,
+                                is_escalation: isEscalation,
+                                is_followup: isFollowUp,
+                                reply_email_id: emailId // Now it passes perfectly!
+                            })
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (data.text) {
+                            this.replyBody = data.text; 
+                            if (data.subject && !this.replySubject) {
+                                this.replySubject = data.subject; 
+                            }
+                        } else {
+                            alert('AI generation failed. Please try again.');
+                        }
+                    } catch (error) {
+                        alert('A network error occurred contacting the AI.');
+                    }
+                    
+                    this.isGenerating = false;
+                },
+
                 async submitForm(e) {
                     const form = e.target;
                     
-                    // If isLocked is true, it means they didn't manually type/edit the email. 
-                    // We can just submit immediately.
                     if (this.isLocked) {
                         form.submit();
                         return;
                     }
 
-                    // If it's unlocked, they typed a new email. Ask if they want to save it!
                     const result = await Swal.fire({
                         title: 'Save this contact?',
                         text: 'Save this contact for this institution?',
@@ -142,13 +199,9 @@
                         confirmButtonText: 'Yes, save it',
                         denyButtonText: 'No, just send',
                         cancelButtonText: 'Cancel',
-                        confirmButtonColor: '#2563eb', // Blue for primary action
-                        denyButtonColor: '#64748b'     // Slate for secondary action
+                        confirmButtonColor: '#2563eb', 
+                        denyButtonColor: '#64748b'     
                     });
-
-                    // result.isConfirmed = Clicked "Yes, save it"
-                    // result.isDenied = Clicked "No, just send"
-                    // result.isDismissed = Clicked "Cancel" or backdrop
                     
                     if (result.isConfirmed) {
                         this.appendHiddenInput(form, 'save_contact', '1');
@@ -159,7 +212,6 @@
                     }
                 },
 
-                // Helper to attach the user's decision to the form request
                 appendHiddenInput(form, name, value) {
                     let input = form.querySelector(`input[name="${name}"]`);
                     if (!input) {

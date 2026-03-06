@@ -2,7 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\User\{DashboardController, CaseController, DocumentController, TemplateController, EmailController};
-
+use App\Http\Controllers\AiReplyController;
 /*
 |--------------------------------------------------------------------------
 | User / Client Routes
@@ -47,6 +47,8 @@ Route::middleware(['auth', 'verified'])->name('user.')->group(function () {
     Route::post('/cases/{case}/send-email', [CaseController::class, 'sendEmail'])->name('cases.send_email');
     Route::post('/cases/{case}/update-stage', [App\Http\Controllers\User\CaseController::class, 'updateStage'])
     ->name('user.cases.update_stage');
+
+    Route::post('/cases/{case_id}/ai-reply', [AiReplyController::class, 'generate'])->name('ai.generate-reply');
 
 //     
 });

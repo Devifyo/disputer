@@ -15,7 +15,7 @@
         isEscalation: false,
         isFollowUp: false,
         isLocked: false, // NEW: Dedicated lock state
-        
+        replyEmailId: null,
         // Central function to open Compose/Reply modal
         openCompose(detail) {
             let data = Array.isArray(detail) ? detail[0] : (detail || {});
@@ -30,6 +30,7 @@
             this.replyBody = data.body || '';
             this.isEscalation = data.isEscalation || false;
             this.isFollowUp   = !!data.isFollowUp;
+            this.replyEmailId = data.replyEmailId || null;
             this.composeModalOpen = true;
         }
      }"

@@ -161,7 +161,9 @@
                                                     subject: 'Re: {{ addslashes($safeSubject) }}', 
                                                     recipient: '{{ addslashes($safeRecipient) }}',
                                                     body: '',
-                                                    isEscalation: false
+                                                    isEscalation: false,
+                                                    isFollowUp: false,
+                                                    replyEmailId: '{{ $rawEmailId }}'
                                                 })" 
                                                 class="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-blue-200 bg-blue-50 hover:bg-blue-100 hover:border-blue-300 transition-all text-xs font-bold text-blue-600 shadow-sm">
                                                 <i data-lucide="reply" class="w-3.5 h-3.5"></i> Reply
