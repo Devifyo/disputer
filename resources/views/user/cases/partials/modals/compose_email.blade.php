@@ -146,37 +146,63 @@
                 files: [],
                 isGenerating: false, 
                 
-                // Function now accepts the variables explicitly
+                // Added Auto-Retry Logic & SweetAlert Errors
                 async generateAIReply(caseId, currentSubject, isEscalation, isFollowUp, emailId) {
                     this.isGenerating = true;
                     
-                    try {
-                        const response = await fetch(`/cases/${caseId}/ai-reply`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                            },
-                            body: JSON.stringify({ 
-                                subject: currentSubject,
-                                is_escalation: isEscalation,
-                                is_followup: isFollowUp,
-                                reply_email_id: emailId // Now it passes perfectly!
-                            })
-                        });
-                        
-                        const data = await response.json();
-                        
-                        if (data.text) {
-                            this.replyBody = data.text; 
-                            if (data.subject && !this.replySubject) {
-                                this.replySubject = data.subject; 
+                    let maxRetries = 3;
+                    let attempt = 0;
+                    let success = false;
+
+                    while (attempt < maxRetries && !success) {
+                        try {
+                            attempt++;
+                            const response = await fetch(`/cases/${caseId}/ai-reply`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                                },
+                                body: JSON.stringify({ 
+                                    subject: currentSubject,
+                                    is_escalation: isEscalation,
+                                    is_followup: isFollowUp,
+                                    reply_email_id: emailId
+                                })
+                            });
+                            
+                            const data = await response.json();
+                            
+                            if (data.text) {
+                                this.replyBody = data.text; 
+                                if (data.subject && !this.replySubject) {
+                                    this.replySubject = data.subject; 
+                                }
+                                success = true; // Success! Break the retry loop.
+                            } else {
+                                // If it failed and we are out of retries, show error
+                                if (attempt === maxRetries) {
+                                    Swal.fire({
+                                        title: 'AI Busy',
+                                        text: 'The AI is currently busy. Please try clicking generate again.',
+                                        icon: 'warning',
+                                        confirmButtonColor: '#2563eb'
+                                    });
+                                }
                             }
-                        } else {
-                            alert('AI generation failed. Please try again.');
+                        } catch (error) {
+                            if (attempt === maxRetries) {
+                                Swal.fire({
+                                    title: 'Connection Error',
+                                    text: 'A network error occurred while contacting the AI.',
+                                    icon: 'error',
+                                    confirmButtonColor: '#2563eb'
+                                });
+                            } else {
+                                // Wait 1.5 seconds before trying again automatically
+                                await new Promise(resolve => setTimeout(resolve, 1500));
+                            }
                         }
-                    } catch (error) {
-                        alert('A network error occurred contacting the AI.');
                     }
                     
                     this.isGenerating = false;
