@@ -25,6 +25,7 @@
             
             this.replyTo = targetEmail || '';
             this.isLocked = targetEmail ? true : false; // Lock ONLY if the system provided the email
+            this.hasSystemEmail = targetEmail ? true : false;
             
             this.replySubject = data.subject || '';
             this.replyBody = data.body || '';

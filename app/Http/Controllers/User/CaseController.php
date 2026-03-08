@@ -94,13 +94,18 @@ class CaseController extends Controller
         }
 
         $request->validate([
-            'recipient' => 'required|email',
+            // 'rfc,dns' forces Laravel to check if the domain actually exists and can receive mail
+            'recipient' => 'required|email:rfc,dns', 
             'subject' => 'required|string|max:255',
             'body' => 'required|string',
             'attachments' => 'array',
             'attachments.*' => 'nullable|file|mimes:pdf,jpg,jpeg,png,doc,docx|max:10240',
             'is_escalation' => 'nullable|boolean',
             'save_contact' => 'nullable|in:0,1'
+        ], [
+            // Custom error messages to explain exactly why it failed to the user
+            'recipient.dns' => 'This email domain cannot receive mail. Please verify the address to prevent a bounce.',
+            'recipient.email' => 'Please enter a valid email address format.'
         ]);
 
         try {

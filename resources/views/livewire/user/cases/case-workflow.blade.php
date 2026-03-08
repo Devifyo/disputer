@@ -347,6 +347,6 @@
     </div>
     @endif
 
-    @include('user.cases.partials.modals.compose_email')
+    {{-- @include('user.cases.partials.modals.compose_email') --}}
 
 </div>

@@ -10,7 +10,7 @@
          x-data="fileManager('{{ encrypt_id($case->id) ?? $case->id }}')">
          
         {{-- ADDED @submit.prevent to intercept the submission --}}
-        <form @submit.prevent="submitForm" action="{{ route('user.cases.send_email', encrypt_id($case->id)) }}" method="POST" enctype="multipart/form-data" class="flex flex-col h-full">
+        <form @submit.prevent="submitForm" action="{{ route('user.cases.send_email', encrypt_id($case->id)) }}" method="POST" enctype="multipart/form-data" class="flex flex-col h-full" id="composeForm">
             @csrf
             <input type="hidden" name="is_escalation" :value="isEscalation ? 1 : 0">
             <input type="hidden" name="is_followup"   :value="isFollowUp ? 1 : 0">
@@ -32,7 +32,8 @@
                         <label class="text-xs font-semibold text-slate-500 w-12 shrink-0 pl-6">To</label>
                         
                         <input type="email" 
-                            name="recipient" 
+                            name="recipient"
+                            id="recipient" 
                             x-model="replyTo" 
                             :readonly="isLocked" 
                             :class="isLocked ? 'cursor-not-allowed text-slate-500' : 'text-slate-900'"
@@ -58,7 +59,7 @@
                     {{-- Subject Field --}}
                     <div class="flex items-center border-b border-slate-100 focus-within:border-blue-500 transition-colors">
                         <label class="text-xs font-semibold text-slate-500 w-12 shrink-0 pl-6">Subject</label>
-                        <input type="text" name="subject" x-model="replySubject" class="w-full py-3 text-sm font-bold text-slate-900 border-0 focus:ring-0 placeholder:text-slate-300" required>
+                        <input type="text" name="subject" id="subject" x-model="replySubject" class="w-full py-3 text-sm font-bold text-slate-900 border-0 focus:ring-0 placeholder:text-slate-300" required>
                     </div>
                 </div>
 
@@ -71,7 +72,7 @@
                     <div class="flex items-center justify-between mb-2">
                         <label class="text-xs font-semibold text-slate-500">Message</label>
                         
-{{-- 1-Click AI Generate Button --}}
+                    {{-- 1-Click AI Generate Button --}}
                         <button type="button" 
                                 @click="generateAIReply('{{ encrypt_id($case->id) ?? $case->id }}', replySubject, isEscalation, isFollowUp, replyEmailId)"
                                 :disabled="isGenerating"
@@ -87,7 +88,7 @@
                         </button>
                     </div>
 
-                    <textarea name="body" x-model="replyBody" class="w-full flex-1 text-sm text-slate-700 leading-relaxed border-0 focus:ring-0 resize-none placeholder:text-slate-300 outline-none" placeholder="Type your message here..."></textarea>
+                    <textarea name="body" id="body" x-model="replyBody" class="w-full flex-1 text-sm text-slate-700 leading-relaxed border-0 focus:ring-0 resize-none placeholder:text-slate-300 outline-none" placeholder="Type your message here..."></textarea>
                 </div>
                 {{-- text area end --}}
                 <div class="px-6 pb-6 pt-2 bg-slate-50 border-t border-slate-100">
@@ -139,6 +140,65 @@
             </div>
         </form>
     </div>
+    @push('scripts')
+    <script>
+        $(document).ready(function () {
+            $("#composeForm").validate({
+                ignore: [], 
+                
+                // 1. BUILT-IN REAL-TIME VALIDATION
+                onkeyup: function(element) { $(element).valid(); },
+                onfocusout: function(element) { $(element).valid(); },
+
+                rules: {
+                    recipient: { required: true, email: true },
+                    subject: { required: true, minlength: 3 },
+                    body: { required: true, minlength: 5 }
+                },
+                messages: {
+                    recipient: {
+                        required: "Please enter a valid recipient email.",
+                        email: "Enter a valid email address."
+                    },
+                    subject: { 
+                        required: "A subject is required.",
+                        minlength: "Must be at least 3 characters."
+                    },
+                    body: { 
+                        required: "Message body cannot be empty.",
+                        minlength: "Please enter at least 5 characters." 
+                    }
+                },
+                
+                // 2. THE FIX: Use a simple class name without Tailwind brackets!
+                errorClass: "error-message", 
+                errorElement: "div",
+                
+                errorPlacement: function(error, element) {
+                    // PREVENT DUPLICATES
+                    let errorId = element.attr("name") + "-error";
+                    $('#' + errorId).remove(); 
+                    error.attr('id', errorId);
+                    
+                    // 3. Add the Tailwind styling dynamically here instead!
+                    error.addClass('text-red-500 text-[11px] font-bold block pt-1 pl-1');
+                    
+                    if (element.attr("name") == "recipient" || element.attr("name") == "subject") {
+                        error.insertAfter(element.parent());
+                    } else {
+                        error.insertAfter(element);
+                    }
+                },
+                
+                highlight: function(element) {
+                    $(element).addClass('bg-red-50 text-red-900 placeholder-red-300 border-red-200');
+                },
+                unhighlight: function(element) {
+                    $(element).removeClass('bg-red-50 text-red-900 placeholder-red-300 border-red-200');
+                }
+            });
+        });
+    </script>s
 
     <script>
         function fileManager() {
@@ -209,16 +269,20 @@
                 },
 
                 async submitForm(e) {
+                    if (!$("#composeForm").valid()) {
+                        return;
+                    }
                     const form = e.target;
                     
-                    if (this.isLocked) {
+                    if (this.isLocked || this.hasSystemEmail) {
+                        this.appendHiddenInput(form, 'save_contact', '0');
                         form.submit();
                         return;
                     }
 
                     const result = await Swal.fire({
                         title: 'Save this contact?',
-                        text: 'Save this contact for this institution?',
+                        text: 'Save this contact for current stage ?',
                         icon: 'question',
                         showDenyButton: true,
                         showCancelButton: true,
@@ -274,4 +338,5 @@
             }
         }
     </script>
+    @endpush
 </div>
