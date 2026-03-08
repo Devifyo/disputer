@@ -111,7 +111,8 @@ class CaseService
             'step_name' => $stepLabel,
             'current_step' => $currentIndex + 1, // Human readable (1-based)
             'total_steps' => $totalSteps,
-            'progress_percent' => round($progress)
+            'progress_percent' => round($progress),
+            'current_step_key' => $currentStepKey // Include the actual step key for reference
         ];
     }
 }

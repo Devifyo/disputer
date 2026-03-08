@@ -4,9 +4,9 @@ namespace App\Http\Controllers\User;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use App\Models\{Institution, Cases}; // Import your Model
-use App\Services\CaseService;
-use App\Services\SendEmailService;
+use App\Models\{Institution, Cases, InstitutionContact};
+use App\Services\{CaseService, SendEmailService};
+use Barryvdh\DomPDF\Facade\Pdf;
 class CaseController extends Controller
 {   
     protected $caseService;
@@ -33,22 +33,32 @@ class CaseController extends Controller
         $escalationDetails = $escalationService->getEscalationDetails($case);
         $metadata = $this->caseService->extractCaseMetadata($case);
         
-        // NEW: Get workflow visualization data
+        //workflow visualization data
         $workflow = $this->caseService->getWorkflowDetails($case);
+        $recipientData = $case->institution->getStepRecipient($workflow['current_step_key']);
+        // Handle Email and Fallback Logic
+        $recipientEmail = '';
+        $recipientUrl = '';
 
-       return view('user.cases.show', compact('case', 'metadata', 'workflow', 'escalationDetails'));
+        if ($recipientData) {
+            if ($recipientData['type'] === 'email') {
+                $recipientEmail = $recipientData['value'];
+            } elseif ($recipientData['type'] === 'url') {
+                $recipientUrl = $recipientData['value'];
+                // Auto-fill the fallback email if the primary type is a URL
+                $recipientEmail = $recipientData['fallback_email'] ?? '';
+            }
+        }
+
+       return view('user.cases.show', compact('case', 'metadata', 'workflow', 'escalationDetails', 'recipientData','recipientEmail', 'recipientUrl'));
     }
 
     /**
-     * Step 1: Show the Institution Selection Wizard
+     * Show the Institution Selection Wizard
      */
     public function createStep1()
     {   
-        // Pass popular institutions for the "Quick Pick" section
         $popular = Institution::where('is_verified', true)->limit(4)->get();
-
-        // 2. All Categories (for when user creates a custom institution)
-        // We pluck them to make a simple dropdown list
         $categories = \App\Models\InstitutionCategory::orderBy('name')->get();
 
         return view('user.cases.create_wizard', compact('popular','categories'));
@@ -66,9 +76,9 @@ class CaseController extends Controller
         }
 
         // Search logic using the Model you provided
-        $institutions = Institution::with('category') // Eager load category
+        $institutions = Institution::with('category') 
             ->where('name', 'LIKE', "%{$query}%")
-            ->where('is_verified', true) // Only show verified ones in search
+            ->where('is_verified', true) 
             ->limit(5)
             ->get();
 
@@ -84,14 +94,20 @@ class CaseController extends Controller
         }
 
         $request->validate([
-            'recipient' => 'required|email',
+            // 'rfc,dns' forces Laravel to check if the domain actually exists and can receive mail
+            'recipient' => 'required|email:rfc,dns', 
             'subject' => 'required|string|max:255',
             'body' => 'required|string',
             'attachments' => 'array',
             'attachments.*' => 'nullable|file|mimes:pdf,jpg,jpeg,png,doc,docx|max:10240',
-            'is_escalation' => 'nullable|boolean' // Validate as boolean (accepts "1", "0", "true", "false")
+            'is_escalation' => 'nullable|boolean',
+            'save_contact' => 'nullable|in:0,1'
+        ], [
+            // Custom error messages to explain exactly why it failed to the user
+            'recipient.dns' => 'This email domain cannot receive mail. Please verify the address to prevent a bounce.',
+            'recipient.email' => 'Please enter a valid email address format.'
         ]);
-        
+
         try {
             $caseId = decrypt_id($casId);
             $case = Cases::find($caseId);
@@ -137,7 +153,7 @@ class CaseController extends Controller
                 ];
             }
 
-            // 3. SEND EMAIL (Pass overrides to avoid duplicate logs)
+            // 3. SEND EMAIL 
             $this->emailService->sendAndLog(
                 auth()->user(),
                 $case,
@@ -145,11 +161,33 @@ class CaseController extends Controller
                 $request->subject,
                 $request->body,
                 $files,
-                null, // Parent Email (null for new emails)
-                $timelineOverrides // <--- Pass the config here
+                null, 
+                $timelineOverrides 
             );
 
-            // 4. UPDATE CASE STATE (Business Logic)
+            // ==========================================
+            // NEW: SAVE CONTACT IF USER CONFIRMED
+            // ==========================================
+            if ($request->input('save_contact') == '1' && $case->institution_id) {
+                    InstitutionContact::updateOrCreate(
+                    [
+                        // Match existing contact for this institution, step, and channel
+                        'institution_id' => $case->institution_id,
+                        'step_key' => $case->current_workflow_step,
+                        'channel' => 'email'
+                    ],
+                    [
+                        // Update or create with these values
+                        'contact_value' => $request->recipient,
+                        'is_primary' => true,
+                        'department_name' => ucwords(str_replace('_', ' ', $case->current_workflow_step)) . ' Contact',
+                        'tone' => 'firm'
+                    ]
+                );
+            }
+            // ==========================================
+
+            // 4. UPDATE CASE STATE
             if ($isEscalation) {
                 $case->timestamps = false;
                 $case->update([
@@ -167,4 +205,22 @@ class CaseController extends Controller
             return back()->with('error', $e->getMessage());
         }
     }
+
+    public function exportPdf($id)
+    {
+        $realId = decrypt_id($id); 
+        $case = Cases::with(['timeline.email', 'institution'])->findOrFail($realId);
+        $metadata = $this->caseService->extractCaseMetadata($case);
+
+        $publicTimeline = $case->timeline->filter(function($log) {
+            return !in_array($log->type, ['Ai_guidance_workflow', 'system_suggestion', 'debug_log']);
+        });
+
+        $pdf = Pdf::loadView('user.cases.pdf', compact('case', 'metadata', 'publicTimeline'));
+        $pdf->setPaper('A4', 'portrait');
+
+        return $pdf->download('Dispute_Case_' . $case->case_reference_id . '.pdf');
+    }
+
+    
 }

@@ -40,7 +40,6 @@ class CaseWorkflow extends Component
     public function mount(Cases $case)
     {
         $this->case = $case;
-        
         // Access config via Institution -> Category
         $this->workflowConfig = $this->case->institution->category->workflow_config ?? [];
 
@@ -58,7 +57,7 @@ class CaseWorkflow extends Component
     }
 
     public function loadStepConfig()
-    {
+    {   
         $this->currentStepConfig = $this->workflowConfig['steps'][$this->currentStepKey] ?? null;
     }
 
@@ -251,7 +250,26 @@ class CaseWorkflow extends Component
             
             $this->currentStepKey = $newStep;
             $this->loadStepConfig();
+            // =========================================================
+            // NEW CODE: Update Dynamic Recipient Email for the Frontend
+            // =========================================================
+            $recipientData = $this->case->institution->getStepRecipient($newStep);
+            
+            $newEmail = '';
+            $newUrl = '';
 
+            if ($recipientData) {
+                if ($recipientData['type'] === 'email') {
+                    $newEmail = $recipientData['value'];
+                } elseif ($recipientData['type'] === 'url') {
+                    $newUrl = $recipientData['value'];
+                    // If it's a URL, auto-fill the email variable with the fallback!
+                    $newEmail = $recipientData['fallback_email'] ?? '';
+                }
+            }
+            // Now $newEmail contains either the real email OR the fallback email.
+            $this->dispatch('workflow-step-changed', email: $newEmail, url: $newUrl);
+            // =========================================================
             CaseTimeline::create([
                 'case_id'     => $this->case->id,
                 'type'        => 'workflow_change',

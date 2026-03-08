@@ -2,7 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\User\{DashboardController, CaseController, DocumentController, TemplateController, EmailController};
-
+use App\Http\Controllers\AiReplyController;
 /*
 |--------------------------------------------------------------------------
 | User / Client Routes
@@ -12,7 +12,7 @@ use App\Http\Controllers\User\{DashboardController, CaseController, DocumentCont
 | Middleware: auth, verified
 */
 
-Route::middleware(['auth', 'verified'])->name('user.')->group(function () {
+Route::middleware(['auth', 'verified', 'role_access:user'])->name('user.')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])
         ->name('dashboard');
 
@@ -25,7 +25,7 @@ Route::middleware(['auth', 'verified'])->name('user.')->group(function () {
 
     Route::get('/cases/{case_reference_id}', [CaseController::class, 'show'])
         ->name('cases.show');
-
+    Route::get('/cases/{case}/export', [CaseController::class, 'exportPdf'])->name('cases.export');
     Route::get('/api/institutions/search', [CaseController::class, 'searchInstitutions'])
         ->name('api.institutions.search');
 
@@ -47,6 +47,8 @@ Route::middleware(['auth', 'verified'])->name('user.')->group(function () {
     Route::post('/cases/{case}/send-email', [CaseController::class, 'sendEmail'])->name('cases.send_email');
     Route::post('/cases/{case}/update-stage', [App\Http\Controllers\User\CaseController::class, 'updateStage'])
     ->name('user.cases.update_stage');
+
+    Route::post('/cases/{case_id}/ai-reply', [AiReplyController::class, 'generate'])->name('ai.generate-reply');
 
 //     
 });

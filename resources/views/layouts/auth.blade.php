@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>@yield('title', 'Portal') - {{ config('app.name') }}</title>
+    <title>@yield('title', 'Portal') - Unjamm</title>
 
     <script src="https://cdn.tailwindcss.com"></script>
 
@@ -18,7 +18,7 @@
                             950: '#020617',
                         },
                         blue: {
-                            650: '#2563eb', // Richer blue
+                            650: '#2563eb',
                         }
                     },
                     fontFamily: {
@@ -51,7 +51,6 @@
         .fade-in { animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         
-        /* Subtle pattern overlay */
         .bg-grid-pattern {
             background-image: radial-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px);
             background-size: 24px 24px;
@@ -82,39 +81,39 @@
                 <img src="/icon.svg" class="w-6 h-6 invert brightness-0 invert-[1]" alt="Icon" />            
             </div>
             <div>
-                <span class="font-bold tracking-tight text-xl block leading-none text-white">{{ config('app.name') }}</span>
-                <span class="text-[10px] text-blue-200/80 font-mono uppercase tracking-widest mt-0.5 block">Dispute Resolution Platform</span>
+                <span class="font-bold tracking-tight text-xl block leading-none text-white">Unjamm</span>
+                <span class="text-[10px] text-blue-200/80 font-mono uppercase tracking-widest mt-0.5 block">Get Unstuck.</span>
             </div>
         </div>
 
         <div class="relative z-10 max-w-md mt-auto mb-auto">
             <h1 class="text-4xl font-bold mb-6 tracking-tight text-white leading-tight">
-                Navigate Bureaucracy <br>
-                <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-300">With Confidence.</span>
+                Take action when <br>
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-300">life gets stuck.</span>
             </h1>
             
             <p class="text-slate-400 text-lg leading-relaxed mb-8">
-                Stop fighting alone. Our intelligent platform helps you generate formal disputes, track responses, and reclaim what's rightfully yours.
+                Navigate institutions with clarity, structure, and confidence. We act as your copilot for formal communication and escalation.
             </p>
 
             <div class="grid gap-4">
                 <div class="flex items-center gap-4 p-3 rounded-lg bg-white/5 border border-white/5 backdrop-blur-sm hover:bg-white/10 transition-colors group">
                     <div class="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 group-hover:text-white group-hover:bg-blue-500 transition-all">
-                        <i data-lucide="sparkles" class="w-5 h-5"></i>
+                        <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
                     </div>
                     <div>
-                        <h3 class="text-sm font-bold text-white">AI-Powered Letters</h3>
-                        <p class="text-xs text-slate-400">Generate professional legal templates in seconds.</p>
+                        <h3 class="text-sm font-bold text-white">Full Case Tracking</h3>
+                        <p class="text-xs text-slate-400">Create cases for any institution and monitor every stage of your progress.</p>
                     </div>
                 </div>
 
                 <div class="flex items-center gap-4 p-3 rounded-lg bg-white/5 border border-white/5 backdrop-blur-sm hover:bg-white/10 transition-colors group">
                     <div class="w-10 h-10 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400 group-hover:text-white group-hover:bg-indigo-500 transition-all">
-                        <i data-lucide="shield-check" class="w-5 h-5"></i>
+                        <i data-lucide="mail" class="w-5 h-5"></i>
                     </div>
                     <div>
-                        <h3 class="text-sm font-bold text-white">Bank-Grade Security</h3>
-                        <p class="text-xs text-slate-400">Your documents and personal data are encrypted.</p>
+                        <h3 class="text-sm font-bold text-white">AI Drafting & Email Sync</h3>
+                        <p class="text-xs text-slate-400">Generate AI emails and track all incoming institutional responses within the platform.</p>
                     </div>
                 </div>
             </div>
@@ -122,10 +121,10 @@
 
         <div class="relative z-10 flex items-center justify-between border-t border-white/10 pt-6 mt-8">
             <div class="text-xs text-slate-500 font-mono">
-                &copy; {{ date('Y') }} {{ config('app.name') }} Inc.
+                &copy; {{ date('Y') }} Unjamm
             </div>
             <div class="flex gap-4">
-                <a href="#" class="text-xs text-slate-400 hover:text-white transition-colors">About us</a>
+                <a href="#" class="text-xs text-slate-400 hover:text-white transition-colors">About</a>
                 <a href="#" class="text-xs text-slate-400 hover:text-white transition-colors">Support</a>
             </div>
         </div>
@@ -137,7 +136,7 @@
             <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-600/20">
                 <img src="/icon.svg" class="w-6 h-6 invert brightness-0 invert-[1]" alt="Icon" />            
             </div>
-            <span class="font-bold text-slate-900 tracking-tight text-xl">{{ config('app.name') }}</span>
+            <span class="font-bold text-slate-900 tracking-tight text-xl">Unjamm</span>
         </div>
 
         <div class="flex-grow flex items-center justify-center p-6 sm:p-12">
@@ -156,6 +155,7 @@
         </footer>
 
     </div>
+
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validate/1.20.0/jquery.validate.min.js"></script>
     @stack('scripts')
@@ -167,11 +167,7 @@
                 errorPlacement: function (error, element) {
                     error.addClass("text-red-600 text-xs mt-1 font-medium flex items-center gap-1");
                     error.prepend('<i data-lucide="alert-circle" class="w-3 h-3"></i>');
-                    
-                    // Insert after the input's wrapper
                     error.insertAfter(element.parent(".relative"));
-                    
-                    // Re-render icons for the newly injected error message
                     lucide.createIcons();
                 },
                 highlight: function (element) {
@@ -185,7 +181,6 @@
                         .addClass("border-slate-200 focus:border-blue-500 focus:ring-blue-500/10");
                 },
                 submitHandler: function (form) {
-                    // Trigger Alpine.js loading animation globally
                     form.dispatchEvent(new CustomEvent('valid-submit'));
                     form.submit();
                 }

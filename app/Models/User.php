@@ -76,4 +76,26 @@ class User extends Authenticatable
     {
         return $query->role('user');
     }
+    public function scopeAdmin($query)
+    {
+        return $query->where('role', 'admin');
+    }
+    
+    /**
+     * Check if the user is an Administrator
+     */
+    public function isAdmin(): bool
+    {
+        // This compares the user's role_id to the ID defined in your config
+        return $this->role_id === config('roles.admin.id');
+    }
+
+    /**
+     * Check if the user is a standard User
+     */
+    public function isUser(): bool
+    {
+        return $this->role_id === config('roles.user.id');
+    }
+    
 }

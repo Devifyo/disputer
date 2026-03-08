@@ -7,12 +7,14 @@
          @click="composeModalOpen = false"></div>
     
     <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden max-h-[90vh]"
-         x-data="{ ...fileManager() }">
+         x-data="fileManager('{{ encrypt_id($case->id) ?? $case->id }}')">
          
-        <form action="{{ route('user.cases.send_email', encrypt_id($case->id)) }}" method="POST" enctype="multipart/form-data" class="flex flex-col h-full">
+        {{-- ADDED @submit.prevent to intercept the submission --}}
+        <form @submit.prevent="submitForm" action="{{ route('user.cases.send_email', encrypt_id($case->id)) }}" method="POST" enctype="multipart/form-data" class="flex flex-col h-full" id="composeForm">
             @csrf
             <input type="hidden" name="is_escalation" :value="isEscalation ? 1 : 0">
             <input type="hidden" name="is_followup"   :value="isFollowUp ? 1 : 0">
+            
             <div class="px-6 py-4 bg-slate-900 flex justify-between items-center text-white shrink-0">
                 <h3 class="font-bold text-sm flex items-center gap-2">New Message</h3>
                 <button type="button" @click="composeModalOpen = false" class="text-slate-400 hover:text-white transition-colors">
@@ -22,20 +24,73 @@
 
             <div class="flex-1 overflow-y-auto">
                 <div class="px-6 pt-4 pb-2 space-y-1">
-                    <div class="flex items-center border-b border-slate-100 focus-within:border-blue-500 transition-colors">
-                        <label class="text-xs font-semibold text-slate-500 w-12 shrink-0">To</label>
-                        <input type="email" name="recipient" x-model="replyTo" class="w-full py-3 text-sm font-medium text-slate-900 border-0 focus:ring-0 placeholder:text-slate-300" required>
+                    
+                    {{-- To Field --}}
+                    <div class="flex items-center border-b border-slate-100 transition-colors" 
+                    :class="isLocked ? 'bg-slate-50' : 'focus-within:border-blue-500 bg-white'">
+                    
+                        <label class="text-xs font-semibold text-slate-500 w-12 shrink-0 pl-6">To</label>
+                        
+                        <input type="email" 
+                            name="recipient"
+                            id="recipient" 
+                            x-model="replyTo" 
+                            :readonly="isLocked" 
+                            :class="isLocked ? 'cursor-not-allowed text-slate-500' : 'text-slate-900'"
+                            class="w-full py-3 text-sm font-medium border-0 focus:ring-0 bg-transparent placeholder:text-slate-300" 
+                            placeholder="Enter recipient email..."
+                            required>
+
+                        {{-- Edit Button (Pencil Icon) --}}
+                        <template x-if="isLocked">
+                            <div class="pr-6 flex items-center gap-2">
+                                <button type="button" 
+                                        @click="isLocked = false" 
+                                        title="Edit Recipient"
+                                        class="p-1.5 bg-white border border-slate-200 hover:border-blue-300 hover:text-blue-600 text-slate-400 rounded shadow-sm transition-all flex items-center justify-center">
+                                    <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                        </template>
                     </div>
+                    
+                    {{-- Subject Field --}}
                     <div class="flex items-center border-b border-slate-100 focus-within:border-blue-500 transition-colors">
-                        <label class="text-xs font-semibold text-slate-500 w-12 shrink-0">Subject</label>
-                        <input type="text" name="subject" x-model="replySubject" class="w-full py-3 text-sm font-bold text-slate-900 border-0 focus:ring-0 placeholder:text-slate-300" required>
+                        <label class="text-xs font-semibold text-slate-500 w-12 shrink-0 pl-6">Subject</label>
+                        <input type="text" name="subject" id="subject" x-model="replySubject" class="w-full py-3 text-sm font-bold text-slate-900 border-0 focus:ring-0 placeholder:text-slate-300" required>
                     </div>
                 </div>
 
-                <div class="px-6 py-2 h-full min-h-[200px]">
+                {{-- <div class="px-6 py-2 h-full min-h-[200px]">
                     <textarea name="body" x-model="replyBody" class="w-full h-full text-sm text-slate-700 leading-relaxed border-0 focus:ring-0 resize-none placeholder:text-slate-300 outline-none" placeholder="Type your message here..."></textarea>
+                </div> --}}
+                {{-- EMAIL BODY WITH 1-CLICK AI BUTTON --}}
+                <div class="px-6 py-3 flex-1 flex flex-col min-h-[250px]">
+                    
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="text-xs font-semibold text-slate-500">Message</label>
+                        
+                    {{-- 1-Click AI Generate Button --}}
+                        <button type="button" 
+                                @click="generateAIReply('{{ encrypt_id($case->id) ?? $case->id }}', replySubject, isEscalation, isFollowUp, replyEmailId)"
+                                :disabled="isGenerating"
+                                class="text-[10px] font-bold px-3 py-1.5 rounded-md border transition-all flex items-center gap-1.5 bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100 shadow-sm disabled:opacity-50 disabled:cursor-wait">
+                            <span x-show="!isGenerating" class="flex items-center gap-1.5">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                                Auto-Draft with AI
+                            </span>
+                            <span x-show="isGenerating" class="flex items-center gap-1.5">
+                                <svg class="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                AI is writing...
+                            </span>
+                        </button>
+                    </div>
+
+                    <textarea name="body" id="body" x-model="replyBody" class="w-full flex-1 text-sm text-slate-700 leading-relaxed border-0 focus:ring-0 resize-none placeholder:text-slate-300 outline-none" placeholder="Type your message here..."></textarea>
                 </div>
-                
+                {{-- text area end --}}
                 <div class="px-6 pb-6 pt-2 bg-slate-50 border-t border-slate-100">
                     <div class="flex items-center justify-between mb-3">
                         <label class="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-300 rounded-md shadow-sm text-xs font-bold text-slate-700 hover:bg-slate-100 cursor-pointer transition-all">
@@ -85,11 +140,179 @@
             </div>
         </form>
     </div>
+    @push('scripts')
+    <script>
+        $(document).ready(function () {
+            $("#composeForm").validate({
+                ignore: [], 
+                
+                // 1. BUILT-IN REAL-TIME VALIDATION
+                onkeyup: function(element) { $(element).valid(); },
+                onfocusout: function(element) { $(element).valid(); },
+
+                rules: {
+                    recipient: { required: true, email: true },
+                    subject: { required: true, minlength: 3 },
+                    body: { required: true, minlength: 5 }
+                },
+                messages: {
+                    recipient: {
+                        required: "Please enter a valid recipient email.",
+                        email: "Enter a valid email address."
+                    },
+                    subject: { 
+                        required: "A subject is required.",
+                        minlength: "Must be at least 3 characters."
+                    },
+                    body: { 
+                        required: "Message body cannot be empty.",
+                        minlength: "Please enter at least 5 characters." 
+                    }
+                },
+                
+                // 2. THE FIX: Use a simple class name without Tailwind brackets!
+                errorClass: "error-message", 
+                errorElement: "div",
+                
+                errorPlacement: function(error, element) {
+                    // PREVENT DUPLICATES
+                    let errorId = element.attr("name") + "-error";
+                    $('#' + errorId).remove(); 
+                    error.attr('id', errorId);
+                    
+                    // 3. Add the Tailwind styling dynamically here instead!
+                    error.addClass('text-red-500 text-[11px] font-bold block pt-1 pl-1');
+                    
+                    if (element.attr("name") == "recipient" || element.attr("name") == "subject") {
+                        error.insertAfter(element.parent());
+                    } else {
+                        error.insertAfter(element);
+                    }
+                },
+                
+                highlight: function(element) {
+                    $(element).addClass('bg-red-50 text-red-900 placeholder-red-300 border-red-200');
+                },
+                unhighlight: function(element) {
+                    $(element).removeClass('bg-red-50 text-red-900 placeholder-red-300 border-red-200');
+                }
+            });
+        });
+    </script>s
 
     <script>
         function fileManager() {
             return {
                 files: [],
+                isGenerating: false, 
+                
+                // Added Auto-Retry Logic & SweetAlert Errors
+                async generateAIReply(caseId, currentSubject, isEscalation, isFollowUp, emailId) {
+                    this.isGenerating = true;
+                    
+                    let maxRetries = 3;
+                    let attempt = 0;
+                    let success = false;
+
+                    while (attempt < maxRetries && !success) {
+                        try {
+                            attempt++;
+                            const response = await fetch(`/cases/${caseId}/ai-reply`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                                },
+                                body: JSON.stringify({ 
+                                    subject: currentSubject,
+                                    is_escalation: isEscalation,
+                                    is_followup: isFollowUp,
+                                    reply_email_id: emailId
+                                })
+                            });
+                            
+                            const data = await response.json();
+                            
+                            if (data.text) {
+                                this.replyBody = data.text; 
+                                if (data.subject && !this.replySubject) {
+                                    this.replySubject = data.subject; 
+                                }
+                                success = true; // Success! Break the retry loop.
+                            } else {
+                                // If it failed and we are out of retries, show error
+                                if (attempt === maxRetries) {
+                                    Swal.fire({
+                                        title: 'AI Busy',
+                                        text: 'The AI is currently busy. Please try clicking generate again.',
+                                        icon: 'warning',
+                                        confirmButtonColor: '#2563eb'
+                                    });
+                                }
+                            }
+                        } catch (error) {
+                            if (attempt === maxRetries) {
+                                Swal.fire({
+                                    title: 'Connection Error',
+                                    text: 'A network error occurred while contacting the AI.',
+                                    icon: 'error',
+                                    confirmButtonColor: '#2563eb'
+                                });
+                            } else {
+                                // Wait 1.5 seconds before trying again automatically
+                                await new Promise(resolve => setTimeout(resolve, 1500));
+                            }
+                        }
+                    }
+                    
+                    this.isGenerating = false;
+                },
+
+                async submitForm(e) {
+                    if (!$("#composeForm").valid()) {
+                        return;
+                    }
+                    const form = e.target;
+                    
+                    if (this.isLocked || this.hasSystemEmail) {
+                        this.appendHiddenInput(form, 'save_contact', '0');
+                        form.submit();
+                        return;
+                    }
+
+                    const result = await Swal.fire({
+                        title: 'Save this contact?',
+                        text: 'Save this contact for current stage ?',
+                        icon: 'question',
+                        showDenyButton: true,
+                        showCancelButton: true,
+                        confirmButtonText: 'Yes, save it',
+                        denyButtonText: 'No, just send',
+                        cancelButtonText: 'Cancel',
+                        confirmButtonColor: '#2563eb', 
+                        denyButtonColor: '#64748b'     
+                    });
+                    
+                    if (result.isConfirmed) {
+                        this.appendHiddenInput(form, 'save_contact', '1');
+                        form.submit();
+                    } else if (result.isDenied) {
+                        this.appendHiddenInput(form, 'save_contact', '0');
+                        form.submit();
+                    }
+                },
+
+                appendHiddenInput(form, name, value) {
+                    let input = form.querySelector(`input[name="${name}"]`);
+                    if (!input) {
+                        input = document.createElement('input');
+                        input.type = 'hidden';
+                        input.name = name;
+                        form.appendChild(input);
+                    }
+                    input.value = value;
+                },
+
                 addFiles(e) {
                     const newFiles = Array.from(e.target.files);
                     this.files = [...this.files, ...newFiles];
@@ -115,4 +338,5 @@
             }
         }
     </script>
+    @endpush
 </div>

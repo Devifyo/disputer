@@ -78,7 +78,8 @@ class Index extends Component
             'id' => (string) Str::uuid(),
             'step_key' => '', 'label' => '', 'description' => '', 
             'status_color' => 'slate', 'icon' => 'file', 'waiting_for' => '', 
-            'actions' => [], 'timeouts' => [], 'is_final' => false
+            'actions' => [], 'timeouts' => [], 'is_final' => false,
+            'is_new' => true
         ];
     }
 

@@ -12,16 +12,14 @@ class Index extends Component
 {
     use WithPagination;
 
-    // -- UI State --
+    // -- UI State & Filters --
     public $showModal = false;
     public $isEditMode = false;
-    
-    // -- Filters --
     public $search = '';
-    public $filterCategory = ''; // New: Category Filter
-    public $filterStatus = '';   // New: Status Filter
+    public $filterCategory = '';
+    public $filterStatus = '';
 
-    // -- Form Properties --
+    // -- Form Properties (Restored Escalation) --
     public $institute_id;
     public $name = '';
     public $institution_category_id = '';
@@ -29,11 +27,16 @@ class Index extends Component
     public $escalation_email = '';
     public $escalation_contact_name = '';
     public $is_verified = true;
+    
+    // -- Dynamic Contacts Array --
+    public array $contacts = [];
 
-    // -- Lifecycle Hooks (Reset Pagination when filters change) --
     public function updatingSearch() { $this->resetPage(); }
     public function updatingFilterCategory() { $this->resetPage(); }
     public function updatingFilterStatus() { $this->resetPage(); }
+    
+    // When category changes, reset contacts to avoid invalid step keys
+    public function updatedInstitutionCategoryId() { $this->contacts = []; }
 
     protected function rules()
     {
@@ -41,22 +44,95 @@ class Index extends Component
             'name' => 'required|string|max:255',
             'institution_category_id' => 'required|exists:institution_categories,id',
             'contact_email' => 'required|email|max:255',
-            'escalation_email' => 'nullable|email|max:255',
-            'escalation_contact_name' => 'nullable|string|max:255',
-            'is_verified' => 'boolean'
+            'is_verified' => 'boolean',
+            'contacts.*.tone' => 'required|string|in:polite,firm,escalation',
+            // Dynamic Contacts Validation
+            'contacts.*.step_key' => 'required',
+            'contacts.*.department_name' => 'required|string|max:255',
+            'contacts.*.channel' => 'required|in:email,url,portal,phone',
+            
+            // Conditional Validation for the contact value
+            'contacts.*.contact_value' => [
+                'required',
+                'string',
+                'max:255',
+                function ($attribute, $value, $fail) {
+                    // Extract the index from the attribute name (e.g., contacts.0.contact_value)
+                    preg_match('/contacts\.(\d+)\.contact_value/', $attribute, $matches);
+                    $index = $matches[1] ?? null;
+
+                    if ($index !== null && isset($this->contacts[$index])) {
+                        $channel = $this->contacts[$index]['channel'];
+
+                        if ($channel === 'email' && !filter_var($value, FILTER_VALIDATE_EMAIL)) {
+                            $fail('The contact email must be a valid email address.');
+                        }
+
+                        if (in_array($channel, ['url', 'portal']) && !filter_var($value, FILTER_VALIDATE_URL)) {
+                            $fail('The contact URL must be a valid URL.');
+                        }
+                    }
+                },
+            ],
+        ];
+    }
+
+    /**
+     * Customizing the error attribute names for cleaner messages
+     */
+    protected function validationAttributes()
+    {
+        return [
+            'contacts.*.contact_value' => 'contact email/URL',
+            'contacts.*.step_key' => 'workflow step',
+            'contacts.*.department_name' => 'department name',
+            'contacts.*.tone' => 'communication tone', // <-- NEW
         ];
     }
 
     #[Computed]
     public function categories() { return InstitutionCategory::orderBy('name')->get(); }
 
-    // --- Actions ---
+    // --- NEW: Dynamically fetch steps from the selected category's JSON ---
+    #[Computed]
+    public function availableSteps()
+    {
+        if (!$this->institution_category_id) return [];
+        
+        $category = InstitutionCategory::find($this->institution_category_id);
+        if (!$category || empty($category->workflow_config['steps'])) return [];
+
+        $steps = [];
+        foreach ($category->workflow_config['steps'] as $key => $stepData) {
+            // Exclude final resolution steps from needing a contact
+            if (!isset($stepData['is_final']) || !$stepData['is_final']) {
+                $steps[$key] = $stepData['label'] ?? $key;
+            }
+        }
+        return $steps;
+    }
+
+    public function addContact()
+    {
+        $this->contacts[] = [
+            'step_key' => '',
+            'department_name' => '',
+            'channel' => 'email',
+            'contact_value' => '',
+            'tone' => '',
+        ];
+    }
+
+    public function removeContact($index)
+    {
+        unset($this->contacts[$index]);
+        $this->contacts = array_values($this->contacts);
+    }
 
     public function create()
     {
         $this->resetForm();
         $this->isEditMode = false;
-        $this->is_verified = true;
         $this->showModal = true;
     }
 
@@ -65,7 +141,7 @@ class Index extends Component
         $this->resetForm();
         $this->isEditMode = true;
 
-        $institute = Institution::findOrFail($id);
+        $institute = Institution::with('contacts')->findOrFail($id);
         $this->institute_id = $institute->id;
         $this->name = $institute->name;
         $this->institution_category_id = $institute->institution_category_id;
@@ -73,25 +149,40 @@ class Index extends Component
         $this->escalation_email = $institute->escalation_email;
         $this->escalation_contact_name = $institute->escalation_contact_name;
         $this->is_verified = (bool) $institute->is_verified;
-
+        
+        $this->contacts = $institute->contacts->toArray();
         $this->showModal = true;
     }
 
     public function store()
-    {
+    {   
+        if (!auth()->user()->isAdmin()) {
+            abort(403, 'Only administrators can create internal institutions.');
+        }
+        
         $this->validate();
-        Institution::create($this->formArray());
-        $this->showModal = false;
-        $this->resetForm();
+        $data = array_merge($this->formArray(), [
+            'is_internal' => true,
+            'created_by'   => auth()->id(),
+        ]);
+
+        $institution = Institution::create($data);
+        if (!empty($this->contacts)) $institution->contacts()->createMany($this->contacts);
+        
+        $this->closeModal();
         $this->dispatch('toast', type: 'success', message: 'Institute created!');
     }
 
     public function update()
     {
         $this->validate();
-        Institution::findOrFail($this->institute_id)->update($this->formArray());
-        $this->showModal = false;
-        $this->resetForm();
+        $institution = Institution::findOrFail($this->institute_id);
+        $institution->update($this->formArray());
+
+        $institution->contacts()->forceDelete(); 
+        if (!empty($this->contacts)) $institution->contacts()->createMany($this->contacts);
+
+        $this->closeModal();
         $this->dispatch('toast', type: 'success', message: 'Institute updated!');
     }
 
@@ -115,7 +206,7 @@ class Index extends Component
 
     private function resetForm()
     {
-        $this->reset(['institute_id', 'name', 'institution_category_id', 'contact_email', 'escalation_email', 'escalation_contact_name', 'is_verified']);
+        $this->reset(['institute_id', 'name', 'institution_category_id', 'contact_email', 'escalation_email', 'escalation_contact_name', 'is_verified', 'contacts']);
         $this->resetValidation();
     }
 
@@ -133,22 +224,16 @@ class Index extends Component
 
     public function render()
     {
-        $query = Institution::with(['category'])
-            // Search Filter
+        $query = Institution::with(['category', 'contacts'])
             ->when($this->search, function($q) {
                 $q->where(function($sub) {
                     $sub->where('name', 'like', '%' . $this->search . '%')
                         ->orWhere('contact_email', 'like', '%' . $this->search . '%');
                 });
             })
-            // Category Filter
-            ->when($this->filterCategory, function($q) {
-                $q->where('institution_category_id', $this->filterCategory);
-            })
-            // Status Filter
+            ->when($this->filterCategory, fn($q) => $q->where('institution_category_id', $this->filterCategory))
             ->when($this->filterStatus === 'verified', fn($q) => $q->where('is_verified', true))
             ->when($this->filterStatus === 'unverified', fn($q) => $q->where('is_verified', false))
-            
             ->latest();
 
         return view('livewire.admin.institutions.index', [

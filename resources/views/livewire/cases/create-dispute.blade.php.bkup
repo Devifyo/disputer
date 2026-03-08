@@ -135,7 +135,6 @@
                         </div>
 
                         <div class="p-8 block">
-                            {{-- Base Details --}}
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-5">
                                 <div>
                                     <label class="block text-xs font-bold text-slate-700 mb-1.5">Transaction Date</label>
@@ -155,7 +154,7 @@
                                 </div>
                             </div>
 
-                            <div class="mb-6">
+                            <div class="mb-5">
                                 <label class="block text-xs font-bold text-slate-700 mb-1.5">Reference (Optional)</label>
                                 <div class="relative">
                                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><i data-lucide="hash" class="w-4 h-4 text-slate-400"></i></div>
@@ -163,8 +162,13 @@
                                 </div>
                             </div>
 
-                            {{-- Evidence Upload --}}
-                            <div class="mb-8 border-b border-slate-100 pb-8">
+                            <div class="mb-6">
+                                <label class="block text-xs font-bold text-slate-700 mb-1.5">What is the issue?</label>
+                                <textarea wire:model="issueDescription" rows="4" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-blue-500 transition-all resize-none text-sm" placeholder="Please describe exactly what happened..."></textarea>
+                                @error('issueDescription') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                            </div>
+
+                            <div class="mb-6">
                                 <label class="block text-xs font-bold text-slate-700 mb-1.5">Evidence (Optional)</label>
                                 
                                 <div class="flex items-center justify-center w-full">
@@ -201,53 +205,7 @@
                                 @endif
                             </div>
 
-                            {{-- DRAFTING MODE TOGGLE --}}
-                            <div class="mb-6">
-                                <label class="block text-xs font-bold text-slate-700 mb-3">How would you like to write your dispute Email?</label>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <button wire:click="$set('draftMode', 'ai')" class="relative p-4 rounded-xl border-2 transition-all text-left overflow-hidden {{ $draftMode === 'ai' ? 'border-blue-600 bg-blue-50/50' : 'border-slate-200 bg-white hover:border-blue-300' }}">
-                                        @if($draftMode === 'ai') <div class="absolute top-0 right-0 w-16 h-16 bg-blue-100 rounded-bl-full -mr-8 -mt-8 transition-all"></div> @endif
-                                        <div class="flex items-start gap-3 relative z-10">
-                                            <div class="{{ $draftMode === 'ai' ? 'text-blue-600' : 'text-slate-400' }}">
-                                                <i data-lucide="sparkles" class="w-5 h-5"></i>
-                                            </div>
-                                            <div>
-                                                <h3 class="font-bold text-sm {{ $draftMode === 'ai' ? 'text-blue-900' : 'text-slate-700' }}">AI Assistant</h3>
-                                                <p class="text-xs text-slate-500 mt-0.5">Describe the issue, and AI will draft a professional letter.</p>
-                                            </div>
-                                        </div>
-                                    </button>
-                                    <button wire:click="$set('draftMode', 'manual')" class="relative p-4 rounded-xl border-2 transition-all text-left overflow-hidden {{ $draftMode === 'manual' ? 'border-blue-600 bg-blue-50/50' : 'border-slate-200 bg-white hover:border-blue-300' }}">
-                                        @if($draftMode === 'manual') <div class="absolute top-0 right-0 w-16 h-16 bg-blue-100 rounded-bl-full -mr-8 -mt-8 transition-all"></div> @endif
-                                        <div class="flex items-start gap-3 relative z-10">
-                                            <div class="{{ $draftMode === 'manual' ? 'text-blue-600' : 'text-slate-400' }}">
-                                                <i data-lucide="pen-tool" class="w-5 h-5"></i>
-                                            </div>
-                                            <div>
-                                                <h3 class="font-bold text-sm {{ $draftMode === 'manual' ? 'text-blue-900' : 'text-slate-700' }}">Write Manually</h3>
-                                                <p class="text-xs text-slate-500 mt-0.5">Write your own subject and email body from scratch.</p>
-                                            </div>
-                                        </div>
-                                    </button>
-                                </div>
-                            </div>
-
-                            {{-- DYNAMIC INPUTS BASED ON MODE --}}
-                            @if($draftMode === 'ai')
-                                <div class="mb-2 animate-fade-in">
-                                    <label class="block text-xs font-bold text-slate-700 mb-1.5">What is the issue?</label>
-                                    <textarea wire:model="issueDescription" rows="4" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-blue-500 transition-all resize-none text-sm" placeholder="Please describe exactly what happened..."></textarea>
-                                    @error('issueDescription') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
-                                </div>
-                            @else
-                                <div class="mb-2 animate-fade-in p-5 bg-slate-50 border border-slate-200 rounded-xl text-center">
-                                    <i data-lucide="pen-tool" class="w-6 h-6 text-slate-400 mx-auto mb-2"></i>
-                                    <p class="text-sm text-slate-600 font-medium">You will write your subject and email body in the next step.</p>
-                                </div>
-                            @endif
-
-                            {{-- Button Footer --}}
-                            <div class="flex items-center justify-between pt-5 border-t border-slate-100 mt-6">
+                            <div class="flex items-center justify-between pt-5 border-t border-slate-100">
                                 <button wire:click="goToStep(1)" class="px-5 py-2.5 text-slate-500 font-medium hover:bg-slate-50 rounded-lg transition-colors text-sm">Back</button>
                                 
                                 <button wire:click="generateReview" 
@@ -255,8 +213,8 @@
                                         class="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl shadow-lg flex items-center justify-center transition-all min-w-[160px] text-sm">
                                     
                                     <div wire:loading.class="hidden" wire:target="generateReview" class="flex items-center gap-2">
-                                        <span>{{ $draftMode === 'ai' ? 'Generate Draft' : 'Continue to Write' }}</span>
-                                        @if($draftMode === 'ai') <i data-lucide="sparkles" class="w-4 h-4 text-yellow-400"></i> @else <i data-lucide="arrow-right" class="w-4 h-4"></i> @endif
+                                        <span>Generate Draft</span>
+                                        <i data-lucide="sparkles" class="w-4 h-4 text-yellow-400"></i>
                                     </div>
 
                                     <div wire:loading.class.remove="hidden" wire:target="generateReview" class="hidden flex items-center gap-2">
@@ -264,7 +222,7 @@
                                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                         </svg>
-                                        <span>{{ $draftMode === 'ai' ? 'AI is writing...' : 'Processing...' }}</span>
+                                        <span>AI is writing... Please wait.</span>
                                     </div>
                                 </button>
                             </div>
@@ -275,8 +233,8 @@
                 @if($step === 3)
                     <div class="p-8 animate-fade-in block">
                         <div class="mb-6">
-                            <h1 class="text-xl font-bold text-slate-900">{{ $draftMode === 'ai' ? 'Review & Send' : 'Write & Send' }}</h1>
-                            <p class="text-slate-500 text-sm mt-0.5">{{ $draftMode === 'ai' ? 'Review the generated letter.' : 'Write your dispute letter below.' }}</p>
+                            <h1 class="text-xl font-bold text-slate-900">Review & Send</h1>
+                            <p class="text-slate-500 text-sm mt-0.5">Review the generated letter.</p>
                         </div>
 
                         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -285,7 +243,6 @@
                                 <div>
                                     <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Subject Line</label>
                                     <input wire:model="generatedSubject" type="text" 
-                                        placeholder="e.g. Formal Dispute: Unauthorized Charge"
                                         class="w-full px-4 py-2.5 font-bold text-slate-800 bg-white border border-slate-300 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all shadow-sm text-sm">
                                     @error('generatedSubject') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
                                 </div>
@@ -293,12 +250,8 @@
                                 <div class="relative">
                                     <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Email Body</label>
                                     <textarea wire:model="generatedLetter" rows="12" 
-                                        placeholder="Dear Sir/Madam,&#10;&#10;I am writing to..."
                                         class="w-full p-4 bg-white border border-slate-300 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all font-mono text-sm leading-relaxed shadow-sm resize-none"></textarea>
-                                    
-                                    @if($draftMode === 'ai')
-                                        <div class="absolute top-8 right-3"><span class="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded border border-slate-200">AI Generated</span></div>
-                                    @endif
+                                    <div class="absolute top-8 right-3"><span class="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded border border-slate-200">AI Generated</span></div>
                                 </div>
                                 @error('generatedLetter') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
                             </div>
@@ -306,15 +259,25 @@
                             <div class="lg:col-span-1 space-y-4">
                                 <div class="bg-slate-50 p-5 rounded-xl border border-slate-200">
                                     <h3 class="font-bold text-slate-900 mb-3 text-sm">Recipient</h3>
-                                    
-                                    <div class="mb-2" x-data="{ isLocked: {{ !empty($institutionEmail) ? 'true' : 'false' }} }">
+                                    {{-- <div class="mb-2">
+                                        <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1.5">Institution Email</label>
+                                        <div class="relative">
+                                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><i data-lucide="mail" class="w-4 h-4 text-slate-400"></i></div>
+                                            <input wire:model="institutionEmail" type="email" placeholder="support@bank.com" class="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-lg focus:border-blue-500 outline-none text-sm">
+                                        </div>
+                                        @error('institutionEmail') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                                    </div> --}}
+                                    {{-- email input bx --}}
+                                    <div class="mb-2" x-data="{ isLocked: {{ $institutionEmail ? 'true' : 'false' }} }">
                                         <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1.5">Institution Email</label>
                                         
                                         <div class="relative flex items-center">
+                                            {{-- Mail Icon --}}
                                             <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                                 <i data-lucide="mail" class="w-4 h-4 text-slate-400"></i>
                                             </div>
                                             
+                                            {{-- Input Field --}}
                                             <input wire:model="institutionEmail" 
                                                 type="email" 
                                                 placeholder="support@bank.com" 
@@ -322,6 +285,7 @@
                                                 :class="isLocked ? 'bg-slate-100 text-slate-500 cursor-not-allowed border-slate-200' : 'bg-white border-slate-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10'"
                                                 class="w-full pl-9 pr-10 py-2 rounded-lg outline-none text-sm transition-all border shadow-sm">
                                             
+                                            {{-- Edit (Pencil) Button --}}
                                             <template x-if="isLocked">
                                                 <button type="button" 
                                                         @click="isLocked = false" 
@@ -336,6 +300,7 @@
                                         
                                         @error('institutionEmail') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
                                     </div>
+                                    {{-- email input box --}}
                                 </div>
 
                                 <button wire:click="checkAndPromptContact" wire:loading.attr="disabled" class="w-full py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 text-sm">

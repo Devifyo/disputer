@@ -4,7 +4,7 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use App\Models\Institution;
-use App\Models\InstitutionCategory;
+use App\Models\{InstitutionCategory, User};
 
 class InstitutionSeeder extends Seeder
 {
@@ -18,7 +18,9 @@ class InstitutionSeeder extends Seeder
             'Telecom'   => InstitutionCategory::firstOrCreate(['slug' => 'telecom'], ['name' => 'Telecom & ISP']),
             'Fintech'   => InstitutionCategory::firstOrCreate(['slug' => 'fintech'], ['name' => 'Fintech & Payments']),
         ];
-
+        $adminRole = config('roles.admin.name');
+        $admin = User::role($adminRole)->first();
+        // 2. Create Common Institutions
         $institutions = [
 
             // --- BANKS ---
@@ -29,6 +31,8 @@ class InstitutionSeeder extends Seeder
                 'escalation_email' => 'escalations@chase.com',
                 'escalation_contact_name' => 'Senior Resolution Officer',
                 'is_verified' => true,
+                'is_internal' => true,
+                'created_by' => $admin ? $admin->id : null,
             ],
             [
                 'name' => 'Bank of America',
@@ -37,14 +41,42 @@ class InstitutionSeeder extends Seeder
                 'escalation_email' => 'executive.support@bankofamerica.com',
                 'escalation_contact_name' => 'Executive Escalation Manager',
                 'is_verified' => true,
+                'is_internal' => true,
+                'created_by' => $admin ? $admin->id : null,
+
             ],
             [
                 'name' => 'Wells Fargo',
                 'institution_category_id' => $cats['Bank']->id,
                 'contact_email' => 'fraudclaims@wellsfargo.com',
-                'escalation_email' => 'executive.office@wellsfargo.com',
-                'escalation_contact_name' => 'Customer Advocacy Lead',
                 'is_verified' => true,
+                'is_internal' => true,
+                'created_by' => $admin ? $admin->id : null,
+            ],
+            [
+                'name' => 'Citibank',
+                'institution_category_id' => $cats['Bank']->id,
+                'contact_email' => 'disputes@citi.com',
+                'is_verified' => true,
+                'is_internal' => true,
+                'created_by' => $admin ? $admin->id : null,
+            ],
+            [
+                'name' => 'Capital One',
+                'institution_category_id' => $cats['Bank']->id,
+                'contact_email' => 'disputes@capitalone.com',
+                'is_verified' => true,
+                'is_internal' => true,
+                'created_by' => $admin ? $admin->id : null,
+
+            ],
+            [
+                'name' => 'US Bank',
+                'institution_category_id' => $cats['Bank']->id,
+                'contact_email' => 'fraud_support@usbank.com',
+                'is_verified' => true,
+                'is_internal' => true,
+                'created_by' => $admin ? $admin->id : null,
             ],
 
             // --- FINTECH ---
@@ -55,14 +87,32 @@ class InstitutionSeeder extends Seeder
                 'escalation_email' => 'executiveoffice@paypal.com',
                 'escalation_contact_name' => 'Risk Escalation Officer',
                 'is_verified' => true,
+                'is_internal' => true,
+                'created_by' => $admin ? $admin->id : null,
             ],
             [
                 'name' => 'Stripe',
                 'institution_category_id' => $cats['Fintech']->id,
                 'contact_email' => 'support@stripe.com',
-                'escalation_email' => 'executive@stripe.com',
-                'escalation_contact_name' => 'Head of Merchant Risk',
                 'is_verified' => true,
+                'is_internal' => true,
+                'created_by' => $admin ? $admin->id : null,
+            ],
+            [
+                'name' => 'Coinbase',
+                'institution_category_id' => $cats['Fintech']->id,
+                'contact_email' => 'support@coinbase.com',
+                'is_verified' => true,
+                'is_internal' => true,
+                'created_by' => $admin ? $admin->id : null,
+            ],
+            [
+                'name' => 'Square / Block',
+                'institution_category_id' => $cats['Fintech']->id,
+                'contact_email' => 'support@squareup.com',
+                'is_verified' => true,
+                'is_internal' => true,
+                'created_by' => $admin ? $admin->id : null,
             ],
 
             // --- AIRLINES ---
@@ -70,9 +120,41 @@ class InstitutionSeeder extends Seeder
                 'name' => 'United Airlines',
                 'institution_category_id' => $cats['Airline']->id,
                 'contact_email' => 'customer.care@united.com',
-                'escalation_email' => 'executive.office@united.com',
-                'escalation_contact_name' => 'Customer Relations Director',
                 'is_verified' => true,
+                'is_internal' => true,
+                'created_by' => $admin ? $admin->id : null,
+            ],
+            [
+                'name' => 'Delta Air Lines',
+                'institution_category_id' => $cats['Airline']->id,
+                'contact_email' => 'ticket_refunds@delta.com',
+                'is_verified' => true,
+                'is_internal' => true,
+                'created_by' => $admin ? $admin->id : null,
+            ],
+            [
+                'name' => 'American Airlines',
+                'institution_category_id' => $cats['Airline']->id,
+                'contact_email' => 'customer.relations@aa.com',
+                'is_verified' => true,
+                'is_internal' => true,
+                'created_by' => $admin ? $admin->id : null,
+            ],
+            [
+                'name' => 'Southwest Airlines',
+                'institution_category_id' => $cats['Airline']->id,
+                'contact_email' => 'refunds@wnco.com',
+                'is_verified' => true,
+                'is_internal' => true,
+                'created_by' => $admin ? $admin->id : null,
+            ],
+            [
+                'name' => 'JetBlue Airways',
+                'institution_category_id' => $cats['Airline']->id,
+                'contact_email' => 'dearjetblue@jetblue.com',
+                'is_verified' => true,
+                'is_internal' => true,
+                'created_by' => $admin ? $admin->id : null,
             ],
 
             // --- TELECOM ---
@@ -80,9 +162,33 @@ class InstitutionSeeder extends Seeder
                 'name' => 'AT&T',
                 'institution_category_id' => $cats['Telecom']->id,
                 'contact_email' => 'customer.care@att.com',
-                'escalation_email' => 'executive.support@att.com',
-                'escalation_contact_name' => 'Escalation Case Manager',
                 'is_verified' => true,
+                'is_internal' => true,
+                'created_by' => $admin ? $admin->id : null,
+            ],
+            [
+                'name' => 'Verizon',
+                'institution_category_id' => $cats['Telecom']->id,
+                'contact_email' => 'executive.relations@verizon.com',
+                'is_verified' => true,
+                'is_internal' => true,
+                'created_by' => $admin ? $admin->id : null,
+            ],
+            [
+                'name' => 'T-Mobile',
+                'institution_category_id' => $cats['Telecom']->id,
+                'contact_email' => 'executive.response@t-mobile.com',
+                'is_verified' => true,
+                'is_internal' => true,
+                'created_by' => $admin ? $admin->id : null,
+            ],
+            [
+                'name' => 'Comcast / Xfinity',
+                'institution_category_id' => $cats['Telecom']->id,
+                'contact_email' => 'we_can_help@cable.comcast.com',
+                'is_verified' => true,
+                'is_internal' => true,
+                'created_by' => $admin ? $admin->id : null,
             ],
 
             // --- GOVERNMENT ---
@@ -90,9 +196,25 @@ class InstitutionSeeder extends Seeder
                 'name' => 'Internal Revenue Service (IRS)',
                 'institution_category_id' => $cats['Govt']->id,
                 'contact_email' => 'taxpayer.advocate@irs.gov',
-                'escalation_email' => 'executive.office@irs.gov',
-                'escalation_contact_name' => 'Taxpayer Advocate Officer',
                 'is_verified' => true,
+                'is_internal' => true,
+                'created_by' => $admin ? $admin->id : null,
+            ],
+            [
+                'name' => 'Social Security Administration (SSA)',
+                'institution_category_id' => $cats['Govt']->id,
+                'contact_email' => 'support@ssa.gov',
+                'is_verified' => true,
+                'is_internal' => true,
+                'created_by' => $admin ? $admin->id : null,
+            ],
+            [
+                'name' => 'USCIS (Immigration)',
+                'institution_category_id' => $cats['Govt']->id,
+                'contact_email' => 'cis.ombudsman@hq.dhs.gov',
+                'is_verified' => true,
+                'is_internal' => true,
+                'created_by' => $admin ? $admin->id : null,
             ],
 
             // --- INSURANCE ---
@@ -100,9 +222,33 @@ class InstitutionSeeder extends Seeder
                 'name' => 'Geico',
                 'institution_category_id' => $cats['Insurance']->id,
                 'contact_email' => 'claims@geico.com',
-                'escalation_email' => 'executive.claims@geico.com',
-                'escalation_contact_name' => 'Senior Claims Escalation Lead',
                 'is_verified' => true,
+                'is_internal' => true,
+                'created_by' => $admin ? $admin->id : null,
+            ],
+            [
+                'name' => 'State Farm',
+                'institution_category_id' => $cats['Insurance']->id,
+                'contact_email' => 'claims.support@statefarm.com',
+                'is_verified' => true,
+                'is_internal' => true,
+                'created_by' => $admin ? $admin->id : null,
+            ],
+            [
+                'name' => 'Progressive',
+                'institution_category_id' => $cats['Insurance']->id,
+                'contact_email' => 'upload@progressive.com',
+                'is_verified' => true,
+                'is_internal' => true,
+                'created_by' => $admin ? $admin->id : null,
+            ],
+            [
+                'name' => 'Blue Cross Blue Shield (BCBS)',
+                'institution_category_id' => $cats['Insurance']->id,
+                'contact_email' => 'appeals@bcbs.com',
+                'is_verified' => true,
+                'is_internal' => true,
+                'created_by' => $admin ? $admin->id : null,
             ],
         ];
 

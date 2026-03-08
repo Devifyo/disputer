@@ -5,82 +5,16 @@
         replyTo: @entangle('recipient'),
         replySubject: @entangle('subject'),
         replyBody: @entangle('body'),
-        
-        // AI Context Flags
-        isEscalation: false,
-        isFollowUp: false,
-        isLocked: false,
-        replyEmailId: null,
-
-        // AI Generation State
-        isGenerating: false,
-
-        async generateAIReply(caseId) {
-            this.isGenerating = true;
-            
-            try {
-                const response = await fetch(`/cases/${caseId}/ai-reply`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                    },
-                    body: JSON.stringify({ 
-                        subject: this.replySubject,
-                        is_escalation: this.isEscalation,
-                        is_followup: this.isFollowUp,
-                        reply_email_id: this.replyEmailId
-                    })
-                });
-                
-                const data = await response.json();
-                
-                if (data.text) {
-                    this.replyBody = data.text;
-                    if (data.subject && !this.replySubject) {
-                        this.replySubject = data.subject; 
-                    }
-                } else {
-                    alert('AI generation failed. Please try again.');
-                }
-            } catch (error) {
-                alert('A network error occurred contacting the AI.');
-            }
-            
-            this.isGenerating = false;
-        },
 
         init() {
-            // 1. Listen for backend Livewire triggers
-            Livewire.on('open-compose-modal', (detail) => {
-                let data = Array.isArray(detail) ? detail[0] : (detail || {});
-                this.openCompose(data);
+            Livewire.on('open-compose-modal', (data) => {
+                this.composeModalOpen = true;
+                // If specific data passed from PHP
+                if(data && data[0]) {
+                   // Livewire sometimes wraps args in array
+                   // handled via entangle usually, but safety check
+                }
             });
-
-            // 2. Listen for frontend Alpine dispatches (like your Follow-Up button)
-            window.addEventListener('open-compose-modal', (e) => {
-                this.openCompose(e.detail);
-            });
-        },
-
-        // Unified method to open modal and set state
-        openCompose(data) {
-            this.composeModalOpen = true;
-            
-            if(data) {
-                // Keep entangled data unless explicitly overridden by the button
-                this.replyTo = data.recipient || this.replyTo || '';
-                this.replySubject = data.subject || this.replySubject || '';
-                this.replyBody = data.body || this.replyBody || '';
-                
-                // Set the AI flags!
-                this.isEscalation = data.isEscalation || false;
-                this.isFollowUp = data.isFollowUp || false;
-                this.replyEmailId = data.replyEmailId || null;
-                
-                // Lock the recipient field if a specific one was provided
-                this.isLocked = data.recipient ? true : false;
-            }
         },
 
         confirmAction(actionKey, actionLabel) {
@@ -120,7 +54,7 @@
      }" 
      @email-sent.window="composeModalOpen = false"
      @keydown.escape.window="aiOpen = false; composeModalOpen = false">
-     
+    
     <div class="grid grid-cols-1 lg:grid-cols-12 min-h-[400px]">
         
         <div class="lg:col-span-4 bg-slate-50 border-r border-slate-100 p-6 flex flex-col">
@@ -347,6 +281,6 @@
     </div>
     @endif
 
-    {{-- @include('user.cases.partials.modals.compose_email') --}}
+    @include('user.cases.partials.modals.compose_email')
 
 </div>

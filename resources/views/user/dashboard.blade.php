@@ -97,12 +97,12 @@
                             <div class="flex-1">
                                 <h3 class="text-sm font-bold text-slate-800">{{ $latestUnread->subject ?? 'New Reply Received' }}</h3>
                                 <div class="flex items-center gap-2 mt-0.5">
-                                    <span class="text-xs text-slate-500">Case #{{ $latestUnread->case_id }}</span>
+                                    <span class="text-xs text-slate-500">Case #{{ $latestUnread->case_reference_id }}</span>
                                     <span class="text-[10px] bg-blue-100 text-blue-700 px-1.5 rounded font-bold">NEW</span>
                                 </div>
                             </div>
                         </div>
-                        <a href="{{ route('user.cases.show', $latestUnread->case_id) }}" class="whitespace-nowrap w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow-sm transition-all text-center">
+                        <a href="{{ route('user.cases.show', $latestUnread->case->case_reference_id) }}" class="whitespace-nowrap w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow-sm transition-all text-center">
                             View Reply
                         </a>
                     </div>

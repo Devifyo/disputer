@@ -3,28 +3,45 @@
 @section('title', 'Case #' . $case->case_reference_id)
 
 @section('content')
-    <div class="h-full flex flex-col" 
-         x-data="{ 
-            composeModalOpen: false,
-            replyTo: '',
-            replySubject: '',
-            replyBody: '',
-            isEscalation: false,
-            isFollowUp: false,
+<div class="h-full flex flex-col" 
+     x-data="{ 
+        composeModalOpen: false,
+        dynamicRecipientEmail: '{{ addslashes($recipientEmail ?? '') }}',
+        dynamicRecipientUrl: '{{ addslashes($recipientUrl ?? '') }}', // NEW: Store the URL
+        
+        replyTo: '',
+        replySubject: '',
+        replyBody: '',
+        isEscalation: false,
+        isFollowUp: false,
+        isLocked: false, // NEW: Dedicated lock state
+        replyEmailId: null,
+        // Central function to open Compose/Reply modal
+        openCompose(detail) {
+            let data = Array.isArray(detail) ? detail[0] : (detail || {});
             
-            // Central function to open Compose/Reply modal
-            openCompose(detail) {
-                let data = Array.isArray(detail) ? detail[0] : detail;
-                this.replyTo = data.recipient || '';
-                this.replySubject = data.subject || '';
-                this.replyBody = data.body || '';
-                this.isEscalation = data.isEscalation || false;
-                this.isFollowUp   = !!data.isFollowUp;
-                this.composeModalOpen = true;
-            }
-         }"
-         @open-compose-modal.window="openCompose($event.detail)"
-    >
+            // Determine the email to use
+            let targetEmail = data.recipient !== undefined ? data.recipient : this.dynamicRecipientEmail;
+            
+            this.replyTo = targetEmail || '';
+            this.isLocked = targetEmail ? true : false; // Lock ONLY if the system provided the email
+            this.hasSystemEmail = targetEmail ? true : false;
+            
+            this.replySubject = data.subject || '';
+            this.replyBody = data.body || '';
+            this.isEscalation = data.isEscalation || false;
+            this.isFollowUp   = !!data.isFollowUp;
+            this.replyEmailId = data.replyEmailId || null;
+            this.composeModalOpen = true;
+        }
+     }"
+     @open-compose-modal.window="openCompose($event.detail)"
+        @workflow-step-changed.window="
+            let data = $event.detail[0] || $event.detail;
+            dynamicRecipientEmail = data.email || data.fallbackEmail || '';
+            dynamicRecipientUrl = data.url || '';
+        "
+>
 
         <header class="bg-white border-b border-slate-200 h-16 sticky top-0 z-30 flex items-center justify-between px-4 sm:px-6 lg:px-8 bg-opacity-90 backdrop-blur-md">
             {{-- Header content remains exactly the same --}}
@@ -54,10 +71,12 @@
             </div>
 
             <div class="flex items-center gap-3">
-                <button class="hidden sm:flex items-center gap-2 px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 shadow-sm transition-all">
+                <a href="{{ route('user.cases.export', encrypt_id($case->id)) }}" 
+                    target="_blank"
+                    class="hidden sm:flex items-center gap-2 px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 shadow-sm transition-all">
                     <i data-lucide="download" class="w-4 h-4"></i>
                     <span>Export PDF</span>
-                </button>
+                </a>
             </div>
         </header>
 
