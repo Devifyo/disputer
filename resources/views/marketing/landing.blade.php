@@ -180,6 +180,7 @@
             padding: 24px 28px;
             box-shadow: 0 2px 20px rgba(15, 23, 42, 0.05);
             transition: transform 0.3s;
+            width: 100%; /* Ensures they are all the same width */
         }
         .hero-card:hover { transform: translateX(-6px); }
         .hero-card-label {
@@ -202,8 +203,6 @@
         }
         .badge-resolved { background: rgba(22,163,74,0.1); color: #16a34a; }
         .badge-inprogress { background: rgba(37, 99, 235, 0.1); color: var(--accent); }
-        .hero-card:nth-child(2) { margin-left: 32px; }
-        .hero-card:nth-child(3) { margin-left: 16px; }
 
         /* ─── WHY ─── */
         #why-this-exists {
@@ -457,6 +456,10 @@
             from { opacity: 0; transform: translateY(24px); }
             to { opacity: 1; transform: translateY(0); }
         }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
         .hero-left > * {
             opacity: 0;
             animation: fadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
@@ -465,6 +468,13 @@
         .hero-left > *:nth-child(2) { animation-delay: 0.2s; }
         .hero-left > *:nth-child(3) { animation-delay: 0.35s; }
         .hero-left > *:nth-child(4) { animation-delay: 0.5s; }
+        .hero-visual .hero-card {
+            opacity: 0;
+            animation: slideIn 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        .hero-visual .hero-card:nth-child(1) { animation-delay: 0.5s; }
+        .hero-visual .hero-card:nth-child(2) { animation-delay: 0.65s; }
+        .hero-visual .hero-card:nth-child(3) { animation-delay: 0.8s; }
 
         /* ─── RESPONSIVE ─── */
         @media (max-width: 900px) {
@@ -550,26 +560,34 @@
         <div class="hero-visual">
             <div class="hero-card">
                 <div class="hero-card-label">Case #0034 · Municipal Office</div>
-                <div class="hero-card-title">Pending Information Request – Portugal</div>
-                <div class="hero-card-body">Structured AI-drafted follow-up sent in Portuguese with formal escalation path.</div>
+                <div class="hero-card-title">Pending Information Request</div>
+                <div class="hero-card-body">
+                    Structured AI-drafted follow-up sent in Portuguese with formal escalation path.
+                </div>
                 <span class="hero-card-badge badge-resolved">
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
-                    Resolved in 8 weeks
+                    Resolved 8w
                 </span>
             </div>
+
             <div class="hero-card">
                 <div class="hero-card-label">Case #0041 · E-Commerce</div>
-                <div class="hero-card-title">Amazon Refund Escalation → BBB</div>
-                <div class="hero-card-body">Three-stage escalation culminating in Better Business Bureau complaint.</div>
+                <div class="hero-card-title">Amazon Refund Escalation</div>
+                <div class="hero-card-body">
+                    Three-stage escalation culminating in Better Business Bureau complaint.
+                </div>
                 <span class="hero-card-badge badge-resolved">
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
-                    Full refund obtained
+                    Refund Obtained
                 </span>
             </div>
+
             <div class="hero-card">
                 <div class="hero-card-label">Case #0055 · Healthcare</div>
-                <div class="hero-card-title">Public Healthcare Waiting List</div>
-                <div class="hero-card-body">Written request drafted to place parents on the correct waiting list.</div>
+                <div class="hero-card-title">Public Health Waitlist</div>
+                <div class="hero-card-body">
+                    Written request drafted to place parents on the correct waiting list.
+                </div>
                 <span class="hero-card-badge badge-inprogress">
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3" fill="currentColor"/></svg>
                     Access secured
