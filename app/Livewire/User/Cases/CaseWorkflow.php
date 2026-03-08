@@ -178,7 +178,10 @@ class CaseWorkflow extends Component
         }
 
         $daysInStage = (int)$this->case->updated_at->diffInDays(now());
-        $totalDeadlineDays = $this->currentStepConfig['timeouts'][0]['days'] ?? 14;
+        
+        // Safely extract timeouts so PHP doesn't throw an undefined array key error
+        $totalDeadlineDays = data_get($this->currentStepConfig, 'timeouts.0.days', 14);
+        
         $isDeadlinePassed = $daysInStage >= $totalDeadlineDays ? 'Yes' : 'No';
 
         $prompt = "You are a legal workflow assistant. " .
@@ -190,14 +193,20 @@ class CaseWorkflow extends Component
                 "STRICT LIMITS: 30–45 words. Plain text only.";
 
         try {
-            $response = Http::post("https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={$apiKey}", [
+            // Using your confirmed working model and endpoint
+            $model = 'gemini-2.5-flash';
+            $endpoint = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key={$apiKey}";
+
+            $response = Http::post($endpoint, [
                 'contents' => [['parts' => [['text' => $prompt]]]]
             ]);
 
             if ($response->successful()) {
-                $rawText = $response->json()['candidates'][0]['content']['parts'][0]['text'] ?? 'Please check back later.';
+                // Safely extract the text from the JSON response
+                $rawText = data_get($response->json(), 'candidates.0.content.parts.0.text', 'Please check back later.');
                 $this->aiResponse = trim(strip_tags($rawText));
             } else {
+                Log::error("Gemini API Error", ['status' => $response->status(), 'body' => $response->body()]);
                 $this->aiResponse = "I'm unable to analyze the case details at this moment.";
             }
         } catch (\Exception $e) {

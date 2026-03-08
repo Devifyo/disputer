@@ -156,7 +156,8 @@ class AiReplyService
     private function callGeminiApi(string $systemInstruction, string $apiKey): ?array
     {
         try {
-            $model = 'gemini-flash-latest'; 
+            // $model = 'gemini-flash-latest'; 
+            $model = 'gemini-2.5-flash';
             $endpoint = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key={$apiKey}";
             
             $response = Http::timeout(30)->retry(3, 1000)->post($endpoint, [
