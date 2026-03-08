@@ -12,7 +12,7 @@ use App\Http\Controllers\AiReplyController;
 | Middleware: auth, verified
 */
 
-Route::middleware(['auth', 'verified'])->name('user.')->group(function () {
+Route::middleware(['auth', 'verified', 'role_access:user'])->name('user.')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])
         ->name('dashboard');
 

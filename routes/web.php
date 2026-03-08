@@ -3,18 +3,9 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Auth\PasswordController;
-
+use App\Http\Controllers\MarketingController;
 // 1. Put the root route OUTSIDE the auth middleware
-Route::get('/', function () {
-    if (auth()->check()) {
-        return auth()->user()->role === 'admin' 
-            ? redirect()->route('admin.dashboard') 
-            : redirect()->route('user.dashboard');
-    }
-    
-    // If not logged in, redirect to login cleanly
-    return redirect()->route('login');
-});
+Route::get('/', [MarketingController::class, 'index'])->name('home');
 
 
 // 2. Keep the rest INSIDE the auth middleware

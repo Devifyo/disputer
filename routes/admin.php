@@ -8,7 +8,7 @@ use App\Livewire\Admin\Institutions\Index as InstitutionIndex;
 use App\Livewire\Admin\Settings\Index as AdminSettings;
 use App\Livewire\Admin\Templates\Index as AdminTemplates;
 
-Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->group(function () {
+Route::prefix('admin')->name('admin.')->middleware(['auth', 'role_access:admin'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/users', UserIndex::class)->name('users.index');
     Route::get('/institutions', InstitutionIndex::class)->name('institutions.index');
