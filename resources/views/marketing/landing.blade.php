@@ -775,8 +775,8 @@
             </a>
             <p>&copy; {{ date('Y') }} Unjamm. All rights reserved.</p>
             <div class="footer-links">
-                <a href="#">Privacy</a>
-                <a href="#">Terms</a>
+                <a href="{{ route('privacy') }}">Privacy</a>
+                <a href="{{ route('terms') }}">Terms</a>
                 <a href="#">Support</a>
             </div>
         </div>
