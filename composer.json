@@ -15,6 +15,7 @@
         "livewire/livewire": "^3.5",
         "smalot/pdfparser": "^2.12",
         "spatie/laravel-permission": "^6.24",
+        "stripe/stripe-php": "^19.4",
         "webklex/laravel-imap": "^6.2"
     },
     "require-dev": {

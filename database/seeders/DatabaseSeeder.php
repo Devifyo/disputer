@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
             LetterTemplateSeeder::class,
             WorkflowConfigSeeder::class,
             EmailTemplateSeeder::class,
+            PlanSeeder::class,
         ]);
     }
 }

@@ -75,7 +75,6 @@
                 Users
             </a>
 
-            {{-- CHANGED ICON FROM 'gavel' TO 'file-text' --}}
             <a href="{{ route('admin.templates.index') }}" wire:navigate class="{{ $navClass('admin.templates.*') }} group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200" @click="mobileSidebarOpen = false">
                 <i data-lucide="file-text" class="w-4.5 h-4.5 transition-colors {{ $iconClass('admin.templates.*') }}"></i>
                 Templates
@@ -98,6 +97,14 @@
             <a href="{{ route('admin.categories.index') }}" wire:navigate class="{{ $navClass('admin.categories.*') }} group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200" @click="mobileSidebarOpen = false">
                 <i data-lucide="layers" class="w-4.5 h-4.5 transition-colors {{ $iconClass('admin.categories.*') }}"></i>
                 Categories
+            </a>
+
+            {{-- NEW BILLING & PLANS SECTION --}}
+            <div class="px-3 mt-6 mb-2 text-[10px] uppercase tracking-wider font-bold text-slate-600">Billing</div>
+
+            <a href="{{ route('admin.plans.index') }}" wire:navigate class="{{ $navClass('admin.plans.*') }} group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200" @click="mobileSidebarOpen = false">
+                <i data-lucide="credit-card" class="w-4.5 h-4.5 transition-colors {{ $iconClass('admin.plans.*') }}"></i>
+                Plans & Pricing
             </a>
 
             <div class="px-3 mt-6 mb-2 text-[10px] uppercase tracking-wider font-bold text-slate-600">System</div>
