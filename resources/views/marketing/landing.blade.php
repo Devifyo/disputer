@@ -9,7 +9,28 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
-
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script>
+        tailwind.config = {
+            corePlugins: {
+                preflight: false, // <--- THIS PREVENTS TAILWIND FROM BREAKING YOUR PAGE
+            },
+            theme: {
+                extend: {
+                    colors: {
+                        ink: 'var(--ink)',
+                        paper: 'var(--paper)',
+                        cream: 'var(--cream)',
+                        accent: 'var(--accent)',
+                        muted: 'var(--muted)',
+                        border: 'var(--border)',
+                    }
+                }
+            }
+        }
+    </script>
+   {{-- <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script> --}}
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -500,7 +521,7 @@
         }
     </style>
 </head>
-<body>
+<body x-data="{ showSuccessModal: false }">
 
     <nav>
         <a class="nav-logo" href="#">
@@ -677,7 +698,9 @@
             
             <div style="margin-top: 48px; padding-top: 24px; border-top: 1px solid var(--border);">
                 <p style="color: var(--muted); font-size: 0.95rem;">
-                    Have a success story? <a href="#" style="color: var(--accent); font-weight: 600; text-decoration: underline; text-underline-offset: 4px;">Share how you got unstuck.</a>
+                    Have a success story? <button @click.prevent="showSuccessModal = true" style="color: var(--accent); font-weight: 600; text-decoration: underline; text-underline-offset: 4px; background: none; border: none; cursor: pointer; padding: 0; font-family: inherit; font-size: inherit;">
+                        Share how you got unstuck.
+                    </button>
                 </p>
             </div>
         </div>
@@ -781,7 +804,7 @@
             </div>
         </div>
     </footer>
-
+    @livewire('landing-page.success-story-form')
     <script>
         lucide.createIcons();
     </script>

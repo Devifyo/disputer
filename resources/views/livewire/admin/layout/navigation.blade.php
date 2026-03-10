@@ -81,6 +81,13 @@
                 Templates
             </a>
 
+            <a href="{{ route('admin.success-stories.index') }}" wire:navigate class="{{ $navClass('admin.success-stories.*') }} group flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200" @click="mobileSidebarOpen = false">
+                <div class="flex items-center gap-3">
+                    <i data-lucide="heart" class="w-4.5 h-4.5 transition-colors {{ $iconClass('admin.success-stories.*') }}"></i>
+                    Success Stories
+                </div>
+            </a>
+
             <div class="px-3 mt-6 mb-2 text-[10px] uppercase tracking-wider font-bold text-slate-600">Institutes</div>
 
             <a href="{{ route('admin.institutions.index') }}" wire:navigate class="{{ $navClass('admin.institutions.*') }} group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200" @click="mobileSidebarOpen = false">

@@ -7,7 +7,7 @@ use App\Livewire\Admin\Categories\Index as CategoriesIndex;
 use App\Livewire\Admin\Institutions\Index as InstitutionIndex;
 use App\Livewire\Admin\Settings\Index as AdminSettings;
 use App\Livewire\Admin\Templates\Index as AdminTemplates;
-
+use App\Livewire\Admin\SuccessStories\Index as SuccessStoriesIndex;
 Route::prefix('admin')->name('admin.')->middleware(['auth', 'role_access:admin'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/users', UserIndex::class)->name('users.index');
@@ -15,6 +15,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role_access:admin']
     Route::get('/categories', CategoriesIndex::class)->name('categories.index');
     Route::get('/templates', AdminTemplates::class)->name('templates.index');
     Route::get('/settings', AdminSettings::class)->name('settings.index');
+    Route::get('/success-stories', SuccessStoriesIndex::class)->name('success-stories.index');
     Route::get('/impersonate-case/{case}', [DashboardController::class, 'impersonateAndViewCase'])->name('impersonate.case');
 });
 
