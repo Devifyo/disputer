@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\Cases; 
+use App\Models\UserSubscription; // <-- Add this import
 use App\Enums\CaseStatus;
 
 class DashboardController extends Controller
@@ -15,10 +16,15 @@ class DashboardController extends Controller
      */
     public function index()
     {   
+
+        $totalEarnings = UserSubscription::join('plans', 'user_subscriptions.plan_id', '=', 'plans.id')
+            ->whereNotNull('user_subscriptions.transaction_id')
+            ->sum('plans.price');
+
         $stats = [
             'total_users' => User::customers()->count(),
             'total_cases' => Cases::count(),
-            'pending_cases' => Cases::where('status', CaseStatus::SENT)->count(), // Adjust based on your enum
+            'total_earnings' => $totalEarnings, // <-- Replaced pending_cases with this
             'resolved_today' => Cases::where('status', CaseStatus::RESOLVED)
                                 ->whereDate('updated_at', today())
                                 ->count(),
@@ -42,13 +48,8 @@ class DashboardController extends Controller
         $admin = auth()->user();
         $targetUser = $case->user;
 
-        // Ensure the admin has permission and the target user can be impersonated
         if ($admin->canImpersonate() && $targetUser->canBeImpersonated()) {
-            
-            // Start impersonation
             $admin->impersonate($targetUser);
-            
-            // Redirect directly to the user's case view
             return redirect()->route('user.cases.show', $case->case_reference_id);
         }
 

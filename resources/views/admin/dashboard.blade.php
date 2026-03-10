@@ -33,15 +33,15 @@
             </div>
 
             {{-- Pending Action --}}
-            <div class="bg-white p-6 rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-white shadow-sm flex flex-col transition-transform hover:-translate-y-1">
+            {{-- <div class="bg-white p-6 rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-white shadow-sm flex flex-col transition-transform hover:-translate-y-1">
                 <div class="flex justify-between items-start mb-4">
-                    <h3 class="text-amber-700 text-xs font-bold uppercase tracking-wider">Pending Action</h3>
+                    <h3 class="text-amber-700 text-xs font-bold uppercase tracking-wider">Pending Cases</h3>
                     <div class="p-2 bg-amber-100 text-amber-600 rounded-lg"><i data-lucide="clock" class="w-4 h-4"></i></div>
                 </div>
                 <div class="flex items-baseline gap-2 mt-auto">
                     <span class="text-3xl font-bold text-amber-700">{{ number_format($stats['pending_cases']) }}</span>
                 </div>
-            </div>
+            </div> --}}
 
             {{-- Escalated --}}
             <div class="bg-white p-6 rounded-2xl border border-rose-200 bg-gradient-to-br from-rose-50 to-white shadow-sm flex flex-col transition-transform hover:-translate-y-1">
@@ -51,6 +51,21 @@
                 </div>
                 <div class="flex items-baseline gap-2 mt-auto">
                     <span class="text-3xl font-bold text-rose-700">{{ number_format($stats['escalated_cases']) }}</span>
+                </div>
+            </div>
+            
+            {{-- Total Earnings --}}
+            <div class="bg-white p-6 rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white shadow-sm flex flex-col transition-transform hover:-translate-y-1">
+                <div class="flex justify-between items-start mb-4">
+                    <h3 class="text-emerald-700 text-xs font-bold uppercase tracking-wider">Total Earnings</h3>
+                    <div class="p-2 bg-emerald-100 text-emerald-600 rounded-lg">
+                        <i data-lucide="dollar-sign" class="w-4 h-4"></i>
+                    </div>
+                </div>
+                <div class="flex items-baseline gap-2 mt-auto">
+                    <span class="text-3xl font-bold text-emerald-700">
+                        ${{ number_format($stats['total_earnings'], 2) }}
+                    </span>
                 </div>
             </div>
         </div>
