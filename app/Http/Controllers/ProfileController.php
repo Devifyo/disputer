@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\ProfileUpdateRequest;
 use App\Models\UserEmailConfig;
+use App\Models\Plan;
+use App\Models\UserSubscription;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -19,9 +21,31 @@ class ProfileController extends Controller
     {
         $emailConfig = UserEmailConfig::firstOrNew(['user_id' => $request->user()->id]);
 
+        // 1. Get all active plans to display for purchase
+        $plans = Plan::where('is_active', true)->get();
+        
+        // 2. Get the user's latest active subscription
+        $currentSubscription = UserSubscription::with('plan')
+            ->where('user_id', $request->user()->id)
+            ->where('status', 'active')
+            ->latest()
+            ->first();
+
+        // 3. Auto-expire the subscription if it's no longer valid (e.g., used all cases or time ran out)
+        if ($currentSubscription && !$currentSubscription->isValid()) {
+            $currentSubscription->update([
+                'status' => $currentSubscription->expires_at && now()->greaterThan($currentSubscription->expires_at) 
+                            ? 'expired' 
+                            : 'exhausted'
+            ]);
+            $currentSubscription = null; // Set to null so the view prompts them to buy a new plan
+        }
+
         return view('profile.edit', [
             'user' => $request->user(),
             'emailConfig' => $emailConfig,
+            'plans' => $plans,
+            'currentSubscription' => $currentSubscription,
         ]);
     }
 
@@ -70,7 +94,7 @@ class ProfileController extends Controller
             $validated
         );
 
-        return Redirect::route('profile.edit')->with('success', 'Email configuration updated successfully.')->with('status', 'email-updated');
+        return Redirect::route('profile.edit', ['#email'])->with('success', 'Email configuration updated successfully.')->with('status', 'email-updated');
     }
 
     /**

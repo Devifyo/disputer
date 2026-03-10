@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\MarketingController;
+use App\Http\Controllers\{CheckoutController, StripeWebhookController};
 // 1. Put the root route OUTSIDE the auth middleware
 Route::get('/', [MarketingController::class, 'index'])->name('home');
 
@@ -21,6 +22,9 @@ Route::middleware('auth')->group(function () {
 
     // Password Update
     Route::put('password', [PasswordController::class, 'update'])->name('password.update');
+
+    Route::get('/checkout/{slug}', [CheckoutController::class, 'checkout'])->name('checkout');
+    Route::get('/checkout-success', [CheckoutController::class, 'success'])->name('checkout.success');
 });
 
 Route::get('/privacy', function () {
@@ -30,6 +34,8 @@ Route::get('/privacy', function () {
 Route::get('/terms', function () {
     return view('common.terms');
 })->name('terms');
+// Stripe Webhook Endpoint (Must be POST, must be outside auth middleware)
+Route::post('/stripe/webhook', [StripeWebhookController::class, 'handle']);
 
 Route::impersonate();
 require __DIR__.'/auth.php';

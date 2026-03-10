@@ -12,6 +12,11 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware) {
        $middleware->trustProxies(at: '*');
+
+       $middleware->validateCsrfTokens(except: [
+        'stripe/webhook',
+        ]);
+
        $middleware->alias([
             'role_access' => \App\Http\Middleware\RoleRedirect::class,
             'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
