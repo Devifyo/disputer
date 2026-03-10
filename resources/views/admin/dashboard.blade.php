@@ -24,7 +24,7 @@
             {{-- Total Cases --}}
             <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col transition-transform hover:-translate-y-1">
                 <div class="flex justify-between items-start mb-4">
-                    <h3 class="text-slate-500 text-xs font-bold uppercase tracking-wider">Total Disputes</h3>
+                    <h3 class="text-slate-500 text-xs font-bold uppercase tracking-wider">{{ __('common.total_cases') }}</h3>
                     <div class="p-2 bg-slate-100 text-slate-600 rounded-lg"><i data-lucide="folder-open" class="w-4 h-4"></i></div>
                 </div>
                 <div class="flex items-baseline gap-2 mt-auto">
@@ -121,7 +121,7 @@
             <div class="bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col overflow-hidden">
                 <div class="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
                     <h2 class="text-base font-bold text-slate-800 flex items-center gap-2">
-                        <i data-lucide="file-clock" class="w-4 h-4 text-primary-500"></i> Recent Disputes
+                        <i data-lucide="file-clock" class="w-4 h-4 text-primary-500"></i> {{ __('common.recent_cases') }}
                     </h2>
                 </div>
                 <div class="overflow-x-auto flex-1">
