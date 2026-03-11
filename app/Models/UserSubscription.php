@@ -18,6 +18,9 @@ class UserSubscription extends Model
         'transaction_id',
         'starts_at',
         'expires_at',
+        'stripe_subscription_id',
+        'stripe_customer_id',
+        'canceled_at',
     ];
 
     protected $casts = [
@@ -25,6 +28,7 @@ class UserSubscription extends Model
         'cases_used' => 'integer',
         'starts_at' => 'datetime',
         'expires_at' => 'datetime',
+        'canceled_at' => 'datetime',
     ];
 
     // Check if the user can still submit a case under this subscription

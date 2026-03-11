@@ -7,7 +7,8 @@
     <div class="h-full overflow-y-auto py-8 sm:py-12 pb-32 relative w-full">
         
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-            
+            {{-- <x-flash /> --}}
+            @include('user.cases.partials.alerts')
             <div class="mb-6">
                 <h2 class="text-2xl font-bold text-slate-900 tracking-tight">
                     {{ __('Account Settings') }}

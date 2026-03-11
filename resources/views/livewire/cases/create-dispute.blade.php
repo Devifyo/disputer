@@ -179,8 +179,9 @@
                                 </div>
                                 @error('attachments.*') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
 
-                                @if($attachments)
+                                @if($attachments || $savedAttachments)
                                     <ul class="mt-4 space-y-2">
+                                        {{-- 1. Display newly uploaded files --}}
                                         @foreach($attachments as $index => $file)
                                             <li class="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-lg shadow-sm">
                                                 <div class="flex items-center gap-3 overflow-hidden">
@@ -193,6 +194,25 @@
                                                     </div>
                                                 </div>
                                                 <button wire:click="removeAttachment({{ $index }})" class="p-1 text-slate-400 hover:text-red-500 transition-colors">
+                                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                                </button>
+                                            </li>
+                                        @endforeach
+
+                                        {{-- 2. Display files restored from the draft session --}}
+                                        @foreach($savedAttachments as $index => $file)
+                                            <li class="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-lg shadow-sm relative overflow-hidden">
+                                                <div class="absolute left-0 top-0 bottom-0 w-1 bg-emerald-400"></div>
+                                                <div class="flex items-center gap-3 overflow-hidden pl-2">
+                                                    <div class="w-8 h-8 bg-emerald-50 text-emerald-600 rounded flex items-center justify-center">
+                                                        <i data-lucide="check-circle" class="w-4 h-4"></i>
+                                                    </div>
+                                                    <div class="flex flex-col min-w-0">
+                                                        <span class="text-sm font-medium text-slate-700 truncate block">{{ $file['name'] }}</span>
+                                                        <span class="text-[10px] text-emerald-600 font-bold">Saved from Draft</span>
+                                                    </div>
+                                                </div>
+                                                <button wire:click="removeSavedAttachment({{ $index }})" class="p-1 text-slate-400 hover:text-red-500 transition-colors">
                                                     <i data-lucide="trash-2" class="w-4 h-4"></i>
                                                 </button>
                                             </li>
@@ -274,27 +294,60 @@
 
                 @if($step === 3)
                     <div class="p-8 animate-fade-in block">
+                        
+                        {{-- SUCCESS MESSAGE AFTER STRIPE PAYMENT --}}
+                        @if(session('success'))
+                            <div class="mb-8 p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-3 text-emerald-800 animate-fade-in-up">
+                                <i data-lucide="check-circle" class="w-5 h-5 text-emerald-600 shrink-0 mt-0.5"></i>
+                                <div>
+                                    <h4 class="text-sm font-bold">{{ session('success') }}</h4>
+                                    <p class="text-xs text-emerald-600 mt-0.5">You can now review, edit, and send your dispute.</p>
+                                </div>
+                            </div>
+                        @endif
+
                         <div class="mb-6">
-                            <h1 class="text-xl font-bold text-slate-900">{{ $draftMode === 'ai' ? 'Review & Send' : 'Write & Send' }}</h1>
-                            <p class="text-slate-500 text-sm mt-0.5">{{ $draftMode === 'ai' ? 'Review the generated letter.' : 'Write your dispute letter below.' }}</p>
+                            <h1 class="text-xl font-bold text-slate-900">
+                                {{ !$hasAccess ? 'Preview Your Dispute' : ($draftMode === 'ai' ? 'Review & Send' : 'Write & Send') }}
+                            </h1>
+                            <p class="text-slate-500 text-sm mt-0.5">
+                                {{ !$hasAccess ? 'Read your generated draft below. Unlock to edit and send.' : ($draftMode === 'ai' ? 'Review the generated letter.' : 'Write your dispute letter below.') }}
+                            </p>
                         </div>
 
                         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                             
-                            <div class="lg:col-span-2 space-y-4">
+                            {{-- THE CONTENT (Previewable but locked from editing/copying) --}}
+                            <div class="lg:col-span-2 space-y-4 {{ !$hasAccess ? 'select-none' : '' }}" 
+                                 {!! !$hasAccess ? 'oncontextmenu="return false;"' : '' !!}>
+                                
                                 <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Subject Line</label>
+                                    <label class="flex items-center text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">
+                                        Subject Line 
+                                        @if(!$hasAccess)
+                                            <span class="ml-2 bg-rose-100 text-rose-600 px-1.5 py-0.5 rounded text-[9px] flex items-center gap-1">
+                                                <i data-lucide="lock" class="w-2.5 h-2.5"></i> Locked
+                                            </span>
+                                        @endif
+                                    </label>
                                     <input wire:model="generatedSubject" type="text" 
-                                        placeholder="e.g. Formal Dispute: Unauthorized Charge"
-                                        class="w-full px-4 py-2.5 font-bold text-slate-800 bg-white border border-slate-300 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all shadow-sm text-sm">
+                                        {{ !$hasAccess ? 'readonly' : '' }}
+                                        class="w-full px-4 py-2.5 font-bold text-slate-800 bg-white border border-slate-300 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all shadow-sm text-sm {{ !$hasAccess ? 'bg-slate-50 text-slate-500 cursor-not-allowed border-dashed border-slate-300' : '' }}">
                                     @error('generatedSubject') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
                                 </div>
 
                                 <div class="relative">
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Email Body</label>
+                                    <label class="flex items-center text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">
+                                        Email Body
+                                        @if(!$hasAccess)
+                                            <span class="ml-2 bg-rose-100 text-rose-600 px-1.5 py-0.5 rounded text-[9px] flex items-center gap-1">
+                                                <i data-lucide="lock" class="w-2.5 h-2.5"></i> Locked
+                                            </span>
+                                        @endif
+                                    </label>
                                     <textarea wire:model="generatedLetter" rows="12" 
-                                        placeholder="Dear Sir/Madam,&#10;&#10;I am writing to..."
-                                        class="w-full p-4 bg-white border border-slate-300 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all font-mono text-sm leading-relaxed shadow-sm resize-none"></textarea>
+                                        {{ !$hasAccess ? 'readonly' : '' }}
+                                        class="w-full p-4 bg-white border border-slate-300 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all font-mono text-sm leading-relaxed shadow-sm resize-none {{ !$hasAccess ? 'bg-slate-50 text-slate-500 cursor-not-allowed border-dashed border-slate-300' : '' }}"></textarea>
                                     
                                     @if($draftMode === 'ai')
                                         <div class="absolute top-8 right-3"><span class="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded border border-slate-200">AI Generated</span></div>
@@ -303,51 +356,96 @@
                                 @error('generatedLetter') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
                             </div>
 
+                            {{-- THE SIDEBAR ACTION PANEL --}}
                             <div class="lg:col-span-1 space-y-4">
-                                <div class="bg-slate-50 p-5 rounded-xl border border-slate-200">
-                                    <h3 class="font-bold text-slate-900 mb-3 text-sm">Recipient</h3>
-                                    
-                                    <div class="mb-2" x-data="{ isLocked: {{ !empty($institutionEmail) ? 'true' : 'false' }} }">
-                                        <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1.5">Institution Email</label>
+                                
+                                @if(!$hasAccess)
+                                    {{-- HIGH-CONVERTING PAYWALL WIDGET --}}
+                                    <div class="bg-white p-6 rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200 text-center relative overflow-hidden">
+                                        <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 to-indigo-500"></div>
                                         
-                                        <div class="relative flex items-center">
-                                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                                <i data-lucide="mail" class="w-4 h-4 text-slate-400"></i>
-                                            </div>
-                                            
-                                            <input wire:model="institutionEmail" 
-                                                type="email" 
-                                                placeholder="support@bank.com" 
-                                                :readonly="isLocked"
-                                                :class="isLocked ? 'bg-slate-100 text-slate-500 cursor-not-allowed border-slate-200' : 'bg-white border-slate-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10'"
-                                                class="w-full pl-9 pr-10 py-2 rounded-lg outline-none text-sm transition-all border shadow-sm">
-                                            
-                                            <template x-if="isLocked">
-                                                <button type="button" 
-                                                        @click="isLocked = false" 
-                                                        title="Edit Email"
-                                                        class="absolute right-2 p-1.5 bg-white border border-slate-200 hover:border-blue-300 hover:text-blue-600 text-slate-400 rounded shadow-sm transition-all flex items-center justify-center">
-                                                    <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                        <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
-                                                    </svg>
-                                                </button>
-                                            </template>
+                                        <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-inner">
+                                            <i data-lucide="unlock" class="w-6 h-6"></i>
                                         </div>
                                         
-                                        @error('institutionEmail') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                                        <h3 class="text-lg font-bold text-slate-900 mb-2">Unlock & Send</h3>
+                                        <p class="text-slate-500 text-xs mb-5">You need an active case balance to edit, copy, or send this generated dispute.</p>
+                                        
+                                        <div class="space-y-3">
+                                            @foreach($availablePlans as $plan)
+                                                <button wire:click="saveDraftAndCheckout('{{ $plan->slug }}')" 
+                                                        class="w-full flex flex-col items-center p-3 rounded-xl border-2 transition-all group {{ $plan->type === 'recurring_yearly' ? 'border-blue-500 bg-blue-50 hover:bg-blue-100 shadow-md' : 'border-slate-200 hover:border-blue-300 bg-white' }}">
+                                                    
+                                                    @if($plan->type === 'recurring_yearly')
+                                                        <span class="bg-blue-600 text-white text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full mb-1">Best Value</span>
+                                                    @endif
+                                                    
+                                                    <span class="font-bold text-slate-900 text-sm group-hover:text-blue-700 transition-colors">{{ $plan->name }}</span>
+                                                    
+                                                    <div class="flex items-baseline gap-1 mt-0.5">
+                                                        <span class="text-base font-black text-slate-900">${{ number_format($plan->price, 2) }}</span>
+                                                        <span class="text-[10px] text-slate-500">{{ $plan->type === 'recurring_yearly' ? '/ year (Unlimited)' : 'One-time' }}</span>
+                                                    </div>
+                                                </button>
+                                            @endforeach
+                                        </div>
+                                        
+                                        <p class="text-[10px] text-slate-400 mt-4 flex items-center justify-center gap-1">
+                                            <i data-lucide="shield-check" class="w-3 h-3"></i> Secure payment via Stripe.
+                                        </p>
+                                        
+                                        <button wire:click="goToStep(2)" class="w-full mt-2 py-2 text-slate-400 hover:text-slate-700 transition-colors text-xs font-medium underline">Back to Edit Details</button>
                                     </div>
-                                </div>
 
-                                <button wire:click="checkAndPromptContact" wire:loading.attr="disabled" class="w-full py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 text-sm">
-                                    <div wire:loading.class="hidden" wire:target="checkAndPromptContact, executeFinalize" class="flex items-center gap-2"><span>Send Dispute</span><i data-lucide="send" class="w-4 h-4"></i></div>
-                                    <div wire:loading.class.remove="hidden" wire:target="checkAndPromptContact, executeFinalize" class="hidden flex items-center gap-2"><svg class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Sending...</div>
-                                </button>
-                                
-                                <button wire:click="goToStep(2)" class="w-full mt-2 py-2.5 text-slate-500 font-medium hover:text-slate-800 transition-colors text-sm">Go Back & Edit</button>
+                                @else
+                                    {{-- STANDARD RECIPIENT & SEND WIDGET (Fully Unlocked) --}}
+                                    <div class="bg-slate-50 p-5 rounded-xl border border-slate-200">
+                                        <h3 class="font-bold text-slate-900 mb-3 text-sm">Recipient</h3>
+                                        
+                                        <div class="mb-2" x-data="{ isLocked: {{ !empty($institutionEmail) ? 'true' : 'false' }} }">
+                                            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1.5">Institution Email</label>
+                                            
+                                            <div class="relative flex items-center">
+                                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                                    <i data-lucide="mail" class="w-4 h-4 text-slate-400"></i>
+                                                </div>
+                                                
+                                                <input wire:model="institutionEmail" 
+                                                    type="email" 
+                                                    placeholder="support@bank.com"
+                                                    :readonly="isLocked"
+                                                    :class="isLocked ? 'bg-slate-100 text-slate-500 cursor-not-allowed border-slate-200' : 'bg-white border-slate-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10'"
+                                                    class="w-full pl-9 pr-10 py-2 rounded-lg outline-none text-sm transition-all border shadow-sm">
+                                                
+                                                <template x-if="isLocked">
+                                                    <button type="button" 
+                                                            @click="isLocked = false" 
+                                                            class="absolute right-2 p-1.5 bg-white border border-slate-200 hover:border-blue-300 hover:text-blue-600 text-slate-400 rounded shadow-sm transition-all flex items-center justify-center">
+                                                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                            <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+                                                        </svg>
+                                                    </button>
+                                                </template>
+                                            </div>
+                                            @error('institutionEmail') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                                        </div>
+                                    </div>
+
+                                    <button wire:click="checkAndPromptContact" wire:loading.attr="disabled" class="w-full py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 text-sm">
+                                        <div wire:loading.class="hidden" wire:target="checkAndPromptContact, executeFinalize" class="flex items-center gap-2"><span>Send Dispute</span><i data-lucide="send" class="w-4 h-4"></i></div>
+                                        <div wire:loading.class.remove="hidden" wire:target="checkAndPromptContact, executeFinalize" class="hidden flex items-center gap-2">
+                                            <svg class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> 
+                                            Sending...
+                                        </div>
+                                    </button>
+                                    
+                                    <button wire:click="goToStep(2)" class="w-full mt-2 py-2.5 text-slate-500 font-medium hover:text-slate-800 transition-colors text-sm">Go Back & Edit</button>
+                                @endif
                             </div>
                         </div>
                     </div>
                 @endif
+                {{--  --}}
 
             </div>
         </div>

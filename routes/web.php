@@ -23,8 +23,11 @@ Route::middleware('auth')->group(function () {
     // Password Update
     Route::put('password', [PasswordController::class, 'update'])->name('password.update');
 
+    // payment routes
     Route::get('/checkout/{slug}', [CheckoutController::class, 'checkout'])->name('checkout');
     Route::get('/checkout-success', [CheckoutController::class, 'success'])->name('checkout.success');
+    Route::post('/subscription/cancel', [CheckoutController::class, 'cancelSubscription'])->name('subscription.cancel');
+    Route::post('/subscription/resume', [CheckoutController::class, 'resumeSubscription'])->name('subscription.resume'); // Add this line
 });
 
 Route::get('/privacy', function () {

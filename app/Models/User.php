@@ -98,4 +98,28 @@ class User extends Authenticatable
         return $this->role_id === config('roles.user.id');
     }
     
+    /**
+     * Check if the user has an active subscription or remaining cases to create a new dispute.
+     */
+    public function canCreateCase(): bool
+    {
+        $sub = \App\Models\UserSubscription::with('plan')
+            ->where('user_id', $this->id)
+            ->where('status', 'active')
+            ->latest()
+            ->first();
+
+        if (!$sub) {
+            return false;
+        }
+
+        // Yearly plans have unlimited cases
+        if ($sub->plan->type === 'recurring_yearly') {
+            return true;
+        }
+
+        // One-time plans must have cases remaining
+        return $sub->cases_used < $sub->cases_allowed;
+    }
+    
 }

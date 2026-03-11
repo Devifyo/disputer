@@ -10,7 +10,7 @@ class Cases extends Model
         'user_id', 'institution_id', 'institution_name', 
         'case_reference_id', 'email_route_id', 
         'status', 'stage', 'current_workflow_step', 'next_action_at',
-        'escalation_level','last_escalated_at'
+        'escalation_level','last_escalated_at', 'user_subscription_id',
     ];
 
     protected $casts = [
@@ -18,6 +18,11 @@ class Cases extends Model
         'next_action_at' => 'datetime',
         'last_escalated_at' => 'datetime'
     ];
+
+    public function linkedSubscription()
+    {
+        return $this->belongsTo(UserSubscription::class, 'user_subscription_id');
+    }
 
     public function user()
     {

@@ -7,18 +7,23 @@ use App\Models\Institution;
 use App\Models\InstitutionCategory;
 use App\Models\Cases;
 use App\Models\CaseTimeline;
+use App\Models\UserSubscription;
+use App\Models\Plan;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Livewire\WithFileUploads;
-use App\Models\Attachment;
 
 class CreateDispute extends Component
 {   
     use WithFileUploads;
+    
     public $step = 1;
+    public $hasAccess = false;
+    public $availablePlans = [];
 
+    // Form State
     public $query = '';
     public $results;
     public $mode = 'search';
@@ -35,19 +40,112 @@ class CreateDispute extends Component
     public $referenceNumber;
     public $issueDescription;
 
-    // Reverted to just Subject and Letter
     public $generatedSubject = ''; 
     public $generatedLetter = '';
     
     public $institutionEmail = '';
+    public $recipientType = '';
+    public $recipientLabel = '';
     public $attachments = [];
     public $draftMode = 'ai';
+
+    public $savedAttachments = [];
 
     public function mount()
     {
         $this->results = collect();
         $this->popular = Institution::where('is_verified', true)->limit(4)->get();
         $this->categories = InstitutionCategory::orderBy('name')->get();
+        
+        // Load active plans for the paywall overlay
+        $this->availablePlans = Plan::where('is_active', true)->orderBy('price', 'asc')->get();
+
+        // Check if returning from a successful Stripe checkout
+        if (session()->has('dispute_draft')) {
+            $this->restoreDraftFromSession();
+        }
+
+        $this->checkUserAccess();
+    }
+
+    /**
+     * Checks if the user has an active yearly plan or remaining cases on a one-time plan.
+     */
+    public function checkUserAccess()
+    {
+        $this->hasAccess = Auth::user()->canCreateCase();
+    }
+
+    /**
+     * Saves the current form state to the session and redirects to Stripe Checkout
+     */
+    public function saveDraftAndCheckout($planSlug)
+    {   
+        // 1. Physically store the files so they survive the redirect to Stripe
+        $storedFiles = [];
+        foreach ($this->attachments as $file) {
+            $path = $file->store('draft_attachments'); // Saves to storage/app/draft_attachments
+            $storedFiles[] = [
+                'path' => $path,
+                'name' => $file->getClientOriginalName(),
+                'size' => $file->getSize()
+            ];
+        }
+
+        session()->put('dispute_draft', [
+            'step' => 3,
+            'selectedInstitutionId' => $this->selectedInstitutionId,
+            'selectedInstitutionName' => $this->selectedInstitutionName,
+            'categoryId' => $this->categoryId,
+            'customName' => $this->customName,
+            'customCategoryName' => $this->customCategoryName,
+            'transactionDate' => $this->transactionDate,
+            'transactionAmount' => $this->transactionAmount,
+            'referenceNumber' => $this->referenceNumber,
+            'issueDescription' => $this->issueDescription,
+            'generatedSubject' => $this->generatedSubject,
+            'generatedLetter' => $this->generatedLetter,
+            'institutionEmail' => $this->institutionEmail,
+            'draftMode' => $this->draftMode,
+            'savedAttachments' => $storedFiles,
+        ]);
+
+        return redirect()->route('checkout', $planSlug);
+    }
+
+    /**
+     * Restores the draft state after a successful payment
+     */
+    private function restoreDraftFromSession()
+    {
+        $draft = session('dispute_draft');
+        
+        $this->step = $draft['step'] ?? 3;
+        $this->selectedInstitutionId = $draft['selectedInstitutionId'] ?? null;
+        $this->selectedInstitutionName = $draft['selectedInstitutionName'] ?? '';
+        $this->categoryId = $draft['categoryId'] ?? '';
+        $this->customName = $draft['customName'] ?? '';
+        $this->customCategoryName = $draft['customCategoryName'] ?? '';
+        $this->transactionDate = $draft['transactionDate'] ?? '';
+        $this->transactionAmount = $draft['transactionAmount'] ?? '';
+        $this->referenceNumber = $draft['referenceNumber'] ?? '';
+        $this->issueDescription = $draft['issueDescription'] ?? '';
+        $this->generatedSubject = $draft['generatedSubject'] ?? '';
+        $this->generatedLetter = $draft['generatedLetter'] ?? '';
+        $this->institutionEmail = $draft['institutionEmail'] ?? '';
+        $this->draftMode = $draft['draftMode'] ?? 'ai';
+        // Restore the saved attachments
+        $this->savedAttachments = $draft['savedAttachments'] ?? [];
+        session()->forget('dispute_draft');
+    }
+
+    public function removeSavedAttachment($index)
+    {
+        if (isset($this->savedAttachments[$index])) {
+            \Illuminate\Support\Facades\Storage::delete($this->savedAttachments[$index]['path']);
+            unset($this->savedAttachments[$index]);
+            $this->savedAttachments = array_values($this->savedAttachments);
+        }
     }
 
     public function updatedQuery()
@@ -122,7 +220,6 @@ class CreateDispute extends Component
 
     public function generateReview()
     {
-        // Base validation for the "hard facts" in Step 2
         $this->validate([
             'transactionDate' => 'required|date',
             'transactionAmount' => 'required|numeric|min:0',
@@ -130,7 +227,6 @@ class CreateDispute extends Component
         ]);
 
         if ($this->draftMode === 'ai') {
-            // AI Mode: Require issue description and call Gemini
             $this->validate([
                 'issueDescription' => 'required|min:10',
             ]);
@@ -153,17 +249,22 @@ class CreateDispute extends Component
                 $this->generatedLetter = "AI Generation Failed. Please type your dispute details here.";
             }
         } else {
-            // Manual Mode: Just clear the fields so they are empty and ready for Step 3
             $this->generatedSubject = '';
             $this->generatedLetter = '';
         }
 
-        // Proceed to Step 3 (Review/Write step)
+        // Check if they need to pay before revealing the review step
+        $this->checkUserAccess();
         $this->goToStep(3);
     }
 
     public function checkAndPromptContact()
     {
+        // Prevent unauthorized submission if they somehow bypass the UI blur
+        if (!$this->hasAccess) {
+            return;
+        }
+
         $this->validate([
             'institutionEmail' => 'required|email',
             'generatedSubject' => 'required|min:5',
@@ -190,10 +291,31 @@ class CreateDispute extends Component
 
     public function executeFinalize($saveContact = false)
     {
+        // 1. FINAL ACCESS CHECK USING HELPER
+        if (!Auth::user()->canCreateCase()) {
+            session()->flash('error', 'You do not have any active cases remaining.');
+            return redirect()->route('profile.edit', ['#billing']);
+        }
+
+        $sub = UserSubscription::with('plan')
+            ->where('user_id', Auth::id())
+            ->where('status', 'active')
+            ->latest()
+            ->first();
+
         $case = null;
 
-        DB::transaction(function () use (&$case, $saveContact) {
+        DB::transaction(function () use (&$case, $saveContact, $sub) {
             
+            // 2. DEDUCT THE CASE (If not unlimited)
+            if ($sub && $sub->plan->type !== 'recurring_yearly') {
+                $sub->increment('cases_used');
+                if ($sub->cases_used >= $sub->cases_allowed) {
+                    $sub->update(['status' => 'exhausted']);
+                }
+            }
+            
+            // 3. INSTITUTION / CATEGORY CREATION
             $finalCategoryId = $this->selectedInstitutionId 
                 ? Institution::find($this->selectedInstitutionId)?->institution_category_id 
                 : $this->categoryId;
@@ -248,12 +370,14 @@ class CreateDispute extends Component
                 );
             }
 
+            // 4. CASE CREATION
             $category = InstitutionCategory::find($finalCategoryId);
             $workflowConfig = $category->workflow_config ?? config('workflow_templates.standard');
             $nextActionDate = now()->addDays($workflowConfig['steps'][0]['wait_days'] ?? 14);
 
             $case = Cases::create([
                 'user_id' => Auth::id(),
+                'user_subscription_id' => $sub ? $sub->id : null,
                 'institution_id' => $this->selectedInstitutionId,
                 'institution_name' => $this->selectedInstitutionName,
                 'case_reference_id' => strtoupper(Str::random(6)), 
@@ -278,7 +402,27 @@ class CreateDispute extends Component
             ]);
         });
 
+        // 5. SEND EMAIL AND PROCESS ATTACHMENTS
         try {
+            // MERGE NEW ATTACHMENTS WITH SAVED ATTACHMENTS
+            $finalAttachments = $this->attachments;
+            
+            foreach ($this->savedAttachments as $saved) {
+                $fullPath = storage_path('app/' . $saved['path']);
+                
+                if (file_exists($fullPath)) {
+                    // This creates a valid UploadedFile object from the physical storage path
+                    // so your SendEmailService doesn't break.
+                    $finalAttachments[] = new \Illuminate\Http\UploadedFile(
+                        $fullPath,
+                        $saved['name'],
+                        null,
+                        null,
+                        true // Bypass the is_uploaded_file check since it's now a local file
+                    );
+                }
+            }
+
             $emailService = app(\App\Services\SendEmailService::class);
             
             $emailService->sendAndLog(
@@ -287,8 +431,14 @@ class CreateDispute extends Component
                 $this->institutionEmail,
                 $this->generatedSubject,
                 nl2br($this->generatedLetter), // Convert the single string to HTML breaks
-                $this->attachments 
+                $finalAttachments // <--- Using the MERGED array!
             );
+
+            // Cleanup: Delete the temporary files from storage now that the email is sent
+            foreach ($this->savedAttachments as $saved) {
+                \Illuminate\Support\Facades\Storage::delete($saved['path']);
+            }
+            $this->savedAttachments = [];
 
             session()->flash('message', 'Dispute Sent Successfully!');
             
@@ -316,10 +466,8 @@ class CreateDispute extends Component
 
         $user = Auth::user();
 
-        // TONE LOGIC: Polite but natural. No robot/lawyer speak.
         $tone = "Polite but firm, written by a real customer. Do not sound like a robot or a lawyer.";
 
-        // Prompt enforcing internal structure within a single body string AND human tone
         $prompt = "Write a natural, human-sounding dispute email to {$this->selectedInstitutionName} from a customer's perspective. \n" .
                   "My name is {$user->name}. \n" .
                   "Transaction Date: {$this->transactionDate}. \n" .
@@ -338,8 +486,7 @@ class CreateDispute extends Component
                   "   - A normal closing and sign-off.";
 
         try {
-            // $model = 'gemini-flash-latest'; 
-              $model = 'gemini-2.5-flash'; 
+            $model = 'gemini-2.5-flash'; 
             $endpoint = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key={$apiKey}";
             
             $response = Http::timeout(30)
