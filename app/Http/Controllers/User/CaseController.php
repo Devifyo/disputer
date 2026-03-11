@@ -219,7 +219,7 @@ class CaseController extends Controller
         $pdf = Pdf::loadView('user.cases.pdf', compact('case', 'metadata', 'publicTimeline'));
         $pdf->setPaper('A4', 'portrait');
 
-        return $pdf->download('Dispute_Case_' . $case->case_reference_id . '.pdf');
+        return $pdf->download('Unjamm_Case_' . $case->case_reference_id . '.pdf');
     }
 
     

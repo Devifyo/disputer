@@ -9,7 +9,7 @@
             </div>
             <div>
                 <span class="font-bold tracking-tight text-lg block leading-none">{{ config('app.name') }}</span>
-                <span class="text-[10px] text-slate-500 font-mono">Smart Dispute Management</span>
+                <span class="text-[10px] text-slate-500 font-mono">Get Unstuck.</span>
             </div>
         </div>
         <button @click="sidebarOpen = false" class="lg:hidden ml-auto text-slate-400 hover:text-white">
@@ -42,7 +42,7 @@
 
         <a href="{{ route('user.cases.index') }}" class="{{ navClass('user.cases.*') }} group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all">
             <i data-lucide="folder-kanban" class="w-5 h-5 transition-colors {{ request()->routeIs('user.cases.*') ? 'text-blue-400' : 'text-slate-500 group-hover:text-slate-300' }}"></i>
-            My Disputes
+            My {{ __('common.cases') }}
         </a>
 
         <div class="px-2 mt-8 mb-3 text-[10px] uppercase tracking-wider font-bold text-slate-600 font-mono">Tools</div>

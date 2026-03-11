@@ -248,10 +248,10 @@
                         </a>
                     @else
                         <p class="text-slate-500 text-sm mt-2 max-w-xs mx-auto">
-                            Your library is empty. Documents uploaded during your dispute process will appear here.
+                            Your library is empty. Documents uploaded during your dispute {{ __('common.case') }} process will appear here.
                         </p>
                         <a href="{{ route('user.cases.create') }}" class="mt-6 inline-flex items-center gap-2 text-sm font-bold text-white bg-slate-900 hover:bg-slate-800 px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all">
-                            Start a New Dispute
+                            Start a New {{ __('common.case') }}
                         </a>
                     @endif
                 </div>

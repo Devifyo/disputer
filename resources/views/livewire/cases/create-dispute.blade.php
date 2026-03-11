@@ -55,7 +55,7 @@
                     <div class="p-6 md:p-10 animate-fade-in block">
                         @if($mode === 'search')
                             <div class="text-center max-w-xl mx-auto mb-8">
-                                <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Who is this dispute with?</h1>
+                                <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Who is this dispute {{ __('common.case') }} with?</h1>
                                 <p class="text-slate-500 mt-2 text-base">Search for a bank, airline, or service provider.</p>
                             </div>
                             <div class="relative max-w-lg mx-auto mb-10">

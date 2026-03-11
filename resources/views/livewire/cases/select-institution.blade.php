@@ -2,7 +2,7 @@
 
     @if($mode === 'search')
         <div class="text-center mb-8">
-            <h1 class="text-2xl font-bold text-slate-900">Who is this dispute with?</h1>
+            <h1 class="text-2xl font-bold text-slate-900">Who is this dispute {{ __('common.case') }} with?</h1>
             <p class="text-slate-500 mt-2 text-sm">Search for a registered institution or add a new one.</p>
         </div>
 
