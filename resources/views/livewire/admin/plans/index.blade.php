@@ -171,10 +171,13 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 p-4 bg-slate-50 rounded-xl border border-slate-100">
                     <div>
                         <label class="block text-[11px] font-bold text-slate-400 uppercase mb-2">Billing Type <span class="text-rose-500">*</span></label>
-                        <select wire:model.live="type" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:border-primary-500 outline-none bg-white">
+                        <select wire:model.live="type" {{ $isEditMode ? 'disabled' : '' }} class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:border-primary-500 outline-none bg-white">
                             <option value="recurring_yearly">Recurring Yearly</option>
                             <option value="one_time">One-Time Payment</option>
                         </select>
+                         @if($isEditMode)
+                            <p class="text-[9px] text-amber-500 font-bold mt-1.5"><i data-lucide="lock" class="w-3 h-3 inline pb-0.5"></i> Billing Type cannot be changed after creation.</p>
+                        @endif
                         @error('type') <span class="text-rose-500 text-[10px] font-bold block mt-1">{{ $message }}</span> @enderror
                     </div>
 
@@ -205,9 +208,9 @@
                     <div>
                         <label class="block text-[11px] font-bold text-slate-400 uppercase mb-2">Currency</label>
                         <select wire:model="currency" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:border-primary-500 outline-none bg-white font-bold">
-                            <option value="USD">USD ($)</option>
-                            <option value="EUR">EUR (€)</option>
-                            <option value="GBP">GBP (£)</option>
+                            <option value="USD" selected>USD ($)</option>
+                            {{-- <option value="EUR">EUR (€)</option>
+                            <option value="GBP">GBP (£)</option> --}}
                         </select>
                         @error('currency') <span class="text-rose-500 text-[10px] font-bold block mt-1">{{ $message }}</span> @enderror
                     </div>
