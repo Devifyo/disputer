@@ -130,7 +130,7 @@
                 <button @click="sidebarOpen = true" class="text-slate-500 hover:text-slate-700 p-2 -ml-2 rounded-md hover:bg-slate-100">
                     <i data-lucide="menu" class="w-6 h-6"></i>
                 </button>
-                <span class="font-bold text-slate-800">Resolver</span>
+                <span class="font-bold text-slate-800">{{config('app.name')}}</span>
             </div>
         </div>
 
