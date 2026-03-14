@@ -1,6 +1,6 @@
 <div class="overflow-x-auto transition-opacity duration-200" 
      wire:loading.class="opacity-50" 
-     wire:target="search, filterCategory, filterStatus, gotoPage, nextPage, previousPage">
+     wire:target="search, filterCategory, filterStatus, filterPopular, gotoPage, nextPage, previousPage">
     <table class="w-full text-left text-sm">
         <thead class="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] tracking-widest whitespace-nowrap">
             <tr>
@@ -15,7 +15,12 @@
             @forelse($institutions as $inst)
                 <tr class="hover:bg-slate-50/50 transition-colors">
                     <td class="px-6 py-4">
-                        <div class="font-bold text-slate-900">{{ $inst->name }}</div>
+                        <div class="font-bold text-slate-900 flex items-center gap-2">
+                            {{ $inst->name }}
+                            @if($inst->is_popular)
+                                <i data-lucide="star" class="w-3.5 h-3.5 text-amber-400 fill-amber-400" title="Popular Institute"></i>
+                            @endif
+                        </div>
                         <div class="text-xs text-slate-400">{{ $inst->contact_email }}</div>
                     </td>
                     <td class="px-6 py-4">

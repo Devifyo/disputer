@@ -22,7 +22,9 @@ class ProfileController extends Controller
         $emailConfig = UserEmailConfig::firstOrNew(['user_id' => $request->user()->id]);
 
         // 1. Get all active plans to display for purchase
-        $plans = Plan::where('is_active', true)->get();
+        $plans = Plan::where('is_active', true)
+             ->where('stripe_mode', config('app.stripe_mode', 'test'))
+             ->get();
         
         // 2. Get the user's latest active subscription
         $currentSubscription = UserSubscription::with('plan')

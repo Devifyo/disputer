@@ -18,7 +18,14 @@ class Institution extends Model
         'escalation_email',
         'escalation_contact_name',
         'is_internal',
-        'created_by'  
+        'created_by',
+        'is_popular',
+    ];
+
+    protected $casts = [
+        'is_verified' => 'boolean',
+        'is_internal' => 'boolean',
+        'is_popular' => 'boolean',
     ];
 
     public function category()

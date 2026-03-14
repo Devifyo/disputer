@@ -58,6 +58,11 @@ class CaseController extends Controller
      */
     public function createStep1()
     {   
+        if (!isEmailConfigured()) {
+            return back()
+                ->with('error', 'Your email settings are incomplete. Please configure SMTP & IMAP in your profile.')
+                ->with('smtp_missing', true);
+        }
         $popular = Institution::where('is_verified', true)->limit(4)->get();
         $categories = \App\Models\InstitutionCategory::orderBy('name')->get();
 
@@ -68,7 +73,7 @@ class CaseController extends Controller
      * API: Handle the AJAX Search
      */
     public function searchInstitutions(Request $request)
-    {
+    {   
         $query = $request->get('q');
 
         if (!$query) {

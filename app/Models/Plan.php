@@ -16,6 +16,7 @@ class Plan extends Model
         'payment_gateway_id',
         'features',
         'is_active',
+        'stripe_mode',
     ];
 
     protected $casts = [

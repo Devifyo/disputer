@@ -39,6 +39,7 @@ class PlanService
                 'product' => $product->id,
                 'unit_amount' => (int) ($data['price'] * 100), // Convert to cents
                 'currency' => strtolower($data['currency'] ?? 'usd'),
+                'tax_behavior' => 'exclusive',
             ];
 
             if ($data['type'] === 'recurring_yearly') {
@@ -54,6 +55,7 @@ class PlanService
             'name' => $data['name'],
             'slug' => Str::slug($data['slug']),
             'type' => $data['type'],
+            'stripe_mode' =>$data['stripe_mode'],
             'case_limit' => $data['case_limit'] ?? null,
             'price' => $data['price'],
             'currency' => strtoupper($data['currency'] ?? 'USD'),
@@ -92,6 +94,7 @@ class PlanService
                         'product' => $productId,
                         'unit_amount' => (int) ($data['price'] * 100),
                         'currency' => strtolower($data['currency']),
+                        'tax_behavior' => 'exclusive',
                     ];
 
                     if ($data['type'] === 'recurring_yearly') {

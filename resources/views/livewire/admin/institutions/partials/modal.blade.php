@@ -33,6 +33,19 @@
                         <div>
                             <input type="email" wire:model="contact_email" placeholder="Primary Contact Email" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:border-violet-500 outline-none">
                         </div>
+                        {{-- Popular Toggle --}}
+                        <div class="col-span-2">
+                            <label class="flex items-center gap-4 cursor-pointer p-4 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors">
+                                <div class="relative flex items-center">
+                                    <input type="checkbox" wire:model="is_popular" class="peer sr-only">
+                                    <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-violet-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-violet-600"></div>
+                                </div>
+                                <div class="flex flex-col">
+                                    <span class="text-sm font-bold text-slate-800">Mark as Popular</span>
+                                    <span class="text-[11px] text-slate-500">Highlight this institution in front-end user interfaces and top lists.</span>
+                                </div>
+                            </label>
+                        </div>
                     </div>
 
                     {{-- Escalation Details --}}

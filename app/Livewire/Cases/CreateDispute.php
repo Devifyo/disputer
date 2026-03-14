@@ -54,11 +54,11 @@ class CreateDispute extends Component
     public function mount()
     {
         $this->results = collect();
-        $this->popular = Institution::where('is_verified', true)->limit(4)->get();
+        $this->popular = Institution::where('is_popular', true)->limit(4)->get();
         $this->categories = InstitutionCategory::orderBy('name')->get();
         
         // Load active plans for the paywall overlay
-        $this->availablePlans = Plan::where('is_active', true)->orderBy('price', 'asc')->get();
+        $this->availablePlans = Plan::where('stripe_mode', config('app.stripe_mode', 'test'))->where('is_active', true)->orderBy('price', 'asc')->get();
 
         // Check if returning from a successful Stripe checkout
         if (session()->has('dispute_draft')) {

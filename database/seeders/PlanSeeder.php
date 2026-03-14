@@ -11,6 +11,9 @@ class PlanSeeder extends Seeder
 {
     public function run(PlanService $planService): void
     {
+        // Plan::query()->delete();
+        // dd('exit');
+        $stripeMode = config('app.stripe_mode');
         $plans = [
             [
                 'name' => 'Single Case',
@@ -44,16 +47,25 @@ class PlanSeeder extends Seeder
         ];
 
         foreach ($plans as $planData) {
-            $existingPlan = Plan::where('slug', Str::slug($planData['slug']))->first();
+            // 2. Add the mode to the data array so the PlanService can save it
+            $planData['stripe_mode'] = $stripeMode;
+            
+            // 3. Make the slug unique per environment (e.g., 'single-case-test')
+            $baseSlug = Str::slug($planData['slug']);
+            $environmentSlug = $baseSlug . '-' . $stripeMode;
+            $planData['slug'] = $environmentSlug;
+
+            // 4. Check if THIS environment's version of the plan exists
+            $existingPlan = Plan::where('slug', $environmentSlug)
+                                ->where('stripe_mode', $stripeMode)
+                                ->first();
 
             if (!$existingPlan) {
-                // If it doesn't exist, create it locally and in Stripe!
+                // Creates locally and in Stripe!
                 $planService->createPlan($planData);
-                $this->command->info("Created & Synced: {$planData['name']}");
+                $this->command->info("Created & Synced [{$stripeMode} mode]: {$planData['name']}");
             } else {
-                // Optional: If you want to force an update to existing plans on re-seeding
-                // $planService->updatePlan($existingPlan, $planData);
-                $this->command->info("Skipped: {$planData['name']} (Already exists)");
+                $this->command->info("Skipped: {$planData['name']} (Already exists in {$stripeMode} mode)");
             }
         }
     }

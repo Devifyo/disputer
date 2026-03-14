@@ -18,6 +18,7 @@ class Index extends Component
     public $search = '';
     public $filterCategory = '';
     public $filterStatus = '';
+    public $filterPopular = '';
 
     // -- Form Properties (Restored Escalation) --
     public $institute_id;
@@ -27,14 +28,15 @@ class Index extends Component
     public $escalation_email = '';
     public $escalation_contact_name = '';
     public $is_verified = true;
-    
+    public $is_popular = false;
+
     // -- Dynamic Contacts Array --
     public array $contacts = [];
 
     public function updatingSearch() { $this->resetPage(); }
     public function updatingFilterCategory() { $this->resetPage(); }
     public function updatingFilterStatus() { $this->resetPage(); }
-    
+    public function updatingFilterPopular() { $this->resetPage(); }
     // When category changes, reset contacts to avoid invalid step keys
     public function updatedInstitutionCategoryId() { $this->contacts = []; }
 
@@ -50,7 +52,7 @@ class Index extends Component
             'contacts.*.step_key' => 'required',
             'contacts.*.department_name' => 'required|string|max:255',
             'contacts.*.channel' => 'required|in:email,url,portal,phone',
-            
+            'is_popular' => 'boolean',
             // Conditional Validation for the contact value
             'contacts.*.contact_value' => [
                 'required',
@@ -140,10 +142,10 @@ class Index extends Component
     {
         $this->resetForm();
         $this->isEditMode = true;
-
         $institute = Institution::with('contacts')->findOrFail($id);
         $this->institute_id = $institute->id;
         $this->name = $institute->name;
+        $this->is_popular = (bool) $institute->is_popular;
         $this->institution_category_id = $institute->institution_category_id;
         $this->contact_email = $institute->contact_email;
         $this->escalation_email = $institute->escalation_email;
@@ -177,6 +179,7 @@ class Index extends Component
     {
         $this->validate();
         $institution = Institution::findOrFail($this->institute_id);
+        // @dump($institution, $this->is_popular );
         $institution->update($this->formArray());
 
         $institution->contacts()->forceDelete(); 
@@ -206,7 +209,7 @@ class Index extends Component
 
     private function resetForm()
     {
-        $this->reset(['institute_id', 'name', 'institution_category_id', 'contact_email', 'escalation_email', 'escalation_contact_name', 'is_verified', 'contacts']);
+        $this->reset(['institute_id', 'name', 'institution_category_id', 'contact_email', 'escalation_email', 'escalation_contact_name', 'is_verified', 'contacts', 'is_popular']);
         $this->resetValidation();
     }
 
@@ -219,6 +222,7 @@ class Index extends Component
             'escalation_email' => $this->escalation_email,
             'escalation_contact_name' => $this->escalation_contact_name,
             'is_verified' => $this->is_verified,
+            'is_popular' => $this->is_popular
         ];
     }
 
@@ -234,6 +238,8 @@ class Index extends Component
             ->when($this->filterCategory, fn($q) => $q->where('institution_category_id', $this->filterCategory))
             ->when($this->filterStatus === 'verified', fn($q) => $q->where('is_verified', true))
             ->when($this->filterStatus === 'unverified', fn($q) => $q->where('is_verified', false))
+            ->when($this->filterPopular === 'yes', fn($q) => $q->where('is_popular', true)) // <-- ADD THIS
+            ->when($this->filterPopular === 'no', fn($q) => $q->where('is_popular', false)) // <-- ADD THIS
             ->latest();
 
         return view('livewire.admin.institutions.index', [

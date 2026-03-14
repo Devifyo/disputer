@@ -18,13 +18,13 @@
             <a href="{{ route('user.cases.create') }}" class="group">
                 <button class="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-lg text-xs font-semibold shadow-lg shadow-slate-900/10 transition-all flex items-center gap-2 transform active:scale-95">
                     <i data-lucide="plus" class="w-4 h-4 transition-transform group-hover:rotate-90"></i>
-                    <span>New Dispute</span>
+                    <span>New Case</span>
                 </button>
             </a>
         </div>
     </header>
-
     <div class="flex-1 overflow-y-auto bg-slate-50 p-4 sm:p-6 lg:p-8">
+        @include('user.cases.partials.alerts')
         <div class="max-w-7xl mx-auto space-y-6">
 
             <form id="filterForm" method="GET" action="{{ route('user.cases.index') }}" class="bg-white p-2 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row gap-2">

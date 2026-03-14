@@ -11,12 +11,12 @@ class InstitutionSeeder extends Seeder
     public function run(): void
     {
         $cats = [
-            'Bank'      => InstitutionCategory::firstOrCreate(['slug' => 'bank'], ['name' => 'Bank']),
-            'Airline'   => InstitutionCategory::firstOrCreate(['slug' => 'airline'], ['name' => 'Airline']),
-            'Govt'      => InstitutionCategory::firstOrCreate(['slug' => 'govt'], ['name' => 'Government Agency']),
-            'Insurance' => InstitutionCategory::firstOrCreate(['slug' => 'insurance'], ['name' => 'Insurance']),
-            'Telecom'   => InstitutionCategory::firstOrCreate(['slug' => 'telecom'], ['name' => 'Telecom & ISP']),
-            'Fintech'   => InstitutionCategory::firstOrCreate(['slug' => 'fintech'], ['name' => 'Fintech & Payments']),
+            'Bank'      => InstitutionCategory::updateOrCreate(['name' => 'Bank'], ['slug' => 'bank']),
+            'Airline'   => InstitutionCategory::updateOrCreate(['name' => 'Airline'], ['slug' => 'airline']),
+            'Govt'      => InstitutionCategory::updateOrCreate(['name' => 'Government Agency'], ['slug' => 'govt']),
+            'Insurance' => InstitutionCategory::updateOrCreate(['name' => 'Insurance'], ['slug' => 'insurance']),
+            'Telecom'   => InstitutionCategory::updateOrCreate(['name' => 'Telecom & ISP'], ['slug' => 'telecom']),
+            'Fintech'   => InstitutionCategory::updateOrCreate(['name' => 'Fintech & Payments'], ['slug' => 'fintech']),
         ];
         $adminRole = config('roles.admin.name');
         $admin = User::role($adminRole)->first();

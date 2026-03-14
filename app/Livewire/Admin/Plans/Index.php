@@ -150,7 +150,7 @@ class Index extends Component
 
     public function render()
     {
-        $plans = Plan::query()
+        $plans = Plan::where('stripe_mode', config('app.stripe_mode', 'test'))->query()
             ->when($this->search, function($query) {
                 $query->where('name', 'like', '%' . $this->search . '%')
                       ->orWhere('type', 'like', '%' . $this->search . '%');

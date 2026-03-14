@@ -30,4 +30,13 @@
             <option value="unverified">Unverified</option>
         </select>
     </div>
+    {{-- Popular Filter --}}
+    <div class="w-full md:w-40">
+        <select wire:model.live="filterPopular" 
+                class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-600 focus:border-violet-500 focus:ring-2 focus:ring-violet-500/10 outline-none cursor-pointer hover:border-slate-300 transition-all">
+            <option value="">All Popularity</option>
+            <option value="yes">Popular Only</option>
+            <option value="no">Not Popular</option>
+        </select>
+    </div>
 </div>
