@@ -9,7 +9,7 @@
                 <i data-lucide="menu" class="w-5 h-5"></i>
             </button> --}}
             <h1 class="font-bold text-slate-900 text-lg tracking-tight flex items-center gap-2">
-                Letter Templates
+                Cases Email Templates
                 <span class="hidden sm:flex h-5 px-2 items-center justify-center rounded-full bg-slate-100 text-[10px] font-bold text-slate-600 border border-slate-200">
                     {{ $templates->count() }} Available
                 </span>

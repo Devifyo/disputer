@@ -49,7 +49,7 @@
 
         <a href="{{ route('user.templates.index') }}" class="{{ navClass('user.templates.*') }} group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all">
             <i data-lucide="file-text" class="w-5 h-5 transition-colors {{ request()->routeIs('user.templates.*') ? 'text-blue-400' : 'text-slate-500 group-hover:text-slate-300' }}"></i>
-            Letter Templates
+            Cases Email Templates
         </a>
 
         {{-- <a href="{{ route('user.emails.index') }}" class="{{ navClass('user.emails.*') }} group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all justify-between">

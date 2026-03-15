@@ -10,7 +10,7 @@
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
             <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Dispute Templates</h1>
-            <p class="text-sm text-slate-500">Manage the pre-written letter templates provided to users.</p>
+            <p class="text-sm text-slate-500">Manage the pre-written cases email templates provided to users.</p>
         </div>
         
         <button wire:click="create" 
