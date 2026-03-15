@@ -225,7 +225,7 @@
                             <label class="block text-[11px] font-bold text-slate-400 uppercase">Features List</label>
                             <span class="text-[10px] text-slate-400 font-medium">One feature per line</span>
                         </div>
-                        <textarea wire:model.blur="features" rows="5" placeholder="Unlimited Disputes&#10;Priority Support&#10;Access to all templates" class="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm leading-relaxed focus:border-primary-500 outline-none resize-y"></textarea>
+                        <textarea wire:model.blur="features" rows="5" placeholder="Unlimited Cases&#10;Priority Support&#10;Access to all templates" class="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm leading-relaxed focus:border-primary-500 outline-none resize-y"></textarea>
                     </div>
                     
                     <div class="md:col-span-1 pt-6 md:pt-0 border-t md:border-t-0 md:border-l border-slate-100 md:pl-6">

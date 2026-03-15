@@ -32,7 +32,7 @@
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <i data-lucide="search" class="w-4 h-4 text-slate-400 group-focus-within:text-blue-500 transition-colors"></i>
                     </div>
-                    <input type="text" name="search" value="{{ request('search') }}" placeholder="Search disputes..." 
+                    <input type="text" name="search" value="{{ request('search') }}" placeholder="Search cases..." 
                            class="block w-full pl-10 pr-3 py-2 bg-transparent border-0 text-sm text-slate-900 placeholder:text-slate-400 focus:ring-0 focus:outline-none h-10">
                 </div>
                 
@@ -172,7 +172,7 @@
                     <div class="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
                         <i data-lucide="folder-open" class="w-8 h-8 text-slate-300"></i>
                     </div>
-                    <h3 class="text-slate-900 font-bold text-lg">No disputes found</h3>
+                    <h3 class="text-slate-900 font-bold text-lg">No cases found</h3>
                     <p class="text-slate-500 text-sm mt-1 max-w-xs mx-auto">It looks quiet here. Start a new case to begin tracking your disputes.</p>
                     <a href="{{ route('user.cases.create') }}" class="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 px-5 py-2.5 rounded-lg transition-all shadow-md">
                         <i data-lucide="plus" class="w-4 h-4"></i> Create Case

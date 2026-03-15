@@ -271,7 +271,7 @@
                                                             
                                                             {{-- Tooltip Bubble --}}
                                                             <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-slate-800 text-white text-[9px] rounded-lg shadow-xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all z-50 text-center leading-relaxed pointer-events-none">
-                                                                Keys are locked to prevent breaking active disputes and routing links.
+                                                                Keys are locked to prevent breaking active cases and routing links.
                                                                 <div class="absolute -bottom-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
                                                             </div>
                                                         </div>

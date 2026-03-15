@@ -110,7 +110,7 @@
 
                     <div class="flex items-center justify-between">
                         <h2 class="text-base font-bold text-slate-800 flex items-center gap-2">
-                            <i data-lucide="list" class="w-4 h-4 text-slate-400"></i> Active Disputes
+                            <i data-lucide="list" class="w-4 h-4 text-slate-400"></i> Active Cases
                         </h2>
                     </div>
 
@@ -165,7 +165,7 @@
                                 <div class="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4 border border-slate-100">
                                     <i data-lucide="folder-search" class="w-8 h-8 text-slate-300"></i>
                                 </div>
-                                <h3 class="text-sm font-bold text-slate-900">No active disputes</h3>
+                                <h3 class="text-sm font-bold text-slate-900">No active cases</h3>
                                 <p class="text-xs text-slate-500 mt-1 mb-6 max-w-xs mx-auto">You don't have any cases in progress. Start a new dispute to begin tracking.</p>
                                 <a href="{{ route('user.cases.create') }}" class="text-blue-600 font-bold text-sm hover:underline flex items-center gap-1">
                                     Start new dispute <i data-lucide="arrow-right" class="w-3 h-3"></i>
@@ -190,7 +190,7 @@
                             </div>
                             <div class="p-4">
                                 <p class="text-xs text-slate-600 mb-3 leading-relaxed">
-                                    We cannot send or track disputes until you connect your email.
+                                    We cannot create or track cases until you connect your email.
                                 </p>
                                 <a href="{{ route('profile.edit') }}#email-settings" class="w-full flex items-center justify-center gap-2 bg-rose-600 hover:bg-rose-700 text-white py-2 rounded-lg text-xs font-bold transition-all shadow-sm shadow-rose-600/20">
                                     Connect Email Now <i data-lucide="arrow-right" class="w-3 h-3"></i>
@@ -210,7 +210,7 @@
                                     <h3 class="font-bold text-sm">System Operational</h3>
                                 </div>
                                 <p class="text-[11px] text-emerald-50 leading-relaxed mb-3">
-                                    Your email is connected. We are ready to send and track disputes automatically.
+                                    Your email is connected. We are ready to create and track cases automatically.
                                 </p>
                                 <div class="w-full bg-black/20 rounded-full h-1.5">
                                     <div class="bg-white h-1.5 rounded-full" style="width: 100%"></div>
@@ -264,7 +264,7 @@
                                         <i data-lucide="mail-open" class="w-6 h-6 text-slate-300"></i>
                                     </div>
                                     <p class="text-xs font-bold text-slate-800">No recent emails</p>
-                                    <p class="text-[10px] text-slate-500 mt-1 max-w-[150px]">Email activity will appear here once disputes are started.</p>
+                                    <p class="text-[10px] text-slate-500 mt-1 max-w-[150px]">Email activity will appear here once cases are created.</p>
                                 </div>
                             @endif
                         </div>
