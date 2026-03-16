@@ -39,7 +39,7 @@ class CheckoutController extends Controller
                 ]],
                 'mode' => $mode,
                 'automatic_tax' => [
-                    'enabled' => true,
+                    'enabled' => false,
                 ],
                 'success_url' => $successUrl,
                 'cancel_url' => $cancelUrl,
