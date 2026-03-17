@@ -13,7 +13,7 @@
             <p class="text-sm text-slate-500">Manage subscriptions, one-time case bundles, and pricing.</p>
         </div>
         
-        {{-- <button wire:click="create" 
+         <button wire:click="create" 
                 wire:loading.attr="disabled"
                 class="bg-slate-900 hover:bg-slate-800 text-white px-3 sm:px-4 py-2 rounded-lg text-xs font-bold shadow-lg shadow-slate-900/20 transition-all flex items-center gap-2 hover:scale-105 active:scale-95">
             <span wire:loading.remove wire:target="create" class="inline-flex items-center gap-2">
@@ -22,7 +22,7 @@
             <span wire:loading.flex wire:target="create" class="inline-flex items-center gap-2">
                 <i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Opening...
             </span>
-        </button> --}}
+        </button>
     </div>
 
     {{-- Filters & Search --}}

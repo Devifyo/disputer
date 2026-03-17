@@ -17,37 +17,26 @@ class ProfileController extends Controller
     /**
      * Display the user's profile form.
      */
-    public function edit(Request $request): View
+    public function edit(Request $request)
     {
-        $emailConfig = UserEmailConfig::firstOrNew(['user_id' => $request->user()->id]);
+        $user = $request->user();
+        $emailConfig = UserEmailConfig::firstOrNew(['user_id' => $user->id]);
 
         // 1. Get all active plans to display for purchase
         $plans = Plan::where('is_active', true)
-             ->where('stripe_mode', config('app.stripe_mode', 'test'))
-             ->get();
+            ->where('stripe_mode', config('app.stripe_mode', 'test'))
+            ->get();
         
-        // 2. Get the user's latest active subscription
-        $currentSubscription = UserSubscription::with('plan')
-            ->where('user_id', $request->user()->id)
-            ->where('status', 'active')
-            ->latest()
-            ->first();
-
-        // 3. Auto-expire the subscription if it's no longer valid (e.g., used all cases or time ran out)
-        if ($currentSubscription && !$currentSubscription->isValid()) {
-            $currentSubscription->update([
-                'status' => $currentSubscription->expires_at && now()->greaterThan($currentSubscription->expires_at) 
-                            ? 'expired' 
-                            : 'exhausted'
-            ]);
-            $currentSubscription = null; // Set to null so the view prompts them to buy a new plan
-        }
+        // 2. Fetch the current subscription and overall case status using our new model helpers!
+        $currentSubscription = $user->getCurrentSubscription();
+        $caseStatus = $user->getCaseStatus();
 
         return view('profile.edit', [
-            'user' => $request->user(),
+            'user' => $user,
             'emailConfig' => $emailConfig,
             'plans' => $plans,
             'currentSubscription' => $currentSubscription,
+            'caseStatus' => $caseStatus, 
         ]);
     }
 

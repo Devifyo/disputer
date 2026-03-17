@@ -97,29 +97,99 @@ class User extends Authenticatable
     {
         return $this->role_id === config('roles.user.id');
     }
+
+    /**
+     * Get the user's primary active subscription to display.
+     * Automatically prioritizes yearly plans and cleans up expired ones.
+     */
+    public function getCurrentSubscription()
+    {
+        $subscriptions = \App\Models\UserSubscription::with('plan')
+            ->where('user_id', $this->id)
+            ->whereIn('status', ['active', 'canceled'])
+            ->get();
+
+        $currentSubscription = null;
+
+        foreach ($subscriptions as $sub) {
+            // 1. Auto-clean expired/exhausted plans in the background
+            if (!$sub->isValid()) {
+                if ($sub->status === 'active') {
+                    $sub->update([
+                        'status' => $sub->expires_at && now()->greaterThan($sub->expires_at) 
+                                    ? 'expired' 
+                                    : 'exhausted'
+                    ]);
+                }
+                continue; // Skip invalid plans
+            }
+
+            // 2. Find the best plan to show in the UI
+            // Prioritizes 'recurring_yearly'. If they don't have one, it grabs their valid one-time pack.
+            if (!$currentSubscription || $sub->plan->type === 'recurring_yearly') {
+                $currentSubscription = $sub;
+            }
+        }
+
+        return $currentSubscription;
+    }
     
     /**
      * Check if the user has an active subscription or remaining cases to create a new dispute.
      */
     public function canCreateCase(): bool
     {
-        $sub = \App\Models\UserSubscription::with('plan')
+        $status = $this->getCaseStatus();
+
+        return $status->has_unlimited || $status->total_remaining > 0;
+    }
+
+    /**
+     * Get the aggregated case status across all active subscriptions.
+     */
+    public function getCaseStatus(): object
+    {
+        // 1. Fetch BOTH active and canceled subscriptions
+        // We exclude 'expired' or 'failed' records assuming those shouldn't grant cases.
+        $activeSubscriptions = \App\Models\UserSubscription::with('plan')
             ->where('user_id', $this->id)
-            ->where('status', 'active')
-            ->latest()
-            ->first();
+            ->whereIn('status', ['active', 'canceled']) 
+            ->get();
 
-        if (!$sub) {
-            return false;
+        $hasUnlimited = false;
+        $totalCasesAllowed = 0;
+        $totalCasesUsed = 0;
+
+        foreach ($activeSubscriptions as $sub) {
+            
+            // 2. Logic for Unlimited / Yearly Plans
+            if ($sub->plan->type === 'recurring_yearly') {
+                // A yearly plan only grants unlimited if it is strictly 'active'
+                // OR if it was 'canceled' but the expiration date hasn't passed yet.
+                $isStillValidYearly = $sub->status === 'active' || 
+                                     ($sub->status === 'canceled' && $sub->expires_at && now()->lessThan($sub->expires_at));
+                
+                if ($isStillValidYearly) {
+                    $hasUnlimited = true;
+                }
+            } 
+            
+            // 3. Logic for One-Time Packs (Stackable Consumables)
+            else {
+                // For one-time packs, the user keeps the cases they paid for regardless
+                // of whether the "subscription" status says active or canceled. 
+                // As long as they haven't used them all, they count towards the total.
+                $totalCasesAllowed += $sub->cases_allowed;
+                $totalCasesUsed += $sub->cases_used;
+            }
         }
 
-        // Yearly plans have unlimited cases
-        if ($sub->plan->type === 'recurring_yearly') {
-            return true;
-        }
-
-        // One-time plans must have cases remaining
-        return $sub->cases_used < $sub->cases_allowed;
+        // Return as an object so it's clean to use in Blade
+        return (object) [
+            'has_unlimited' => $hasUnlimited,
+            'total_remaining' => max(0, $totalCasesAllowed - $totalCasesUsed),
+            'total_allowed' => $totalCasesAllowed,
+        ];
     }
     
 }

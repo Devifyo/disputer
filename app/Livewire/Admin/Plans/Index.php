@@ -86,6 +86,7 @@ class Index extends Component
             'slug' => $this->slug,
             'type' => $this->type,
             'case_limit' => $this->case_limit === '' ? null : $this->case_limit,
+            'stripe_mode' => config('app.stripe_mode', 'test'),
             'price' => $this->price,
             'currency' => $this->currency,
             'features' => empty($featuresArray) ? null : $featuresArray,
@@ -150,7 +151,7 @@ class Index extends Component
 
     public function render()
     {
-        $plans = Plan::where('stripe_mode', config('app.stripe_mode', 'test'))->query()
+        $plans = Plan::where('stripe_mode', config('app.stripe_mode', 'test')) // Removed ->query() here
             ->when($this->search, function($query) {
                 $query->where('name', 'like', '%' . $this->search . '%')
                       ->orWhere('type', 'like', '%' . $this->search . '%');
