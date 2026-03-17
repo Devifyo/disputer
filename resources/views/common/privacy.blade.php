@@ -20,7 +20,7 @@
         <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
             <div class="flex items-center gap-2">
                 <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center">
-                    <i data-lucide="shield" class="w-4 h-4 text-white"></i>
+                    <i data-lucide="scale" class="w-4 h-4 text-white"></i>
                 </div>
                 <span class="font-bold text-slate-900 tracking-tight">{{ config('app.name') }}</span>
             </div>
@@ -45,7 +45,7 @@
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 sm:p-12 text-[15px] sm:text-base leading-relaxed space-y-6">
             
             <p class="text-lg text-slate-700 font-medium">
-                At {{ config('app.name', 'Disputer') }}, we take your privacy and the security of your financial data incredibly seriously. This policy outlines how we handle the sensitive information required to generate your disputes.
+                At {{ config('app.name', 'Unjamm') }}, we take your privacy and the security of your financial data incredibly seriously. This policy outlines how we handle the sensitive information required to generate your disputes.
             </p>
 
             <hr class="border-slate-100 my-8">
@@ -54,7 +54,7 @@
                 <i data-lucide="database" class="w-5 h-5 text-blue-600"></i> 1. Information We Collect
             </h2>
             <p>
-                To provide our dispute resolution services, we collect personal information including your name, email address, and specific details regarding your financial disputes. This includes transaction dates, disputed amounts, reference numbers, and the names of involved institutions.
+                To provide our dispute resolution services, we collect personal information including your name, email address, and specific details regarding your disputes. This includes transaction dates, disputed amounts, reference numbers, and the names of involved institutions.
             </p>
 
             <h2 class="text-xl font-bold text-slate-900 mt-8 mb-4 flex items-center gap-2">
@@ -64,7 +64,7 @@
                 Your data is strictly used to facilitate the dispute process:
             </p>
             <ul class="list-disc pl-5 space-y-2 mt-2">
-                <li><strong class="text-slate-800">AI Generation:</strong> We use your context to generate accurate legal templates. Your specific personal identifiers are anonymized where possible before being processed by our language models.</li>
+                <li><strong class="text-slate-800">AI Generation:</strong> We use your context to generate accurate legal and dispute templates. Your specific personal identifiers are anonymized where possible before being processed by our language models.</li>
                 <li><strong class="text-slate-800">Workflow Tracking:</strong> Updating your case status and organizing your timeline.</li>
                 <li><strong class="text-slate-800">Communication:</strong> Sending you critical system notifications.</li>
             </ul>
@@ -73,11 +73,23 @@
                 <i data-lucide="lock" class="w-5 h-5 text-blue-600"></i> 3. Bank-Grade Security
             </h2>
             <p>
-                We employ bank-grade encryption to protect your sensitive financial records and dispute attachments. Your data is encrypted both in transit (via SSL/TLS) and at rest within our secure databases.
+                We employ bank-grade encryption to protect your sensitive records and dispute attachments. Your data is encrypted both in transit (via SSL/TLS) and at rest within our secure databases.
             </p>
 
+            {{-- NEW SECTION FOR THIRD PARTY SERVICES --}}
             <h2 class="text-xl font-bold text-slate-900 mt-8 mb-4 flex items-center gap-2">
-                <i data-lucide="trash-2" class="w-5 h-5 text-blue-600"></i> 4. Data Retention
+                <i data-lucide="share-2" class="w-5 h-5 text-blue-600"></i> 4. Third-Party Services
+            </h2>
+            <p>
+                We use trusted third-party services to securely operate our platform. We share only the necessary information required for these services to function:
+            </p>
+            <ul class="list-disc pl-5 space-y-2 mt-2">
+                <li><strong class="text-slate-800">Stripe:</strong> Used for secure payment processing. We do not store your full credit card information on our servers; it is handled entirely by Stripe.</li>
+                <li><strong class="text-slate-800">SendGrid:</strong> Used for reliable email delivery, routing system notifications, and sending dispute communications.</li>
+            </ul>
+
+            <h2 class="text-xl font-bold text-slate-900 mt-8 mb-4 flex items-center gap-2">
+                <i data-lucide="trash-2" class="w-5 h-5 text-blue-600"></i> 5. Data Retention
             </h2>
             <p>
                 We retain your case files and attachments only for as long as necessary to resolve your dispute. Once a case is permanently closed, you maintain the right to request a complete deletion of your records from our active servers.

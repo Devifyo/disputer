@@ -1,7 +1,7 @@
 @extends('layouts.marketing')
 
-@section('title', 'Unjamm - Get Unstuck')
-@section('meta_description', 'We help you take action when life gets stuck. Navigate institutions with clarity, structure, and confidence.')
+@section('title', 'Unjamm - Resolve complaints with companies faster')
+@section('meta_description', 'Unjamm helps you escalate disputes with banks, airlines, telecom companies, and other institutions using structured escalation workflows.')
 
 @push('styles')
 <style>
@@ -36,9 +36,9 @@
     }
     .hero-tag span { width: 6px; height: 6px; background: var(--accent); border-radius: 50%; display: block; }
     h1 {
-        font-size: clamp(3rem, 5vw, 5rem);
+        font-size: clamp(3rem, 4.5vw, 4.5rem);
         font-weight: 800;
-        line-height: 1.02;
+        line-height: 1.05;
         letter-spacing: -0.035em;
         color: var(--ink);
         margin-bottom: 28px;
@@ -56,12 +56,23 @@
         border-radius: 2px;
     }
     .hero-sub {
-        font-size: 1.2rem; color: var(--muted);
-        line-height: 1.7; font-weight: 300;
-        max-width: 420px;
+        font-size: 1.15rem; color: var(--muted);
+        line-height: 1.7; font-weight: 400;
+        max-width: 480px;
         margin-bottom: 40px;
     }
     .hero-actions { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+    
+    /* NEW: Secondary Button Style */
+    .btn-secondary {
+        display: inline-flex; align-items: center; gap: 8px;
+        padding: 14px 28px; border-radius: 12px;
+        font-size: 1rem; font-weight: 600;
+        color: var(--ink); background: transparent;
+        border: 1px solid var(--border);
+        transition: all 0.2s; text-decoration: none;
+    }
+    .btn-secondary:hover { background: rgba(15, 23, 42, 0.03); border-color: rgba(15, 23, 42, 0.2); }
 
     .hero-visual {
         position: relative;
@@ -97,6 +108,38 @@
     }
     .badge-resolved { background: rgba(22,163,74,0.1); color: #16a34a; }
     .badge-inprogress { background: rgba(37, 99, 235, 0.1); color: var(--accent); }
+
+    /* ─── EXACT HOW IT WORKS (NEW) ─── */
+    #how-it-works {
+        padding: 120px 48px;
+        background: var(--white);
+        border-bottom: 1px solid var(--border);
+    }
+    .how-inner { max-width: 1200px; margin: 0 auto; }
+    .how-header { text-align: center; max-width: 600px; margin: 0 auto 60px; }
+    .how-header h2 { color: var(--ink); margin-top: 16px; }
+    .steps-grid {
+        display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px;
+    }
+    .step-card {
+        background: var(--paper); border: 1px solid var(--border);
+        border-radius: 24px; padding: 36px 28px;
+        position: relative; transition: transform 0.3s;
+    }
+    .step-card:hover { transform: translateY(-4px); box-shadow: 0 12px 30px rgba(15, 23, 42, 0.04); }
+    .step-number {
+        display: inline-flex; align-items: center; justify-content: center;
+        background: rgba(37, 99, 235, 0.1); color: var(--accent);
+        width: 48px; height: 48px; border-radius: 14px;
+        font-size: 1.25rem; font-weight: 800; margin-bottom: 24px;
+    }
+    .step-title {
+        font-size: 1.15rem; font-weight: 700; color: var(--ink);
+        margin-bottom: 12px; letter-spacing: -0.01em;
+    }
+    .step-desc {
+        font-size: 0.95rem; color: var(--muted); line-height: 1.6; font-weight: 400;
+    }
 
     /* ─── EXACT WHY ─── */
     #why-this-exists {
@@ -263,6 +306,36 @@
     .sit-text { font-size: 0.95rem; font-weight: 500; color: rgba(248, 250, 252, 0.7); line-height: 1.4; padding-top: 10px; transition: color 0.2s; }
     .sit-item:hover .sit-text { color: var(--paper); }
 
+    /* ─── EXACT FAQ (NEW) ─── */
+    #faq {
+        padding: 120px 48px;
+        background: var(--cream);
+    }
+    .faq-inner { max-width: 800px; margin: 0 auto; }
+    .faq-header { text-align: center; margin-bottom: 60px; }
+    .faq-header h2 { color: var(--ink); margin-top: 16px; }
+    details.faq-item {
+        border-bottom: 1px solid var(--border);
+        padding: 24px 0;
+    }
+    details.faq-item summary::-webkit-details-marker { display: none; }
+    details.faq-item summary {
+        list-style: none;
+        font-size: 1.15rem; font-weight: 700; color: var(--ink);
+        cursor: pointer; display: flex; justify-content: space-between; align-items: center;
+        letter-spacing: -0.01em;
+    }
+    details.faq-item summary svg {
+        flex-shrink: 0; color: var(--muted); transition: transform 0.3s ease;
+    }
+    details.faq-item[open] summary svg {
+        transform: rotate(180deg); color: var(--accent);
+    }
+    .faq-answer {
+        padding-top: 16px; padding-right: 40px;
+        font-size: 1.05rem; color: var(--muted); line-height: 1.7;
+    }
+
     /* ─── EXACT CTA ─── */
     #cta {
         padding: 80px 48px 120px;
@@ -327,9 +400,13 @@
     .hero-visual .hero-card:nth-child(3) { animation-delay: 0.8s; }
 
     /* ─── EXACT RESPONSIVE ─── */
+    @media (max-width: 1024px) {
+        .steps-grid { grid-template-columns: repeat(2, 1fr); }
+    }
     @media (max-width: 900px) {
         header { grid-template-columns: 1fr; padding: 110px 24px 60px; }
         .hero-visual { display: none; }
+        #how-it-works { padding: 80px 24px; }
         #why-this-exists { padding: 80px 24px; }
         .why-inner { grid-template-columns: 1fr; gap: 40px; }
         #story { padding: 80px 24px; }
@@ -338,11 +415,15 @@
         .outcomes-grid { grid-template-columns: 1fr; }
         #situations { padding: 80px 24px; }
         .sit-grid { grid-template-columns: 1fr 1fr; }
+        #faq { padding: 80px 24px; }
         #cta { padding: 40px 24px 80px; }
         .cta-box { grid-template-columns: 1fr; padding: 48px; gap: 32px; }
     }
     @media (max-width: 560px) {
+        .steps-grid { grid-template-columns: 1fr; }
         .sit-grid { grid-template-columns: 1fr; }
+        .hero-actions { flex-direction: column; align-items: stretch; }
+        .hero-actions .btn-primary, .hero-actions .btn-secondary { width: 100%; justify-content: center; }
     }
 </style>
 @endpush
@@ -352,27 +433,30 @@
         <div class="hero-bg-shape"></div>
         <div class="hero-left">
             <div class="hero-tag"><span></span> Get Unstuck Today</div>
-            <h1>We help you<br>take action <em>when<br>life gets stuck.</em></h1>
-            <p class="hero-sub">Navigate institutions with clarity, structure, and confidence — from billing disputes to government bureaucracy.</p>
+            <h1>Resolve complaints<br>with companies <em>faster.</em></h1>
+            <p class="hero-sub">Unjamm helps you escalate disputes with banks, airlines, telecom companies, insurance companies and other institutions using structured escalation workflows and AI-generated complaint letters.</p>
             <div class="hero-actions">
                 @auth
                     @if(auth()->user()->role === 'admin')
                         <a href="{{ route('admin.dashboard') }}" class="btn-primary">
                             Go to Admin Panel
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                         </a>
                     @else
                         <a href="{{ route('user.dashboard') }}" class="btn-primary">
                             Go to Dashboard
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                         </a>
                     @endif
                 @else
                     <a href="{{ route('register') }}" class="btn-primary">
-                        Start Your First Case
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                        Start a Dispute
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                     </a>
                 @endauth
+                <a href="#how-it-works" class="btn-secondary">
+                    How It Works
+                </a>
             </div>
         </div>
 
@@ -414,6 +498,41 @@
             </div>
         </div>
     </header>
+
+    <section id="how-it-works">
+        <div class="how-inner">
+            <div class="how-header">
+                <div class="section-eyebrow" style="color: var(--accent); justify-content: center;">Simple Process</div>
+                <h2>How It Works</h2>
+            </div>
+            
+            <div class="steps-grid">
+                <div class="step-card">
+                    <div class="step-number">1</div>
+                    <div class="step-title">Create a Dispute</div>
+                    <div class="step-desc">Select the company and describe your issue.</div>
+                </div>
+                
+                <div class="step-card">
+                    <div class="step-number">2</div>
+                    <div class="step-title">Generate the Email</div>
+                    <div class="step-desc">Unjamm generates a structured complaint email.</div>
+                </div>
+                
+                <div class="step-card">
+                    <div class="step-number">3</div>
+                    <div class="step-title">Escalate the Issue</div>
+                    <div class="step-desc">Move through customer service, escalation teams and executive offices.</div>
+                </div>
+                
+                <div class="step-card">
+                    <div class="step-number">4</div>
+                    <div class="step-title">Track Everything</div>
+                    <div class="step-desc">All communications stay organized in your dispute timeline.</div>
+                </div>
+            </div>
+        </div>
+    </section>
 
     <section id="why-this-exists">
         <div class="why-inner">
@@ -552,6 +671,72 @@
         </div>
     </section>
 
+    <section id="faq">
+        <div class="faq-inner">
+            <div class="faq-header">
+                <div class="section-eyebrow" style="color: var(--accent); justify-content: center;">Questions & Answers</div>
+                <h2>Frequently Asked Questions</h2>
+            </div>
+            
+            <div class="faq-list">
+                <details class="faq-item" open>
+                    <summary>What is Unjamm? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></summary>
+                    <div class="faq-answer">Unjamm is a platform that helps people resolve complaints with companies by generating structured dispute emails and guiding users through escalation steps.</div>
+                </details>
+
+                <details class="faq-item">
+                    <summary>Is Unjamm a law firm? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></summary>
+                    <div class="faq-answer">No. Unjamm is a technology platform that helps organize and generate dispute communications. It does not provide legal advice.</div>
+                </details>
+
+                <details class="faq-item">
+                    <summary>What types of disputes can I use Unjamm for? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></summary>
+                    <div class="faq-answer">Common disputes include airline refunds, bank fee disputes, telecom billing issues, unauthorized transactions, insurance claims, and other consumer complaints.</div>
+                </details>
+
+                <details class="faq-item">
+                    <summary>Do companies actually respond to these emails? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></summary>
+                    <div class="faq-answer">While responses cannot be guaranteed, structured escalation significantly improves the chances of receiving a response.</div>
+                </details>
+
+                <details class="faq-item">
+                    <summary>Can I use Unjamm for any company? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></summary>
+                    <div class="faq-answer">Yes. If a company is not already listed in the system, users can add it manually when creating a dispute.</div>
+                </details>
+
+                <details class="faq-item">
+                    <summary>Does Unjamm send the emails automatically? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></summary>
+                    <div class="faq-answer">Unjamm generates the dispute email for you, but users review the message before it is sent.</div>
+                </details>
+
+                <details class="faq-item">
+                    <summary>What happens if the company does not respond? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></summary>
+                    <div class="faq-answer">Users can escalate the dispute through additional stages such as executive escalation or regulatory complaints depending on the dispute type.</div>
+                </details>
+
+                <details class="faq-item">
+                    <summary>Is my information private? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></summary>
+                    <div class="faq-answer">Yes. Dispute information is only used to generate emails and manage your case timeline. Payment processing is handled securely through Stripe.</div>
+                </details>
+
+                <details class="faq-item">
+                    <summary>Can I cancel my subscription? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></summary>
+                    <div class="faq-answer">Yes. You can cancel your subscription at any time through your account settings.</div>
+                </details>
+
+                <details class="faq-item">
+                    <summary>Can I use Unjamm for business-related disputes, or is it only for personal issues? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></summary>
+                    <div class="faq-answer">Unjamm can be used for both personal and business-related disputes. Many professionals and small business owners use the platform to resolve issues with banks, service providers, vendors, insurance companies, and other institutions.</div>
+                </details>
+
+                <details class="faq-item">
+                    <summary>My insurance claim was denied or the settlement offer was lower than expected. Can Unjamm help? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></summary>
+                    <div class="faq-answer">Yes. Unjamm can help organize and escalate insurance disputes when a claim is denied, delayed, or when the settlement offer does not reflect the expected value of the loss. The platform helps users generate structured appeal or negotiation emails, present supporting documentation or comparable estimates, and escalate the issue through additional stages such as claims management, executive escalation, or regulatory channels when appropriate.</div>
+                </details>
+            </div>
+        </div>
+    </section>
+
     <section id="cta">
         <div class="cta-inner">
             <div class="cta-box">
@@ -562,20 +747,20 @@
                 <div class="cta-right">
                     @auth
                         @if(auth()->user()->role === 'admin')
-                            <a href="{{ route('admin.dashboard') }}" class="btn-cta">
+                            <a href="{{ route('admin.dashboard') }}" class="btn-primary" style="background: white; color: var(--accent);">
                                 Go to Admin Panel
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                             </a>
                         @else
-                            <a href="{{ route('user.dashboard') }}" class="btn-cta">
+                            <a href="{{ route('user.dashboard') }}" class="btn-primary" style="background: white; color: var(--accent) !important;">
                                 Go to Dashboard
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                             </a>
                         @endif
                     @else
-                        <a href="{{ route('register') }}" class="btn-cta">
+                        <a href="{{ route('register') }}" class="btn-primary" style="background: white; color: var(--accent);">
                             Get Started Today
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                         </a>
                     @endauth
                 </div>
