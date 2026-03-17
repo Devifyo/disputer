@@ -97,7 +97,7 @@
         @endif
     </div>
 
-    {{-- Message Reader Modal (Updated to match the sleek User Management modal design) --}}
+    {{-- Message Reader Modal --}}
     @if($showModal && $selectedMessage)
         <div class="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-in fade-in" wire:click="closeMessage"></div>
@@ -117,28 +117,38 @@
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8 bg-slate-50 p-6 rounded-2xl border border-slate-100">
                         <div>
                             <span class="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">From</span>
-                            <div class="font-bold text-slate-900">{{ $selectedMessage->name }}</div>
-                            <a href="mailto:{{ $selectedMessage->email }}" class="text-sm text-primary-600 hover:underline break-all">{{ $selectedMessage->email }}</a>
+                            <div class="font-bold text-slate-900 text-base">{{ $selectedMessage->name }}</div>
+                            <a href="mailto:{{ $selectedMessage->email }}" class="text-sm text-primary-600 hover:underline font-medium break-all">{{ $selectedMessage->email }}</a>
                         </div>
                         <div>
                             <span class="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">Date Sent</span>
-                            <div class="text-sm font-medium text-slate-700">{{ $selectedMessage->created_at->format('F d, Y \a\t h:i A') }}</div>
-                            <div class="text-xs text-slate-400 mt-1">{{ $selectedMessage->created_at->diffForHumans() }}</div>
+                            <div class="text-sm font-bold text-slate-700">{{ $selectedMessage->created_at->format('F d, Y \a\t h:i A') }}</div>
+                            <div class="text-xs font-medium text-slate-400 mt-1">{{ $selectedMessage->created_at->diffForHumans() }}</div>
                         </div>
                     </div>
 
-                    <div class="mb-4">
-                        <span class="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">Message</span>
-                        <div class="bg-white border border-slate-200 p-6 rounded-2xl text-slate-700 whitespace-pre-wrap leading-relaxed text-sm">
-                            {{ $selectedMessage->message }}
+                    {{-- UPDATED: Well-Formatted Message Body --}}
+                    <div class="mb-2">
+                        <span class="flex items-center gap-2 text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">
+                            <i data-lucide="align-left" class="w-3.5 h-3.5"></i> Message Content
+                        </span>
+                        
+                        <div class="bg-white border border-slate-200 p-6 sm:p-8 rounded-2xl shadow-sm ring-1 ring-slate-900/5 relative group">
+                            {{-- Decorative quote mark for visual flair --}}
+                            <div class="absolute top-6 left-6 text-slate-100 opacity-50 pointer-events-none">
+                                <i data-lucide="quote" class="w-12 h-12 fill-current"></i>
+                            </div>
+                            
+                            {{-- The actual text (MUST be on one line to prevent indentation rendering) --}}
+                            <div class="relative z-10 text-slate-700 whitespace-pre-wrap leading-relaxed text-[15px] sm:text-base selection:bg-primary-100 selection:text-primary-900 min-h-[100px]">{{ $selectedMessage->message }}</div>
                         </div>
                     </div>
                 </div>
 
                 {{-- Modal Footer --}}
                 <div class="px-8 py-6 bg-slate-50 border-t flex flex-col-reverse sm:flex-row justify-between items-center gap-3 shrink-0">
-                    <a href="mailto:{{ $selectedMessage->email }}" class="w-full sm:w-auto justify-center inline-flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-slate-900 rounded-xl text-sm font-bold transition-all shadow-sm">
-                        <i data-lucide="reply" class="w-4 h-4"></i>
+                    <a href="mailto:{{ $selectedMessage->email }}" class="w-full sm:w-auto justify-center inline-flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-slate-900 rounded-xl text-sm font-bold transition-all shadow-sm group">
+                        <i data-lucide="reply" class="w-4 h-4 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 transition-transform"></i>
                         Reply via Email
                     </a>
                     
@@ -148,7 +158,7 @@
                         </button>
                         
                         @if($selectedMessage->status !== 'resolved')
-                            <button wire:click="markAsResolved({{ $selectedMessage->id }})" class="flex-1 sm:flex-none justify-center inline-flex items-center gap-2 px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-bold transition-all shadow-xl active:scale-95">
+                            <button wire:click="markAsResolved({{ $selectedMessage->id }})" class="flex-1 sm:flex-none justify-center inline-flex items-center gap-2 px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-bold transition-all shadow-xl hover:shadow-slate-900/20 active:scale-95">
                                 <i data-lucide="check-circle" class="w-4 h-4"></i>
                                 Mark Resolved
                             </button>
