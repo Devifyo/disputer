@@ -86,7 +86,13 @@
                     Success Stories
                 </div>
             </a>
+            <!-- communications -->
+            <div class="px-3 mt-6 mb-2 text-[10px] uppercase tracking-wider font-bold text-slate-600">Communications</div>
 
+            <a href="{{ route('admin.support.index') }}" wire:navigate class="{{ $navClass('admin.support.*') }} group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200" @click="mobileSidebarOpen = false">
+                <i data-lucide="mail" class="w-4.5 h-4.5 transition-colors {{ $iconClass('admin.support.*') }}"></i>
+                Support Inbox
+            </a>
             <div class="px-3 mt-6 mb-2 text-[10px] uppercase tracking-wider font-bold text-slate-600">Institutes</div>
 
             <a href="{{ route('admin.institutions.index') }}" wire:navigate class="{{ $navClass('admin.institutions.*') }} group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200" @click="mobileSidebarOpen = false">

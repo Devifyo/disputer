@@ -9,6 +9,8 @@ use App\Livewire\Admin\Settings\Index as AdminSettings;
 use App\Livewire\Admin\Templates\Index as AdminTemplates;
 use App\Livewire\Admin\SuccessStories\Index as SuccessStoriesIndex;
 use App\Livewire\Admin\Plans\Index as AdminPlans;
+use App\Livewire\Admin\Support\Index as SupportIndex;
+
 Route::prefix('admin')->name('admin.')->middleware(['auth', 'role_access:admin'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/users', UserIndex::class)->name('users.index');
@@ -19,8 +21,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role_access:admin']
     Route::get('/success-stories', SuccessStoriesIndex::class)->name('success-stories.index');
     Route::get('/plans', AdminPlans::class)->name('plans.index');
     Route::get('/impersonate-case/{case}', [DashboardController::class, 'impersonateAndViewCase'])->name('impersonate.case');
+    Route::get('/support', SupportIndex::class)->name('support.index');
 });
-
 
     // 1. Leave Impersonation Route
     Route::get('/admin/leave-impersonation', function () {

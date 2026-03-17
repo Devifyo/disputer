@@ -3,11 +3,12 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Auth\PasswordController;
-use App\Http\Controllers\MarketingController;
+use App\Http\Controllers\{MarketingController, SupportController};
 use App\Http\Controllers\{CheckoutController, StripeWebhookController};
 // 1. Put the root route OUTSIDE the auth middleware
 Route::get('/', [MarketingController::class, 'index'])->name('home');
-
+Route::get('/support', [SupportController::class, 'index'])->name('support');
+Route::post('/support', [SupportController::class, 'submit'])->name('support.submit');
 
 // 2. Keep the rest INSIDE the auth middleware
 Route::middleware('auth')->group(function () {
