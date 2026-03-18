@@ -12,9 +12,9 @@ class Index extends Component
 {
     use WithPagination;
 
-    public $showModal = false;
+    public $showFormModal = false;
+    public $showViewModal = false;
     public $isEditMode = false;
-    
     // Filters
     public $search = '';
     public $category_filter = '';
@@ -49,21 +49,9 @@ class Index extends Component
         ];
     }
 
-    public function create()
-    {
-        $this->reset(['template_id', 'institution_category_id', 'title', 'slug', 'description', 'content']);
-        $this->icon = 'file-text';
-        $this->color = 'blue';
-        $this->is_active = true;
-
-        $this->isEditMode = false;
-        $this->showModal = true;
-    }
-
-    public function edit($id)
+    public function view($id)
     {
         $this->resetValidation();
-        $this->isEditMode = true;
         $this->template_id = $id;
 
         $template = LetterTemplate::findOrFail($id);
@@ -77,7 +65,39 @@ class Index extends Component
         $this->color = $template->color;
         $this->is_active = (bool) $template->is_active;
 
-        $this->showModal = true;
+        $this->showViewModal = true; // Open specific view modal
+    }
+
+    public function create()
+    {
+        $this->reset(['template_id', 'institution_category_id', 'title', 'slug', 'description', 'content']);
+        $this->icon = 'file-text';
+        $this->color = 'blue';
+        $this->is_active = true;
+
+        $this->isEditMode = false;
+        $this->showFormModal = true;
+    }
+
+    public function edit($id)
+    {
+        $this->resetValidation();
+        $this->isEditMode = true;
+        $this->showViewModal = false;
+        $this->template_id = $id;
+
+        $template = LetterTemplate::findOrFail($id);
+
+        $this->institution_category_id = $template->institution_category_id;
+        $this->title = $template->title;
+        $this->slug = $template->slug;
+        $this->description = $template->description;
+        $this->content = $template->content;
+        $this->icon = $template->icon;
+        $this->color = $template->color;
+        $this->is_active = (bool) $template->is_active;
+
+       $this->showFormModal = true;
     }
 
     public function store()
@@ -95,7 +115,7 @@ class Index extends Component
             'is_active' => $this->is_active,
         ]);
 
-        $this->showModal = false;
+        $this->showFormModal = false;
         $this->dispatch('toast', ['type' => 'success', 'message' => 'Template created successfully!']);
     }
 
@@ -114,7 +134,7 @@ class Index extends Component
             'is_active' => $this->is_active,
         ]);
 
-        $this->showModal = false;
+        $this->showFormModal = false;
         $this->dispatch('toast', ['type' => 'success', 'message' => 'Template updated successfully!']);
     }
 

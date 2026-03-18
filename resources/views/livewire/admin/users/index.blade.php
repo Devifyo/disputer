@@ -91,7 +91,7 @@
                                     <i data-lucide="edit-3" class="w-4 h-4"></i>
                                 </button>
                                 @if(auth()->id() !== $user->id)
-                                    <button wire:click="delete({{ $user->id }})" wire:confirm="Delete this user?" class="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all">
+                                    <button onclick="confirmDelete({{ $user->id }})" class="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all">
                                         <i data-lucide="trash-2" class="w-4 h-4"></i>
                                     </button>
                                 @endif
@@ -174,8 +174,7 @@
                                     <label class="block text-[11px] font-bold text-slate-400 uppercase mb-2">Role</label>
                                     <select wire:model="role" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:bg-white focus:border-primary-600 transition-all">
                                         <option selected value="user">User</option>
-                                        <!-- <option value="admin">Admin</option> -->
-                                    </select>
+                                        </select>
                                     @error('role') <p class="text-rose-500 text-[10px] mt-1 font-bold">{{ $message }}</p> @enderror
                                 </div>
                             </div>
@@ -270,8 +269,32 @@
         </div>
     @endif
 
-    {{-- Persistent Icon Fix --}}
+    {{-- Persistent Icon Fix & SweetAlert function --}}
     <script>
+        function confirmDelete(id) {
+            Swal.fire({
+                title: 'Move to Trash?',
+                text: "This user will be deleted.",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#0f172a', 
+                cancelButtonColor: '#94a3b8',
+                confirmButtonText: 'Yes, delete it!',
+                cancelButtonText: 'Cancel',
+                heightAuto: false, 
+                scrollbarPadding: false,
+                customClass: {
+                    popup: 'rounded-2xl',
+                    confirmButton: 'px-6 py-2.5 rounded-xl font-bold text-sm',
+                    cancelButton: 'px-6 py-2.5 rounded-xl font-bold text-sm'
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    @this.call('deleteConfirmed', id);
+                }
+            })
+        }
+
         document.addEventListener('livewire:init', () => {
            Livewire.hook('morph.updated', ({ el, component }) => {
                 if (typeof lucide !== 'undefined') {
