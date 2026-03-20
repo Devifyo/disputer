@@ -83,11 +83,7 @@ class CaseWorkflow extends Component
         $level = $this->case->escalation_level + 1;
         $contactName = $details['name'] ?? 'Authority';
         
-        $this->body = "To {$contactName},\n\n" .
-                      "I am formally escalating Dispute Case #{$this->case->case_reference_id}.\n" .
-                      "Current Escalation Level: {$level}\n\n" .
-                      "Reason: The institution has failed to provide a satisfactory response within the required timeframe.\n\n" .
-                      "[Please add specific details here]";
+        $this->body = "";
 
         // 4. Open the modal
         $this->dispatch('open-compose-modal', [
