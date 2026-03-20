@@ -747,7 +747,7 @@
                 <div class="cta-right">
                     @auth
                         @if(auth()->user()->role === 'admin')
-                            <a href="{{ route('admin.dashboard') }}" class="btn-primary" style="background: white; color: var(--accent);">
+                            <a href="{{ route('admin.dashboard') }}" class="btn-primary" style="background: white; color: var(--accent) !important;">
                                 Go to Admin Panel
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                             </a>
@@ -758,7 +758,7 @@
                             </a>
                         @endif
                     @else
-                        <a href="{{ route('register') }}" class="btn-primary" style="background: white; color: var(--accent);">
+                        <a href="{{ route('register') }}" class="btn-primary" style="background: white; color: var(--accent) !important;">
                             Get Started Today
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                         </a>
