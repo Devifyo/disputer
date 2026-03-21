@@ -223,7 +223,7 @@ class CaseWorkflow extends Component
     // =========================================================================
 
     public function triggerAction($actionKey)
-    {
+    {   
         if (!$this->currentStepConfig) return;
 
         $actions = collect($this->currentStepConfig['actions'] ?? []);
@@ -232,12 +232,15 @@ class CaseWorkflow extends Component
         if ($actionDef) {
             $this->transitionTo($actionDef['to_step'], "User action: {$actionDef['label']}");
         }
+        $this->dispatch('step-jumped-successfully');
+
     }
 
     public function jumpToStep($targetStepKey)
     {
         if (isset($this->workflowConfig['steps'][$targetStepKey])) {
             $this->transitionTo($targetStepKey, "Manual administrative override.");
+            $this->dispatch('step-jumped-successfully');
         }
     }
 

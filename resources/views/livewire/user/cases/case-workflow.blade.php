@@ -119,7 +119,8 @@
         }
      }" 
      @email-sent.window="composeModalOpen = false"
-     @keydown.escape.window="aiOpen = false; composeModalOpen = false">
+     @keydown.escape.window="aiOpen = false; composeModalOpen = false"
+     @step-jumped-successfully.window="window.location.reload()">
      
     <div class="grid grid-cols-1 lg:grid-cols-12 min-h-[400px]">
         
