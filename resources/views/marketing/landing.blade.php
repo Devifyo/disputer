@@ -742,7 +742,7 @@
             <div class="cta-box">
                 <div class="cta-left">
                     <h2 style="color: var(--white);">When something important stalls, Unjamm helps you take action.</h2>
-                    <p style="color: rgba(255,255,255,0.75);">Don't let bureaucracy, language barriers, or unclear processes hold you back any longer. Start your first case today — it's free to begin.</p>
+                    <p style="color: rgba(255,255,255,0.75);">Don't let bureaucracy, language barriers, or unclear processes hold you back any longer. Start your first case today - it's free to begin.</p>
                 </div>
                 <div class="cta-right">
                     @auth

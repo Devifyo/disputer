@@ -124,8 +124,8 @@
                 &copy; {{ date('Y') }} Unjamm
             </div>
             <div class="flex gap-4">
-                <a href="#" class="text-xs text-slate-400 hover:text-white transition-colors">About</a>
-                <a href="#" class="text-xs text-slate-400 hover:text-white transition-colors">Support</a>
+                <a href="{{ route('home') }}" class="text-xs text-slate-400 hover:text-white transition-colors">Home</a>
+                <a href="{{ route('support') }}" class="text-xs text-slate-400 hover:text-white transition-colors">Support</a>
             </div>
         </div>
     </div>

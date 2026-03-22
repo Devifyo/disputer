@@ -408,18 +408,33 @@ class CreateDispute extends Component
             $finalAttachments = $this->attachments;
             
             foreach ($this->savedAttachments as $saved) {
-                $fullPath = storage_path('app/' . $saved['path']);
+                $diskPath = $saved['path'];
                 
-                if (file_exists($fullPath)) {
-                    // This creates a valid UploadedFile object from the physical storage path
-                    // so your SendEmailService doesn't break.
+                if (\Illuminate\Support\Facades\Storage::exists($diskPath)) {
+                    
+                    // 1. Get the absolute path and mime type safely
+                    $fullPath = \Illuminate\Support\Facades\Storage::path($diskPath);
+                    $mimeType = \Illuminate\Support\Facades\Storage::mimeType($diskPath) ?: 'application/octet-stream';
+
+                    // 2. THE FIX: Copy the file to the true OS temp directory
+                    // This forces PHP to treat it exactly like a fresh browser upload
+                    $tempFilename = 'draft_' . uniqid() . '_' . basename($fullPath);
+                    $tempFilePath = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $tempFilename;
+                    
+                    copy($fullPath, $tempFilePath);
+
+                    // 3. Create the UploadedFile pointing to the new temp file
                     $finalAttachments[] = new \Illuminate\Http\UploadedFile(
-                        $fullPath,
-                        $saved['name'],
-                        null,
-                        null,
-                        true // Bypass the is_uploaded_file check since it's now a local file
+                        $tempFilePath,      // Path to the copied temp file
+                        $saved['name'],     // Original file name
+                        $mimeType,          // Mime Type
+                        \UPLOAD_ERR_OK,     // Error Code 0
+                        true                // Test mode
                     );
+                    
+                    \Log::info("Draft attachment successfully rebuilt and attached.", ['path' => $tempFilePath]);
+                } else {
+                    \Log::error("CRITICAL: Draft attachment missing from disk!", ['expected_path' => $diskPath]);
                 }
             }
 
@@ -431,23 +446,19 @@ class CreateDispute extends Component
                 $this->institutionEmail,
                 $this->generatedSubject,
                 nl2br($this->generatedLetter), // Convert the single string to HTML breaks
-                $finalAttachments // <--- Using the MERGED array!
+                $finalAttachments 
             );
 
-            // Cleanup: Delete the temporary files from storage now that the email is sent
-            foreach ($this->savedAttachments as $saved) {
-                \Illuminate\Support\Facades\Storage::delete($saved['path']);
-            }
+            // Clear the Livewire array state only
             $this->savedAttachments = [];
 
-            session()->flash('message', 'Dispute Sent Successfully!');
-            
+           session()->put('success', 'Dispute Sent Successfully!');
         } catch (\Exception $e) {
             \Log::error("Initial dispute email failed: " . $e->getMessage());
-            session()->flash('error', 'Case created, but failed to send the email. Please check your SMTP settings and try again.');
+            return redirect()->route('user.cases.index')->with('error', 'Case created, but failed to send the email.');
         }
 
-        return redirect()->route('user.dashboard');
+       return redirect()->route('user.cases.index')->with('success', 'Dispute Sent Successfully!');
     }
 
     public function removeAttachment($index)

@@ -9,7 +9,7 @@
             <h1 class="font-bold text-slate-900 text-lg tracking-tight flex items-center gap-2">
                 Dashboard
             </h1>
-            
+
             @if($isEmailConfigured)
                 <div class="hidden md:flex items-center gap-2 text-[11px] font-bold bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-full border border-emerald-100">
                     <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -22,7 +22,7 @@
                 </div>
             @endif
         </div>
-
+        
         <div class="flex items-center gap-3 sm:gap-4">
             <a href="{{ route('user.cases.create') }}">
                 <button class="bg-slate-900 hover:bg-slate-800 text-white px-3 sm:px-4 py-2 rounded-lg text-xs font-bold shadow-lg shadow-slate-900/20 transition-all flex items-center gap-2 hover:scale-105 active:scale-95">
@@ -36,7 +36,7 @@
 
     <div class="flex-1 overflow-y-auto bg-slate-50 p-4 sm:p-8">
         <div class="max-w-[1600px] mx-auto space-y-8">
-
+            @include('user.cases.partials.alerts')
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 
                 <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex justify-between items-start group hover:border-blue-300 transition-all cursor-default">
