@@ -8,7 +8,7 @@
         </p>
     </header>
 
-    <form method="post" id="password-update-form" action="{{ route('password.update') }}" class="mt-6 space-y-6">
+    <form method="post" id="password-update-form" action="/password" class="mt-6 space-y-6">
         @csrf
         @method('put')
 
