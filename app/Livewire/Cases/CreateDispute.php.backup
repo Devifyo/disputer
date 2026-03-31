@@ -7,18 +7,23 @@ use App\Models\Institution;
 use App\Models\InstitutionCategory;
 use App\Models\Cases;
 use App\Models\CaseTimeline;
+use App\Models\UserSubscription;
+use App\Models\Plan;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Livewire\WithFileUploads;
-use App\Models\Attachment;
+
 class CreateDispute extends Component
 {   
     use WithFileUploads;
+    
     public $step = 1;
+    public $hasAccess = false;
+    public $availablePlans = [];
 
-    // Step 1 Data
+    // Form State
     public $query = '';
     public $results;
     public $mode = 'search';
@@ -30,25 +35,119 @@ class CreateDispute extends Component
     public $customCategoryName = '';
     public $categories = [];
 
-    // Step 2 Data
     public $transactionDate;
     public $transactionAmount;
     public $referenceNumber;
     public $issueDescription;
 
-    // Step 3 Data (UPDATED)
-    public $generatedSubject = ''; // New Field
+    public $generatedSubject = ''; 
     public $generatedLetter = '';
+    
     public $institutionEmail = '';
+    public $recipientType = '';
+    public $recipientLabel = '';
     public $attachments = [];
+    public $draftMode = 'ai';
+
+    public $savedAttachments = [];
+
     public function mount()
     {
         $this->results = collect();
-        $this->popular = Institution::where('is_verified', true)->limit(4)->get();
+        $this->popular = Institution::where('is_popular', true)->limit(4)->get();
         $this->categories = InstitutionCategory::orderBy('name')->get();
+        
+        // Load active plans for the paywall overlay
+        $this->availablePlans = Plan::where('stripe_mode', config('app.stripe_mode', 'test'))->where('is_active', true)->orderBy('price', 'asc')->get();
+
+        // Check if returning from a successful Stripe checkout
+        if (session()->has('dispute_draft')) {
+            $this->restoreDraftFromSession();
+        }
+
+        $this->checkUserAccess();
     }
 
-    // ... [Keep updatedQuery, selectExisting, enableCreateMode, submitCustom same as before] ...
+    /**
+     * Checks if the user has an active yearly plan or remaining cases on a one-time plan.
+     */
+    public function checkUserAccess()
+    {
+        $this->hasAccess = Auth::user()->canCreateCase();
+    }
+
+    /**
+     * Saves the current form state to the session and redirects to Stripe Checkout
+     */
+    public function saveDraftAndCheckout($planSlug)
+    {   
+        // 1. Physically store the files so they survive the redirect to Stripe
+        $storedFiles = [];
+        foreach ($this->attachments as $file) {
+            $path = $file->store('draft_attachments'); // Saves to storage/app/draft_attachments
+            $storedFiles[] = [
+                'path' => $path,
+                'name' => $file->getClientOriginalName(),
+                'size' => $file->getSize()
+            ];
+        }
+
+        session()->put('dispute_draft', [
+            'step' => 3,
+            'selectedInstitutionId' => $this->selectedInstitutionId,
+            'selectedInstitutionName' => $this->selectedInstitutionName,
+            'categoryId' => $this->categoryId,
+            'customName' => $this->customName,
+            'customCategoryName' => $this->customCategoryName,
+            'transactionDate' => $this->transactionDate,
+            'transactionAmount' => $this->transactionAmount,
+            'referenceNumber' => $this->referenceNumber,
+            'issueDescription' => $this->issueDescription,
+            'generatedSubject' => $this->generatedSubject,
+            'generatedLetter' => $this->generatedLetter,
+            'institutionEmail' => $this->institutionEmail,
+            'draftMode' => $this->draftMode,
+            'savedAttachments' => $storedFiles,
+        ]);
+
+        return redirect()->route('checkout', $planSlug);
+    }
+
+    /**
+     * Restores the draft state after a successful payment
+     */
+    private function restoreDraftFromSession()
+    {
+        $draft = session('dispute_draft');
+        
+        $this->step = $draft['step'] ?? 3;
+        $this->selectedInstitutionId = $draft['selectedInstitutionId'] ?? null;
+        $this->selectedInstitutionName = $draft['selectedInstitutionName'] ?? '';
+        $this->categoryId = $draft['categoryId'] ?? '';
+        $this->customName = $draft['customName'] ?? '';
+        $this->customCategoryName = $draft['customCategoryName'] ?? '';
+        $this->transactionDate = $draft['transactionDate'] ?? '';
+        $this->transactionAmount = $draft['transactionAmount'] ?? '';
+        $this->referenceNumber = $draft['referenceNumber'] ?? '';
+        $this->issueDescription = $draft['issueDescription'] ?? '';
+        $this->generatedSubject = $draft['generatedSubject'] ?? '';
+        $this->generatedLetter = $draft['generatedLetter'] ?? '';
+        $this->institutionEmail = $draft['institutionEmail'] ?? '';
+        $this->draftMode = $draft['draftMode'] ?? 'ai';
+        // Restore the saved attachments
+        $this->savedAttachments = $draft['savedAttachments'] ?? [];
+        session()->forget('dispute_draft');
+    }
+
+    public function removeSavedAttachment($index)
+    {
+        if (isset($this->savedAttachments[$index])) {
+            \Illuminate\Support\Facades\Storage::delete($this->savedAttachments[$index]['path']);
+            unset($this->savedAttachments[$index]);
+            $this->savedAttachments = array_values($this->savedAttachments);
+        }
+    }
+
     public function updatedQuery()
     {
         $searchTerm = trim($this->query);
@@ -70,7 +169,6 @@ class CreateDispute extends Component
         $institution = Institution::with(['category'])->find($id);
         if ($institution) {
             $initialStep = $institution->category->workflow_config['initial_step'] ?? null;
-            // Pass 'true' to only fetch email contacts for this step
             $recipient = $initialStep ? $institution->getStepRecipient($initialStep, true) : null;
 
             if ($recipient) {
@@ -78,7 +176,6 @@ class CreateDispute extends Component
                 $this->institutionEmail = $recipient['value']; 
                 $this->recipientLabel = $recipient['label']; 
             } else {
-                // Absolute fallback logic
                 $this->institutionEmail = $institution->contact_email ?? '';
                 $this->recipientType = 'email';
                 $this->recipientLabel = 'General Support';
@@ -121,41 +218,53 @@ class CreateDispute extends Component
         $this->goToStep(2);
     }
 
-    // --- UPDATED LOGIC ---
-
     public function generateReview()
     {
         $this->validate([
             'transactionDate' => 'required|date',
             'transactionAmount' => 'required|numeric|min:0',
-            'issueDescription' => 'required|min:10',
             'attachments.*' => 'nullable|file|max:10240',
         ]);
 
-        // 1. Get raw AI response
-        $rawContent = $this->generateDisputeLetter();
-        if ($rawContent) {
-            // 2. Parse Subject and Body
-            // We expect the AI to return "Subject: ... \n Body..."
-            if (preg_match('/Subject:(.*?)\n(.*)/s', $rawContent, $matches)) {
-                $this->generatedSubject = trim($matches[1]);
-                $this->generatedLetter = trim($matches[2]);
+        if ($this->draftMode === 'ai') {
+            $this->validate([
+                'issueDescription' => 'required|min:10',
+            ]);
+
+            $rawContent = $this->generateDisputeLetter();
+            
+            if ($rawContent) {
+                $cleanJson = trim(preg_replace('/^```json|```$/i', '', $rawContent));
+                $data = json_decode($cleanJson, true);
+
+                if (json_last_error() === JSON_ERROR_NONE && isset($data['subject'], $data['body'])) {
+                    $this->generatedSubject = $data['subject'];
+                    $this->generatedLetter = $data['body'];
+                } else {
+                    $this->generatedSubject = "Dispute regarding transaction on {$this->transactionDate}";
+                    $this->generatedLetter = "To Whom It May Concern,\n\nI am writing to formally dispute a transaction.\n\nDetails: " . $this->issueDescription . "\n\nPlease investigate this matter.\n\nSincerely,\n" . Auth::user()->name;
+                }
             } else {
-                // Fallback if parsing fails
-                $this->generatedSubject = "Dispute regarding transaction on {$this->transactionDate}";
-                $this->generatedLetter = $rawContent;
+                $this->generatedSubject = "Dispute Request";
+                $this->generatedLetter = "AI Generation Failed. Please type your dispute details here.";
             }
         } else {
-            $this->generatedSubject = "Dispute Request";
-            $this->generatedLetter = "AI Generation Failed. Please write your letter here.";
+            $this->generatedSubject = '';
+            $this->generatedLetter = '';
         }
 
+        // Check if they need to pay before revealing the review step
+        $this->checkUserAccess();
         $this->goToStep(3);
     }
 
-    // 1. New method to intercept and check contact status
     public function checkAndPromptContact()
     {
+        // Prevent unauthorized submission if they somehow bypass the UI blur
+        if (!$this->hasAccess) {
+            return;
+        }
+
         $this->validate([
             'institutionEmail' => 'required|email',
             'generatedSubject' => 'required|min:5',
@@ -165,33 +274,52 @@ class CreateDispute extends Component
         $needsPrompt = false;
 
         if (is_null($this->selectedInstitutionId)) {
-            $needsPrompt = true; // New institution
+            $needsPrompt = true; 
         } else {
             $inst = Institution::find($this->selectedInstitutionId);
             if (!$inst || empty($inst->contact_email)) {
-                $needsPrompt = true; // Existing but no email
+                $needsPrompt = true; 
             }
         }
 
         if ($needsPrompt) {
             $this->dispatch('trigger-save-contact-prompt');
         } else {
-            $this->executeFinalize(false); // Has email, proceed normally
+            $this->executeFinalize(false); 
         }
     }
 
-    // 2. The actual execution method (receives $saveContact from SweetAlert)
     public function executeFinalize($saveContact = false)
     {
+        // 1. FINAL ACCESS CHECK USING HELPER
+        if (!Auth::user()->canCreateCase()) {
+            session()->flash('error', 'You do not have any active cases remaining.');
+            return redirect()->route('profile.edit', ['#billing']);
+        }
+
+        $sub = UserSubscription::with('plan')
+            ->where('user_id', Auth::id())
+            ->where('status', 'active')
+            ->latest()
+            ->first();
+
         $case = null;
 
-        DB::transaction(function () use (&$case, $saveContact) {
+        DB::transaction(function () use (&$case, $saveContact, $sub) {
             
+            // 2. DEDUCT THE CASE (If not unlimited)
+            if ($sub && $sub->plan->type !== 'recurring_yearly') {
+                $sub->increment('cases_used');
+                if ($sub->cases_used >= $sub->cases_allowed) {
+                    $sub->update(['status' => 'exhausted']);
+                }
+            }
+            
+            // 3. INSTITUTION / CATEGORY CREATION
             $finalCategoryId = $this->selectedInstitutionId 
                 ? Institution::find($this->selectedInstitutionId)?->institution_category_id 
                 : $this->categoryId;
 
-            // Handle Institution Creation
             if (is_null($this->selectedInstitutionId)) {
                 if ($this->categoryId === 'other') {
                     $newCat = InstitutionCategory::firstOrCreate(
@@ -215,22 +343,18 @@ class CreateDispute extends Component
                 $this->selectedInstitutionId = $newInst->id;
             }
 
-            // --- NEW: Save Contact Logic ---
             if ($saveContact) {
                 $inst = Institution::find($this->selectedInstitutionId);
                 
-                // Update primary contact email if empty
                 if ($inst && empty($inst->contact_email)) {
                     $inst->update(['contact_email' => $this->institutionEmail]);
                 }
 
-                // Get initial step key for InstitutionContact
                 $category = InstitutionCategory::find($finalCategoryId);
                 $workflowConfig = $category->workflow_config ?? config('workflow_templates.standard');
                 $stepKeys = array_keys($workflowConfig['steps'] ?? ['initial_dispute' => []]);
                 $initialStepKey = $stepKeys[0] ?? 1;
 
-                // Save to routing table
                 \App\Models\InstitutionContact::updateOrCreate(
                     [
                         'institution_id' => $this->selectedInstitutionId,
@@ -245,27 +369,29 @@ class CreateDispute extends Component
                     ]
                 );
             }
-            // --------------------------------
 
-            // Calculate Workflow Deadline
+            // 4. CASE CREATION
             $category = InstitutionCategory::find($finalCategoryId);
             $workflowConfig = $category->workflow_config ?? config('workflow_templates.standard');
             $nextActionDate = now()->addDays($workflowConfig['steps'][0]['wait_days'] ?? 14);
-
-            // Create Case
+            $caseReference = strtoupper(Str::random(6));
+          $uniqueCaseEmail = "case-" . strtolower($caseReference) . "@cases.unjamm.com";
             $case = Cases::create([
                 'user_id' => Auth::id(),
+                'user_subscription_id' => $sub ? $sub->id : null,
                 'institution_id' => $this->selectedInstitutionId,
                 'institution_name' => $this->selectedInstitutionName,
-                'case_reference_id' => strtoupper(Str::random(6)), 
-                'email_route_id' => (string) Str::uuid(), 
+                // 'case_reference_id' => strtoupper(Str::random(6)), 
+                // 'email_route_id' => (string) Str::uuid(), 
+                'case_reference_id' => $caseReference,
+                'email_route_id' => strtolower($caseReference),
+                'case_email' => $uniqueCaseEmail,
                 'status' => \App\Enums\CaseStatus::SENT,
                 'stage' => 'Sent',
                 'current_workflow_step' => 1,
                 'next_action_at' => $nextActionDate, 
             ]);
 
-            // Log Timeline
             CaseTimeline::create([
                 'case_id' => $case->id,
                 'type' => 'case_created',            
@@ -280,8 +406,42 @@ class CreateDispute extends Component
             ]);
         });
 
-        // Send Email
+        // 5. SEND EMAIL AND PROCESS ATTACHMENTS
         try {
+            // MERGE NEW ATTACHMENTS WITH SAVED ATTACHMENTS
+            $finalAttachments = $this->attachments;
+            
+            foreach ($this->savedAttachments as $saved) {
+                $diskPath = $saved['path'];
+                
+                if (\Illuminate\Support\Facades\Storage::exists($diskPath)) {
+                    
+                    // 1. Get the absolute path and mime type safely
+                    $fullPath = \Illuminate\Support\Facades\Storage::path($diskPath);
+                    $mimeType = \Illuminate\Support\Facades\Storage::mimeType($diskPath) ?: 'application/octet-stream';
+
+                    // 2. THE FIX: Copy the file to the true OS temp directory
+                    // This forces PHP to treat it exactly like a fresh browser upload
+                    $tempFilename = 'draft_' . uniqid() . '_' . basename($fullPath);
+                    $tempFilePath = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $tempFilename;
+                    
+                    copy($fullPath, $tempFilePath);
+
+                    // 3. Create the UploadedFile pointing to the new temp file
+                    $finalAttachments[] = new \Illuminate\Http\UploadedFile(
+                        $tempFilePath,      // Path to the copied temp file
+                        $saved['name'],     // Original file name
+                        $mimeType,          // Mime Type
+                        \UPLOAD_ERR_OK,     // Error Code 0
+                        true                // Test mode
+                    );
+                    
+                    \Log::info("Draft attachment successfully rebuilt and attached.", ['path' => $tempFilePath]);
+                } else {
+                    \Log::error("CRITICAL: Draft attachment missing from disk!", ['expected_path' => $diskPath]);
+                }
+            }
+
             $emailService = app(\App\Services\SendEmailService::class);
             
             $emailService->sendAndLog(
@@ -289,119 +449,21 @@ class CreateDispute extends Component
                 $case,
                 $this->institutionEmail,
                 $this->generatedSubject,
-                $this->generatedLetter,
-                $this->attachments 
+                nl2br($this->generatedLetter), // Convert the single string to HTML breaks
+                $finalAttachments 
             );
 
-            session()->flash('message', 'Dispute Sent Successfully!');
-            
+            // Clear the Livewire array state only
+            $this->savedAttachments = [];
+
+           session()->put('success', 'Dispute Sent Successfully!');
         } catch (\Exception $e) {
             \Log::error("Initial dispute email failed: " . $e->getMessage());
-            session()->flash('error', 'Case created, but failed to send the email. Please check your SMTP settings and try again.');
+            return redirect()->route('user.cases.index')->with('error', 'Case created, but failed to send the email.');
         }
 
-        return redirect()->route('user.dashboard');
+       return redirect()->route('user.cases.index')->with('success', 'Dispute Sent Successfully!');
     }
-
-    // public function finalizeDispute()
-    // {
-    //     $this->validate([
-    //         'institutionEmail' => 'required|email',
-    //         'generatedSubject' => 'required|min:5',
-    //         'generatedLetter'  => 'required|min:10',
-    //     ]);
-
-    //     $case = null;
-
-    //     DB::transaction(function () use (&$case) {
-            
-    //         // 1. Determine Category & Institution
-    //         $finalCategoryId = $this->selectedInstitutionId 
-    //             ? Institution::find($this->selectedInstitutionId)?->institution_category_id 
-    //             : $this->categoryId;
-
-    //         if (is_null($this->selectedInstitutionId)) {
-    //             if ($this->categoryId === 'other') {
-    //                 $newCat = InstitutionCategory::firstOrCreate(
-    //                     ['name' => ucfirst($this->customCategoryName)],
-    //                     [
-    //                         'slug' => Str::slug($this->customCategoryName),
-    //                         'workflow_config' => config('workflow_templates.standard'),
-    //                         'is_verified' => false 
-    //                     ]
-    //                 );
-    //                 $finalCategoryId = $newCat->id;
-    //             }
-
-    //             $newInst = Institution::create([
-    //                 'name' => $this->selectedInstitutionName,
-    //                 'institution_category_id' => $finalCategoryId,
-    //                 'is_internal' => false,
-    //                 'created_by' => auth()->id(),
-    //                 'is_verified' => false,
-    //             ]);
-    //             $this->selectedInstitutionId = $newInst->id;
-    //         }
-
-    //         // 2. Calculate Workflow Deadline
-    //         $category = InstitutionCategory::find($finalCategoryId);
-    //         $workflowConfig = $category->workflow_config ?? config('workflow_templates.standard');
-    //         $nextActionDate = now()->addDays($workflowConfig['steps'][0]['wait_days'] ?? 14);
-
-    //         // 3. Create the Case
-    //         $case = Cases::create([
-    //             'user_id' => Auth::id(),
-    //             'institution_id' => $this->selectedInstitutionId,
-    //             'institution_name' => $this->selectedInstitutionName,
-    //             'case_reference_id' => strtoupper(Str::random(6)), 
-    //             'email_route_id' => (string) Str::uuid(), 
-    //             'status' => \App\Enums\CaseStatus::SENT,
-    //             'stage' => 'Sent',
-    //             'current_workflow_step' => 1,
-    //             'next_action_at' => $nextActionDate, 
-    //         ]);
-
-    //         // 4. Log the "Birth" of the Case
-    //         CaseTimeline::create([
-    //             'case_id' => $case->id,
-    //             'type' => 'case_created',            
-    //             'actor' => 'User',                   
-    //             'description' => "Dispute case opened against {$this->selectedInstitutionName}", 
-    //             'occurred_at' => now(),              
-    //             'metadata' => [                      
-    //                 'amount' => $this->transactionAmount,
-    //                 'transaction_date' => $this->transactionDate,
-    //                 'reference_number' => $this->referenceNumber ?? 'N/A',
-    //             ]
-    //         ]);
-            
-    //         // NOTE: Attachment saving logic was completely removed from here!
-    //         // The SendEmailService handles both storing the file and creating the DB record.
-    //     });
-
-    //     // 5. Actually Send the Email via Service
-    //     try {
-    //         $emailService = app(\App\Services\SendEmailService::class);
-
-    //         // Pass the raw Livewire attachments. The service will store them and log the email.
-    //         $emailService->sendAndLog(
-    //             Auth::user(),
-    //             $case,
-    //             $this->institutionEmail,
-    //             $this->generatedSubject,
-    //             $this->generatedLetter,
-    //             $this->attachments 
-    //         );
-
-    //         session()->flash('message', 'Dispute Sent Successfully!');
-            
-    //     } catch (\Exception $e) {
-    //         \Log::error("Initial dispute email failed: " . $e->getMessage());
-    //         session()->flash('error', 'Case created, but failed to send the email. Please check your SMTP settings and try again.');
-    //     }
-
-    //     return redirect()->route('user.dashboard');
-    // }
 
     public function removeAttachment($index)
     {
@@ -419,24 +481,42 @@ class CreateDispute extends Component
 
         $user = Auth::user();
 
-        $prompt = "Write a formal dispute email to {$this->selectedInstitutionName}. " .
-                  "My name is {$user->name}. " .
-                  "Transaction Date: {$this->transactionDate}. " .
-                  "Amount: \${$this->transactionAmount}. " .
-                  "Ref Number: " . ($this->referenceNumber ?? 'N/A') . ". " .
-                  "Issue: {$this->issueDescription}. " .
-                  "Tone: Professional and firm. " .
-                  "IMPORTANT FORMATTING RULES: " .
-                  "1. Start response strictly with 'Subject: [Subject Here]'. " .
-                  "2. Do NOT use markdown formatting (no **bold**, no *italics*, no lists with *). " .
-                  "3. Use plain text only. Use dashes (-) for lists if needed.";
+        $tone = "Polite but firm, written by a real customer. Do not sound like a robot or a lawyer.";
+
+        $prompt = "Write a natural, human-sounding dispute email to {$this->selectedInstitutionName} from a customer's perspective. \n" .
+                  "My name is {$user->name}. \n" .
+                  "Transaction Date: {$this->transactionDate}. \n" .
+                  "Amount: \${$this->transactionAmount}. \n" .
+                  "Ref Number: " . ($this->referenceNumber ?? 'N/A') . ". \n" .
+                  "Issue: {$this->issueDescription}. \n" .
+                  "Tone: {$tone} \n\n" .
+                  "IMPORTANT STRICT RULES:\n" .
+                  "1. Return a JSON object with EXACTLY 2 keys: 'subject' and 'body'. \n" .
+                  "2. NEVER mention 'Stage 1' or any internal tracking stages. The recipient does not know what that means.\n" .
+                  "3. Write exactly how a normal human would write an email to customer support. Avoid overly robotic, legalistic, or stiff AI language.\n" .
+                  "4. The 'body' string MUST be structured clearly with line breaks (\\n\\n) into the following sections:\n" .
+                  "   - A natural opening/salutation.\n" .
+                  "   - The core details and explanation of the issue.\n" .
+                  "   - The specific request/next steps required from them.\n" .
+                  "   - A normal closing and sign-off.";
 
         try {
-            // Added timeout(30) to give the AI enough time to generate the text
+            $model = 'gemini-2.5-flash'; 
+            $endpoint = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key={$apiKey}";
+            
             $response = Http::timeout(30)
                 ->withHeaders(['Content-Type' => 'application/json'])
-                ->post("https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={$apiKey}", [
-                    'contents' => [[ 'parts' => [['text' => $prompt]] ]]
+                ->post($endpoint, [
+                    'contents' => [
+                        [
+                            'parts' => [
+                                ['text' => $prompt]
+                            ]
+                        ]
+                    ],
+                    'generationConfig' => [
+                        'responseMimeType' => 'application/json',
+                    ]
                 ]);
 
             if ($response->successful()) {
@@ -444,12 +524,10 @@ class CreateDispute extends Component
                 return $data['candidates'][0]['content']['parts'][0]['text'] ?? null;
             }
             
-            // If the API returns a 400 or 500 error, log it so we know WHY it failed
             \Log::error('Gemini API Request Failed', ['status' => $response->status(), 'body' => $response->body()]);
             return null;
 
         } catch (\Exception $e) {
-            // If the request times out or Laravel can't reach the internet, log it
             \Log::error('Gemini API Exception Caught', ['message' => $e->getMessage()]);
             return null;
         }

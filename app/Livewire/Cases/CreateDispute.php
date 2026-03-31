@@ -48,7 +48,7 @@ class CreateDispute extends Component
     public $recipientLabel = '';
     public $attachments = [];
     public $draftMode = 'ai';
-
+    public $letterTone = 'Professional';
     public $savedAttachments = [];
 
     public function mount()
@@ -471,6 +471,68 @@ class CreateDispute extends Component
         $this->attachments = array_values($this->attachments);
     }
 
+    // private function generateDisputeLetter()
+    // {
+    //     $apiKey = config('services.gemini.api_key');
+    //     if (!$apiKey) {
+    //         \Log::error('Gemini API Error: API Key is missing.');
+    //         return null;
+    //     }
+
+    //     $user = Auth::user();
+
+    //     $tone = "Polite but firm, written by a real customer. Do not sound like a robot or a lawyer.";
+
+    //     $prompt = "Write a natural, human-sounding dispute email to {$this->selectedInstitutionName} from a customer's perspective. \n" .
+    //               "My name is {$user->name}. \n" .
+    //               "Transaction Date: {$this->transactionDate}. \n" .
+    //               "Amount: \${$this->transactionAmount}. \n" .
+    //               "Ref Number: " . ($this->referenceNumber ?? 'N/A') . ". \n" .
+    //               "Issue: {$this->issueDescription}. \n" .
+    //               "Tone: {$tone} \n\n" .
+    //               "IMPORTANT STRICT RULES:\n" .
+    //               "1. Return a JSON object with EXACTLY 2 keys: 'subject' and 'body'. \n" .
+    //               "2. NEVER mention 'Stage 1' or any internal tracking stages. The recipient does not know what that means.\n" .
+    //               "3. Write exactly how a normal human would write an email to customer support. Avoid overly robotic, legalistic, or stiff AI language.\n" .
+    //               "4. The 'body' string MUST be structured clearly with line breaks (\\n\\n) into the following sections:\n" .
+    //               "   - A natural opening/salutation.\n" .
+    //               "   - The core details and explanation of the issue.\n" .
+    //               "   - The specific request/next steps required from them.\n" .
+    //               "   - A normal closing and sign-off.";
+
+    //     try {
+    //         $model = 'gemini-2.5-flash'; 
+    //         $endpoint = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key={$apiKey}";
+            
+    //         $response = Http::timeout(30)
+    //             ->withHeaders(['Content-Type' => 'application/json'])
+    //             ->post($endpoint, [
+    //                 'contents' => [
+    //                     [
+    //                         'parts' => [
+    //                             ['text' => $prompt]
+    //                         ]
+    //                     ]
+    //                 ],
+    //                 'generationConfig' => [
+    //                     'responseMimeType' => 'application/json',
+    //                 ]
+    //             ]);
+
+    //         if ($response->successful()) {
+    //             $data = $response->json();
+    //             return $data['candidates'][0]['content']['parts'][0]['text'] ?? null;
+    //         }
+            
+    //         \Log::error('Gemini API Request Failed', ['status' => $response->status(), 'body' => $response->body()]);
+    //         return null;
+
+    //     } catch (\Exception $e) {
+    //         \Log::error('Gemini API Exception Caught', ['message' => $e->getMessage()]);
+    //         return null;
+    //     }
+    // }
+
     private function generateDisputeLetter()
     {
         $apiKey = config('services.gemini.api_key');
@@ -481,37 +543,100 @@ class CreateDispute extends Component
 
         $user = Auth::user();
 
-        $tone = "Polite but firm, written by a real customer. Do not sound like a robot or a lawyer.";
+        // 1. Resolve the Category Name for Legal Mapping
+        $categoryName = 'General';
+        if ($this->selectedInstitutionId) {
+            $inst = Institution::with('category')->find($this->selectedInstitutionId);
+            $categoryName = $inst->category->name ?? 'General';
+        } else if ($this->categoryId && $this->categoryId !== 'other') {
+            $cat = InstitutionCategory::find($this->categoryId);
+            $categoryName = $cat->name ?? 'General';
+        } else if ($this->customCategoryName) {
+            $categoryName = $this->customCategoryName;
+        }
 
-        $prompt = "Write a natural, human-sounding dispute email to {$this->selectedInstitutionName} from a customer's perspective. \n" .
-                  "My name is {$user->name}. \n" .
-                  "Transaction Date: {$this->transactionDate}. \n" .
-                  "Amount: \${$this->transactionAmount}. \n" .
-                  "Ref Number: " . ($this->referenceNumber ?? 'N/A') . ". \n" .
-                  "Issue: {$this->issueDescription}. \n" .
-                  "Tone: {$tone} \n\n" .
-                  "IMPORTANT STRICT RULES:\n" .
-                  "1. Return a JSON object with EXACTLY 2 keys: 'subject' and 'body'. \n" .
-                  "2. NEVER mention 'Stage 1' or any internal tracking stages. The recipient does not know what that means.\n" .
-                  "3. Write exactly how a normal human would write an email to customer support. Avoid overly robotic, legalistic, or stiff AI language.\n" .
-                  "4. The 'body' string MUST be structured clearly with line breaks (\\n\\n) into the following sections:\n" .
-                  "   - A natural opening/salutation.\n" .
-                  "   - The core details and explanation of the issue.\n" .
-                  "   - The specific request/next steps required from them.\n" .
-                  "   - A normal closing and sign-off.";
+        // 2. Calculate the 14-Day Deadline for "Final Notice"
+        $deadlineInstruction = "";
+        if (strtolower($this->letterTone) === 'final notice') {
+            $deadlineDate = now()->addDays(14)->format('F j, Y');
+            $deadlineInstruction = "3. DEADLINE & ESCALATION: Because the tone is 'Final Notice', you MUST explicitly state that if the issue is not resolved within 14 days (by {$deadlineDate}), the user will escalate the matter to the appropriate regulatory body.";
+        }
+
+        // 3. Build the "Advocate Engine" Prompt
+        $promptText = "You are an expert consumer rights advocate and legal strategist drafting a dispute letter to {$this->selectedInstitutionName}. \n\n" .
+            "CASE DETAILS:\n" .
+            "- Customer Name: {$user->name} \n" .
+            "- Transaction Date: {$this->transactionDate} \n" .
+            "- Amount: \${$this->transactionAmount} \n" .
+            "- Ref Number: " . ($this->referenceNumber ?? 'N/A') . " \n" .
+            "- Issue Description: {$this->issueDescription} \n" .
+            "- Industry/Category: {$categoryName} \n" .
+            "- Requested Tone: {$this->letterTone} \n\n" .
+            
+            "EVIDENCE ANALYSIS:\n" .
+            "I have attached evidence documents. Analyze them. If they contain important, relevant details (tracking numbers, specific dates, vendor statements), weave those facts naturally into the email body to strengthen the claim.\n\n" .
+            
+            "STRICT LEGAL & FORMATTING RULES:\n" .
+            "1. REGULATORY CITATIONS: Based on the Industry/Category ('{$categoryName}'), you MUST inject the relevant regulatory framework to establish authority. \n" .
+            "   - If Airline/Travel: Cite US DOT Part 259, EU 261/2004, or APPR.\n" .
+            "   - If Banking/Finance: Cite the Fair Credit Billing Act, FCRA, or CFPB guidelines.\n" .
+            "   - If Insurance: Cite 'Good Faith and Fair Dealing' obligations and Insurance Commissioner codes.\n" .
+            "   - If General Refund/Billing: Cite the FTC Consumer Protection guidelines.\n" .
+            "   - If Healthcare: Cite Patient's Bill of Rights or CMS guidelines.\n" .
+            "   - If Property/Condo: Cite the Condominium Act, HOA Bylaws, or covenant of quiet enjoyment.\n" .
+            "   - If no exact match, cite general Consumer Protection Acts.\n" .
+            "2. TONE & STYLE: Write as a highly informed human consumer. Do not sound like a robotic AI. Adjust your vocabulary to match the requested tone ('{$this->letterTone}'). \n" .
+            $deadlineInstruction . "\n" .
+            "4. OUTPUT FORMAT: Return ONLY a valid JSON object with EXACTLY 2 keys: 'subject' and 'body'. \n" .
+            "5. The 'body' string MUST use line breaks (\\n\\n) to separate paragraphs clearly (Opening, Details/Evidence, Legal Citation, Next Steps, Sign-off).\n";
+
+        // Initialize the API parts array with the text prompt
+        $parts = [
+            ['text' => $promptText]
+        ];
+
+        // Gemini REST API supports these specific mime types for inline data
+        $supportedMimeTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/heic'];
+
+        // Process newly uploaded attachments
+        foreach ($this->attachments as $file) {
+            $mimeType = $file->getMimeType();
+            if (in_array($mimeType, $supportedMimeTypes)) {
+                $parts[] = [
+                    'inlineData' => [
+                        'mimeType' => $mimeType,
+                        'data' => base64_encode(file_get_contents($file->getRealPath()))
+                    ]
+                ];
+            }
+        }
+
+        // Process any attachments saved in the draft session
+        foreach ($this->savedAttachments as $saved) {
+            $diskPath = $saved['path'];
+            if (\Illuminate\Support\Facades\Storage::exists($diskPath)) {
+                $mimeType = \Illuminate\Support\Facades\Storage::mimeType($diskPath);
+                if (in_array($mimeType, $supportedMimeTypes)) {
+                    $parts[] = [
+                        'inlineData' => [
+                            'mimeType' => $mimeType,
+                            'data' => base64_encode(\Illuminate\Support\Facades\Storage::get($diskPath))
+                        ]
+                    ];
+                }
+            }
+        }
 
         try {
             $model = 'gemini-2.5-flash'; 
             $endpoint = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key={$apiKey}";
             
-            $response = Http::timeout(30)
+            $response = Http::timeout(60)
                 ->withHeaders(['Content-Type' => 'application/json'])
                 ->post($endpoint, [
                     'contents' => [
                         [
-                            'parts' => [
-                                ['text' => $prompt]
-                            ]
+                            'parts' => $parts 
                         ]
                     ],
                     'generationConfig' => [

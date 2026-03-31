@@ -123,9 +123,36 @@
                     </div>
                 @endif
 
-                @if($step === 2)
-                    <div class="animate-fade-in block h-auto">
+               @if($step === 2)
+                    <div class="animate-fade-in block h-auto"
+                        x-data="{
+                            isGenerating: false,
+                            hasFiles: false,
+                            aiStep: 1,
+                            aiTimer: null,
+                            startAiAnimation() {
+                                // 1. Reactive check: See if files exist in Livewire right now
+                                this.hasFiles = (this.$wire.attachments.length > 0 || this.$wire.savedAttachments.length > 0);
+                                
+                                this.isGenerating = true;
+                                
+                                // 2. Set starting point: If no files, skip straight to step 2 logic
+                                this.aiStep = this.hasFiles ? 1 : 2;
+                                
+                                clearInterval(this.aiTimer);
+                                
+                                // 3. Start the 4-step sequence (stops at 4)
+                                this.aiTimer = setInterval(() => {
+                                    if (this.aiStep < 4) {
+                                        this.aiStep++;
+                                    } else {
+                                        clearInterval(this.aiTimer);
+                                    }
+                                }, 2500); 
+                            }
+                        }">
                         
+                        {{-- Header Section --}}
                         <div class="px-8 pt-6 pb-4 border-b border-slate-100 flex items-center justify-between">
                             <div>
                                 <h1 class="text-xl font-bold text-slate-900">Case Details</h1>
@@ -135,7 +162,7 @@
                         </div>
 
                         <div class="p-8 block">
-                            {{-- Base Details --}}
+                            {{-- Transaction Details --}}
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-5">
                                 <div>
                                     <label class="block text-xs font-bold text-slate-700 mb-1.5">Transaction Date</label>
@@ -163,7 +190,7 @@
                                 </div>
                             </div>
 
-                            {{-- Evidence Upload --}}
+                            {{-- Evidence Upload Section --}}
                             <div class="mb-8 border-b border-slate-100 pb-8">
                                 <label class="block text-xs font-bold text-slate-700 mb-1.5">Evidence (Optional)</label>
                                 
@@ -181,68 +208,52 @@
 
                                 @if($attachments || $savedAttachments)
                                     <ul class="mt-4 space-y-2">
-                                        {{-- 1. Display newly uploaded files --}}
                                         @foreach($attachments as $index => $file)
                                             <li class="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-lg shadow-sm">
                                                 <div class="flex items-center gap-3 overflow-hidden">
-                                                    <div class="w-8 h-8 bg-blue-50 text-blue-600 rounded flex items-center justify-center">
-                                                        <i data-lucide="file-text" class="w-4 h-4"></i>
-                                                    </div>
+                                                    <div class="w-8 h-8 bg-blue-50 text-blue-600 rounded flex items-center justify-center"><i data-lucide="file-text" class="w-4 h-4"></i></div>
                                                     <div class="flex flex-col min-w-0">
                                                         <span class="text-sm font-medium text-slate-700 truncate block">{{ $file->getClientOriginalName() }}</span>
                                                         <span class="text-[10px] text-slate-400">{{ round($file->getSize() / 1024, 2) }} KB</span>
                                                     </div>
                                                 </div>
-                                                <button wire:click="removeAttachment({{ $index }})" class="p-1 text-slate-400 hover:text-red-500 transition-colors">
-                                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
-                                                </button>
+                                                <button wire:click="removeAttachment({{ $index }})" class="p-1 text-slate-400 hover:text-red-500 transition-colors"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                                             </li>
                                         @endforeach
 
-                                        {{-- 2. Display files restored from the draft session --}}
                                         @foreach($savedAttachments as $index => $file)
                                             <li class="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-lg shadow-sm relative overflow-hidden">
                                                 <div class="absolute left-0 top-0 bottom-0 w-1 bg-emerald-400"></div>
                                                 <div class="flex items-center gap-3 overflow-hidden pl-2">
-                                                    <div class="w-8 h-8 bg-emerald-50 text-emerald-600 rounded flex items-center justify-center">
-                                                        <i data-lucide="check-circle" class="w-4 h-4"></i>
-                                                    </div>
+                                                    <div class="w-8 h-8 bg-emerald-50 text-emerald-600 rounded flex items-center justify-center"><i data-lucide="check-circle" class="w-4 h-4"></i></div>
                                                     <div class="flex flex-col min-w-0">
                                                         <span class="text-sm font-medium text-slate-700 truncate block">{{ $file['name'] }}</span>
                                                         <span class="text-[10px] text-emerald-600 font-bold">Saved from Draft</span>
                                                     </div>
                                                 </div>
-                                                <button wire:click="removeSavedAttachment({{ $index }})" class="p-1 text-slate-400 hover:text-red-500 transition-colors">
-                                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
-                                                </button>
+                                                <button wire:click="removeSavedAttachment({{ $index }})" class="p-1 text-slate-400 hover:text-red-500 transition-colors"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                                             </li>
                                         @endforeach
                                     </ul>
                                 @endif
                             </div>
 
-                            {{-- DRAFTING MODE TOGGLE --}}
+                            {{-- Mode Toggle --}}
                             <div class="mb-6">
                                 <label class="block text-xs font-bold text-slate-700 mb-3">How would you like to write your dispute Email?</label>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <button wire:click="$set('draftMode', 'ai')" class="relative p-4 rounded-xl border-2 transition-all text-left overflow-hidden {{ $draftMode === 'ai' ? 'border-blue-600 bg-blue-50/50' : 'border-slate-200 bg-white hover:border-blue-300' }}">
-                                        @if($draftMode === 'ai') <div class="absolute top-0 right-0 w-16 h-16 bg-blue-100 rounded-bl-full -mr-8 -mt-8 transition-all"></div> @endif
                                         <div class="flex items-start gap-3 relative z-10">
-                                            <div class="{{ $draftMode === 'ai' ? 'text-blue-600' : 'text-slate-400' }}">
-                                                <i data-lucide="sparkles" class="w-5 h-5"></i>
-                                            </div>
+                                            <div class="{{ $draftMode === 'ai' ? 'text-blue-600' : 'text-slate-400' }}"><i data-lucide="sparkles" class="w-5 h-5"></i></div>
                                             <div>
                                                 <h3 class="font-bold text-sm {{ $draftMode === 'ai' ? 'text-blue-900' : 'text-slate-700' }}">AI Assistant</h3>
-                                                <p class="text-xs text-slate-500 mt-0.5">Describe the issue, and AI will draft a professional letter.</p>
+                                                <p class="text-xs text-slate-500 mt-0.5">AI will analyze evidence and draft a high-authority letter.</p>
                                             </div>
                                         </div>
                                     </button>
                                     <button wire:click="$set('draftMode', 'manual')" class="relative p-4 rounded-xl border-2 transition-all text-left overflow-hidden {{ $draftMode === 'manual' ? 'border-blue-600 bg-blue-50/50' : 'border-slate-200 bg-white hover:border-blue-300' }}">
-                                        @if($draftMode === 'manual') <div class="absolute top-0 right-0 w-16 h-16 bg-blue-100 rounded-bl-full -mr-8 -mt-8 transition-all"></div> @endif
                                         <div class="flex items-start gap-3 relative z-10">
-                                            <div class="{{ $draftMode === 'manual' ? 'text-blue-600' : 'text-slate-400' }}">
-                                                <i data-lucide="pen-tool" class="w-5 h-5"></i>
-                                            </div>
+                                            <div class="{{ $draftMode === 'manual' ? 'text-blue-600' : 'text-slate-400' }}"><i data-lucide="pen-tool" class="w-5 h-5"></i></div>
                                             <div>
                                                 <h3 class="font-bold text-sm {{ $draftMode === 'manual' ? 'text-blue-900' : 'text-slate-700' }}">Write Manually</h3>
                                                 <p class="text-xs text-slate-500 mt-0.5">Write your own subject and email body from scratch.</p>
@@ -252,39 +263,81 @@
                                 </div>
                             </div>
 
-                            {{-- DYNAMIC INPUTS BASED ON MODE --}}
+                            {{-- Issue Description Input --}}
                             @if($draftMode === 'ai')
-                                <div class="mb-2 animate-fade-in">
+                                <div class="mb-6 animate-fade-in" wire:loading.class="hidden" wire:target="generateReview">
                                     <label class="block text-xs font-bold text-slate-700 mb-1.5">What is the issue?</label>
                                     <textarea wire:model="issueDescription" rows="4" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-blue-500 transition-all resize-none text-sm" placeholder="Please describe exactly what happened..."></textarea>
                                     @error('issueDescription') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
                                 </div>
                             @else
-                                <div class="mb-2 animate-fade-in p-5 bg-slate-50 border border-slate-200 rounded-xl text-center">
+                                <div class="mb-6 animate-fade-in p-5 bg-slate-50 border border-slate-200 rounded-xl text-center" wire:loading.class="hidden" wire:target="generateReview">
                                     <i data-lucide="pen-tool" class="w-6 h-6 text-slate-400 mx-auto mb-2"></i>
                                     <p class="text-sm text-slate-600 font-medium">You will write your subject and email body in the next step.</p>
                                 </div>
                             @endif
 
-                            {{-- Button Footer --}}
+                            {{-- THE ADVOCATE AI PROCESSING ANIMATION --}}
+                            <div wire:loading.flex wire:target="generateReview" 
+                                class="w-full mb-6 flex-col gap-4 p-6 bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl shadow-inner hidden border border-slate-700">
+                                
+                                <div class="flex items-center gap-3 border-b border-slate-700 pb-3 mb-1">
+                                    <div class="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center">
+                                        <div class="w-2 h-2 bg-blue-400 rounded-full animate-ping"></div>
+                                    </div>
+                                    <h3 class="text-sm font-bold text-white tracking-wide">Advocate AI is processing...</h3>
+                                </div>
+
+                                {{-- Step 1: Document Scanning (Shown only if files exist) --}}
+                                <div x-show="hasFiles" class="flex items-center gap-3 transition-all duration-500">
+                                    <div class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold transition-all duration-300"
+                                        :class="aiStep > 1 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-blue-500 text-white shadow-[0_0_15px_rgba(59,130,246,0.5)]'">
+                                        <svg x-show="aiStep > 1" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                                        <span x-show="aiStep <= 1" class="animate-pulse">1</span>
+                                    </div>
+                                    <span class="text-sm font-medium transition-colors" :class="aiStep === 1 ? 'text-blue-100' : 'text-emerald-400'">Scanning attached documents and extracting key evidence...</span>
+                                </div>
+
+                                {{-- Step 2: Regulatory Check --}}
+                                <div class="flex items-center gap-3 transition-all duration-500" :class="aiStep >= 2 ? 'opacity-100' : 'opacity-30'">
+                                    <div class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold transition-all duration-300"
+                                        :class="aiStep > 2 ? 'bg-emerald-500/20 text-emerald-400' : (aiStep === 2 ? 'bg-blue-500 text-white shadow-[0_0_15px_rgba(59,130,246,0.5)]' : 'bg-slate-700 text-slate-400')">
+                                        <svg x-show="aiStep > 2" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                                        <span x-show="aiStep <= 2" :class="aiStep === 2 ? 'animate-pulse' : ''" x-text="hasFiles ? 2 : 1"></span>
+                                    </div>
+                                    <span class="text-sm font-medium transition-colors" :class="aiStep === 2 ? 'text-blue-100' : (aiStep > 2 ? 'text-emerald-400' : 'text-slate-400')">Cross-referencing claims with regulatory frameworks...</span>
+                                </div>
+
+                                {{-- Step 3: Routing --}}
+                                <div class="flex items-center gap-3 transition-all duration-500" :class="aiStep >= 3 ? 'opacity-100' : 'opacity-30'">
+                                    <div class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold transition-all duration-300"
+                                        :class="aiStep > 3 ? 'bg-emerald-500/20 text-emerald-400' : (aiStep === 3 ? 'bg-blue-500 text-white shadow-[0_0_15px_rgba(59,130,246,0.5)]' : 'bg-slate-700 text-slate-400')">
+                                        <svg x-show="aiStep > 3" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                                        <span x-show="aiStep <= 3" :class="aiStep === 3 ? 'animate-pulse' : ''" x-text="hasFiles ? 3 : 2"></span>
+                                    </div>
+                                    <span class="text-sm font-medium transition-colors" :class="aiStep === 3 ? 'text-blue-100' : (aiStep > 3 ? 'text-emerald-400' : 'text-slate-400')">Identifying direct escalation contacts...</span>
+                                </div>
+
+                                {{-- Step 4: Finalizing --}}
+                                <div class="flex items-center gap-3 transition-all duration-500" :class="aiStep >= 4 ? 'opacity-100' : 'opacity-30'">
+                                    <div class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold transition-all duration-300"
+                                        :class="aiStep === 4 ? 'bg-blue-500 text-white shadow-[0_0_15px_rgba(59,130,246,0.5)]' : 'bg-slate-700 text-slate-400'">
+                                        <span :class="aiStep === 4 ? 'animate-pulse' : ''" x-text="hasFiles ? 4 : 3"></span>
+                                    </div>
+                                    <span class="text-sm font-medium transition-colors" :class="aiStep === 4 ? 'text-blue-100' : 'text-slate-400'">Finalizing your high-authority demand letter...</span>
+                                </div>
+                            </div>
+
+                            {{-- Footer Buttons --}}
                             <div class="flex items-center justify-between pt-5 border-t border-slate-100 mt-6">
                                 <button wire:click="goToStep(1)" class="px-5 py-2.5 text-slate-500 font-medium hover:bg-slate-50 rounded-lg transition-colors text-sm">Back</button>
-                                
-                                <button wire:click="generateReview" 
-                                        wire:loading.attr="disabled" 
-                                        class="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl shadow-lg flex items-center justify-center transition-all min-w-[160px] text-sm">
-                                    
+                                <button wire:click="generateReview" @click="startAiAnimation()" wire:loading.attr="disabled" class="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl shadow-lg flex items-center justify-center transition-all min-w-[160px] text-sm active:scale-95">
                                     <div wire:loading.class="hidden" wire:target="generateReview" class="flex items-center gap-2">
-                                        <span>{{ $draftMode === 'ai' ? 'Generate Draft' : 'Continue to Write' }}</span>
-                                        @if($draftMode === 'ai') <i data-lucide="sparkles" class="w-4 h-4 text-yellow-400"></i> @else <i data-lucide="arrow-right" class="w-4 h-4"></i> @endif
+                                        <span>Generate Draft</span>
+                                        <i data-lucide="sparkles" class="w-4 h-4 text-yellow-400"></i>
                                     </div>
-
-                                    <div wire:loading.class.remove="hidden" wire:target="generateReview" class="hidden flex items-center gap-2">
-                                        <svg class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                        </svg>
-                                        <span>{{ $draftMode === 'ai' ? 'AI is writing...' : 'Processing...' }}</span>
+                                    <div wire:loading.class.remove="hidden" wire:target="generateReview" class="hidden">
+                                        <span>Processing...</span>
                                     </div>
                                 </button>
                             </div>
