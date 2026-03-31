@@ -23,7 +23,7 @@
             </div>
 
             <div class="flex-1 overflow-y-auto">
-                <div class="px-6 pt-4 pb-2 space-y-1">
+                <!-- <div class="px-6 pt-4 pb-2 space-y-1">
                     
                     {{-- To Field --}}
                     <div class="flex items-center border-b border-slate-100 transition-colors" 
@@ -61,8 +61,52 @@
                         <label class="text-xs font-semibold text-slate-500 w-12 shrink-0 pl-6">Subject</label>
                         <input type="text" name="subject" id="subject" x-model="replySubject" class="w-full py-3 text-sm font-bold text-slate-900 border-0 focus:ring-0 placeholder:text-slate-300" required>
                     </div>
-                </div>
+                </div> -->
+                <div class="px-6 pt-4 pb-2 space-y-0">
+        
+                    {{-- To Field --}}
+                    <div class="flex items-center border-b border-slate-100 transition-colors group" 
+                        :class="isLocked ? 'bg-slate-50/50' : 'focus-within:bg-blue-50/30'">
+                    
+                        <label class="text-[11px] uppercase tracking-wider font-bold text-slate-400 w-20 shrink-0 pl-2">To</label>
+                        
+                        <input type="email" 
+                            name="recipient"
+                            id="recipient" 
+                            x-model="replyTo" 
+                            :readonly="isLocked" 
+                            :class="isLocked ? 'cursor-not-allowed text-slate-500' : 'text-slate-900'"
+                            class="w-full py-4 text-sm font-medium border-0 focus:ring-0 bg-transparent placeholder:text-slate-300" 
+                            placeholder="recipient@example.com"
+                            required>
 
+                        {{-- Edit Button --}}
+                        <template x-if="isLocked">
+                            <div class="pr-2">
+                                <button type="button" @click="isLocked = false" 
+                                        class="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                                        <path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2.828 2.828 0 114 4L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                        </template>
+                    </div>
+                    
+                    {{-- Subject Field --}}
+                    <div class="flex items-center border-b border-slate-100 transition-colors group"
+                        :class="'focus-within:bg-blue-50/30'">
+                        <label class="text-[11px] uppercase tracking-wider font-bold text-slate-400 w-20 shrink-0 pl-2">Subject</label>
+                        <input type="text" 
+                            name="subject" 
+                            id="subject" 
+                            x-model="replySubject" 
+                            class="w-full py-4 text-sm font-semibold text-slate-800 border-0 focus:ring-0 bg-transparent placeholder:text-slate-300" 
+                            placeholder="Enter subject line..."
+                            required>
+                    </div>
+                </div>
+                
                 {{-- <div class="px-6 py-2 h-full min-h-[200px]">
                     <textarea name="body" x-model="replyBody" class="w-full h-full text-sm text-slate-700 leading-relaxed border-0 focus:ring-0 resize-none placeholder:text-slate-300 outline-none" placeholder="Type your message here..."></textarea>
                 </div> --}}

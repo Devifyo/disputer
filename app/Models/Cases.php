@@ -8,7 +8,7 @@ class Cases extends Model
 {
    protected $fillable = [
         'user_id', 'institution_id', 'institution_name', 
-        'case_reference_id', 'email_route_id', 
+        'case_reference_id', 'email_route_id', 'case_email',
         'status', 'stage', 'current_workflow_step', 'next_action_at',
         'escalation_level','last_escalated_at', 'user_subscription_id',
     ];

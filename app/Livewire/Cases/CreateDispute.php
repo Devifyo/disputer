@@ -374,14 +374,18 @@ class CreateDispute extends Component
             $category = InstitutionCategory::find($finalCategoryId);
             $workflowConfig = $category->workflow_config ?? config('workflow_templates.standard');
             $nextActionDate = now()->addDays($workflowConfig['steps'][0]['wait_days'] ?? 14);
-
+            $caseReference = strtoupper(Str::random(6));
+          $uniqueCaseEmail = "case-" . strtolower($caseReference) . "@cases.unjamm.com";
             $case = Cases::create([
                 'user_id' => Auth::id(),
                 'user_subscription_id' => $sub ? $sub->id : null,
                 'institution_id' => $this->selectedInstitutionId,
                 'institution_name' => $this->selectedInstitutionName,
-                'case_reference_id' => strtoupper(Str::random(6)), 
-                'email_route_id' => (string) Str::uuid(), 
+                // 'case_reference_id' => strtoupper(Str::random(6)), 
+                // 'email_route_id' => (string) Str::uuid(), 
+                'case_reference_id' => $caseReference,
+                'email_route_id' => strtolower($caseReference),
+                'case_email' => $uniqueCaseEmail,
                 'status' => \App\Enums\CaseStatus::SENT,
                 'stage' => 'Sent',
                 'current_workflow_step' => 1,
