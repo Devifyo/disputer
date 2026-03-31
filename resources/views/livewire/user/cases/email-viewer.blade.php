@@ -186,10 +186,28 @@
                 {{--  --}}
 
                 <div class="p-8">
-                    <div class="prose prose-sm prose-slate max-w-none text-slate-700">
+                    <!-- <div class="prose prose-sm prose-slate max-w-none text-slate-700">
                         {{-- {!! nl2br(e($body)) !!} --}}
                         {!! $body !!}
+                    </div> -->
+                    <div class="text-sm text-slate-800 leading-relaxed max-w-none overflow-x-auto email-content-wrapper">
+                        
+                        @if(preg_match('/<(br|p|div|html|body|table)[^>]*>/i', $body))
+                            {{-- IT IS AN HTML EMAIL (From Gmail, Outlook, etc.) --}}
+                            {{-- We render it directly, letting its native inline styles work --}}
+                            {!! $body !!}
+                        @else
+                            {{-- IT IS A PLAIN TEXT EMAIL --}}
+                            {{-- We safely escape it and convert invisible newlines to <br> tags --}}
+                            {!! nl2br(e($body)) !!}
+                        @endif
+                        
                     </div>
+                    <style>
+                        .email-content-wrapper div[dir="ltr"] { margin-bottom: 0.75em; }
+                        .email-content-wrapper blockquote { border-left: 3px solid #e2e8f0; padding-left: 1rem; margin-top: 1rem; color: #64748b; }
+                        .email-content-wrapper a { color: #2563eb; text-decoration: underline; }
+                    </style>
                     {{-- attachment of email --}}
                     @if(count($attachments) > 0)
                         <div class="mt-12 pt-6 border-t border-slate-100">

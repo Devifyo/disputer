@@ -34,8 +34,8 @@
             <div class="p-6 flex-1 min-h-0 overflow-y-auto custom-scrollbar">
                 <div class="relative space-y-8">
                     <div class="absolute top-2 bottom-2 left-4 w-0.5 bg-slate-100"></div>
-
-                    @foreach($case->timeline as $log)
+                
+                    @foreach($case->timeline->sortByDesc('id') as $log)
                         @php
                             // --- FILTER: HIDE INTERNAL LOGS ---
                             if (in_array($log->type, ['Ai_guidance_workflow', 'system_suggestion', 'debug_log'])) {
@@ -144,9 +144,17 @@
                                 <p class="text-xs text-slate-600 leading-relaxed line-clamp-2">{{ $log->description }}</p>
                                 @if(in_array($log->type, ['email_sent', 'email_received', 'escalation_sent']))
                                     <div class="mt-2 flex items-center gap-2">
-                                        <button 
+                                        <!-- <button 
                                             type="button"
                                             @click='$dispatch("open-email", {!! json_encode($emailPayload, JSON_HEX_APOS | JSON_HEX_QUOT) !!})'
+                                            class="flex items-center gap-2 px-3.5 py-1.5 rounded-lg border border-indigo-100 bg-indigo-50/50 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700 hover:border-indigo-200 transition-all text-[11px] font-bold shadow-sm active:scale-95"
+                                        >
+                                            <i data-lucide="eye" class="w-3.5 h-3.5"></i>
+                                            <span>View Message</span>
+                                        </button> -->
+                                        <button 
+                                            type="button"
+                                            @click="$dispatch('open-email', @js($emailPayload))"
                                             class="flex items-center gap-2 px-3.5 py-1.5 rounded-lg border border-indigo-100 bg-indigo-50/50 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700 hover:border-indigo-200 transition-all text-[11px] font-bold shadow-sm active:scale-95"
                                         >
                                             <i data-lucide="eye" class="w-3.5 h-3.5"></i>

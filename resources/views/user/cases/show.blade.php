@@ -165,39 +165,51 @@
                             </div>
                         </div>
 
-                        @if($case->attachments->count() > 0)
-                        <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                            <div class="px-6 py-4 border-b border-slate-100 flex items-center gap-2 bg-slate-50/30">
-                                <i data-lucide="paperclip" class="w-4 h-4 text-slate-400"></i>
-                                <h3 class="font-bold text-slate-800 text-sm">Attachments</h3>
-                            </div>
-                            <ul class="divide-y divide-slate-50">
-                                @foreach($case->attachments as $file)
-                                <li class="flex items-center justify-between p-4 hover:bg-slate-50 transition-colors group">
-                                    <div class="flex items-center gap-3">
-                                        <div class="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100 group-hover:scale-105 transition-transform">
-                                            @if(Str::contains($file->mime_type, 'image'))
-                                                <i data-lucide="image" class="w-5 h-5"></i>
-                                            @else
-                                                <i data-lucide="file-text" class="w-5 h-5"></i>
-                                            @endif
+                        {{-- Attachments Card (Always visible to maintain layout height) --}}
+                            <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+                                <div class="px-6 py-4 border-b border-slate-100 flex items-center gap-2 bg-slate-50/30 shrink-0">
+                                    <i data-lucide="paperclip" class="w-4 h-4 text-slate-400"></i>
+                                    <h3 class="font-bold text-slate-800 text-sm">Attachments</h3>
+                                </div>
+                                
+                                @if($case->attachments->count() > 0)
+                                    <ul class="divide-y divide-slate-50 flex-1">
+                                        @foreach($case->attachments as $file)
+                                        <li class="flex items-center justify-between p-4 hover:bg-slate-50 transition-colors group">
+                                            <div class="flex items-center gap-3">
+                                                <div class="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100 group-hover:scale-105 transition-transform">
+                                                    @if(Str::contains($file->mime_type, 'image'))
+                                                        <i data-lucide="image" class="w-5 h-5"></i>
+                                                    @else
+                                                        <i data-lucide="file-text" class="w-5 h-5"></i>
+                                                    @endif
+                                                </div>
+                                                <div>
+                                                    <p class="text-sm font-medium text-slate-900">{{ $file->file_name }}</p>
+                                                    <p class="text-[10px] text-slate-500 uppercase font-semibold">{{ Str::afterLast($file->file_name, '.') }} • {{ $file->created_at->format('M d') }}</p>
+                                                </div>
+                                            </div>
+                                            <a href="{{$file->public_link}}" 
+                                                target="_blank" 
+                                                class="inline-flex items-center justify-center text-blue-600 hover:text-blue-800 hover:bg-blue-50 p-1.5 rounded-md transition-all"
+                                                title="View File">
+                                                    <i data-lucide="eye" class="w-4 h-4"></i>
+                                            </a>
+                                        </li>
+                                        @endforeach
+                                    </ul>
+                                @else
+                                    {{-- EMPTY STATE: Forces a minimum height to keep the grid and timeline balanced --}}
+                                    <div class="flex flex-col items-center justify-center p-8 min-h-[180px] text-center bg-slate-50/10 flex-1">
+                                        <div class="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center mb-3 border border-slate-100 shadow-sm">
+                                            <i data-lucide="folder-open" class="w-5 h-5 text-slate-300"></i>
                                         </div>
-                                        <div>
-                                            <p class="text-sm font-medium text-slate-900">{{ $file->file_name }}</p>
-                                            <p class="text-[10px] text-slate-500 uppercase font-semibold">{{ Str::afterLast($file->file_name, '.') }} • {{ $file->created_at->format('M d') }}</p>
-                                        </div>
+                                        <p class="text-sm font-bold text-slate-500">No attachments yet</p>
+                                        <p class="text-xs text-slate-400 mt-1 max-w-[200px] leading-relaxed">Files sent or received in this dispute will appear here.</p>
                                     </div>
-                                    <a href="{{$file->public_link}}" 
-                                        target="_blank" 
-                                        class="inline-flex items-center justify-center text-blue-600 hover:text-blue-800 hover:bg-blue-50 p-1.5 rounded-md transition-all"
-                                        title="View File">
-                                            <i data-lucide="eye" class="w-4 h-4"></i>
-                                    </a>
-                                </li>
-                                @endforeach
-                            </ul>
-                        </div>
-                        @endif
+                                @endif
+                            </div>
+                        {{-- end attachment section --}}
                     </div>
 
                     <div class="lg:col-span-5">
