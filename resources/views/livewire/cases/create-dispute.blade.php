@@ -278,7 +278,7 @@
                             @endif
 
                             {{-- THE ADVOCATE AI PROCESSING ANIMATION --}}
-                            <div wire:loading.flex wire:target="generateReview" 
+                            <!-- <div wire:loading.flex wire:target="generateReview" 
                                 class="w-full mb-6 flex-col gap-4 p-6 bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl shadow-inner hidden border border-slate-700">
                                 
                                 <div class="flex items-center gap-3 border-b border-slate-700 pb-3 mb-1">
@@ -326,7 +326,7 @@
                                     </div>
                                     <span class="text-sm font-medium transition-colors" :class="aiStep === 4 ? 'text-blue-100' : 'text-slate-400'">Finalizing your high-authority demand letter...</span>
                                 </div>
-                            </div>
+                            </div> -->
 
                             {{-- Footer Buttons --}}
                             <div class="flex items-center justify-between pt-5 border-t border-slate-100 mt-6">
