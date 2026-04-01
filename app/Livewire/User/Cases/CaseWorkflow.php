@@ -3,14 +3,15 @@
 namespace App\Livewire\User\Cases;
 
 use Livewire\Component;
-use App\Models\Cases;
+use App\Models\{Cases, Email};
 use App\Models\CaseTimeline;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Livewire\WithFileUploads;
 use App\Services\EscalationService;
-
+use Livewire\Attributes\Computed;
+use Livewire\Attributes\On;
 class CaseWorkflow extends Component
 {
     use WithFileUploads;
@@ -54,6 +55,23 @@ class CaseWorkflow extends Component
         }
 
         $this->loadStepConfig();
+    }
+
+    #[On('email-read-state-changed')]
+    public function refreshWorkflow()
+    {
+        // Livewire will automatically re-render the component, query the database,
+        // see the email is now read, and remove the red banner instantly!
+    }
+
+    #[Computed]
+    public function unreadEmails()
+    {
+        return Email::where('case_id', $this->case->id)
+            ->where('direction', 'inbound')
+            ->where('is_read', false)
+            ->latest()
+            ->get();
     }
 
     public function loadStepConfig()

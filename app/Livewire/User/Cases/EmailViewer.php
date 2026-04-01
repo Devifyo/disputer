@@ -5,7 +5,7 @@ namespace App\Livewire\User\Cases;
 use Livewire\Component;
 use Livewire\Attributes\On;
 use App\Services\GeminiEmailAnalysisService; // Import the Service
-
+use App\Models\Email;
 class EmailViewer extends Component
 {
     public $isOpen = false;
@@ -17,22 +17,59 @@ class EmailViewer extends Component
     public $isAnalyzing = false;
     public $analysis = null;
     public $emailId = '';
-
+    public $caseId = '';
     // 1. ADD THESE NEW PROPERTIES
     public $direction = 'outbound'; 
     #[On('open-email')]
-    public function loadEmail($emailId, $subject, $body, $attachments = [], $recipient = 'Support Team', $direction = 'outbound',)
-    {   
+    public function loadEmail(
+        $emailId = null, 
+        $caseId = null, 
+        $subject = 'No Subject', 
+        $body = '', 
+        $direction = 'outbound', 
+        $attachments = [], 
+        $recipient = 'Support Team'
+    ) {   
+        // 1. Assign the automatically mapped variables to the component properties
+        $this->emailId = $emailId;
+        $this->caseId = $caseId;
         $this->subject = $subject;
         $this->body = $body;
         $this->attachments = $attachments;
         $this->recipient_email = $recipient;
+        $this->direction = $direction;
+        
         $this->isOpen = true;
         $this->analysis = null;
-        if ($emailId) {
-            \App\Models\Email::where('id', $emailId)->update(['is_read' => true]);
+
+        // 2. Handle the database read/create logic
+        if ($this->emailId) {
+            $email = Email::find($this->emailId);
+            
+            if ($email) {
+                // The email exists! Check if it's unread.
+                if (!$email->is_read) {
+                    $email->update(['is_read' => true]);
+                    $this->dispatch('email-read-state-changed', emailId: $this->emailId);
+                }
+            } else {
+                // The email is missing! Create it safely using the caseId.
+                if ($this->caseId) {
+                    Email::create([
+                        'id' => $this->emailId,
+                        'case_id' => $this->caseId,
+                        'direction' => $this->direction,
+                        'sender_email' => $this->direction === 'inbound' ? $this->recipient_email : 'user_fallback@example.com',
+                        'recipient_email' => $this->direction === 'inbound' ? 'system@example.com' : $this->recipient_email,
+                        'subject' => $this->subject,
+                        'body_html' => $this->body,
+                        'is_read' => true
+                    ]);
+                    
+                    $this->dispatch('email-read-state-changed', emailId: $this->emailId);
+                }
+            }
         }
-        $this->direction = $direction;
     }
 
     public function close()
@@ -50,7 +87,10 @@ class EmailViewer extends Component
         $this->analysis = null;
 
         $userName = auth()->check() ? auth()->user()->name : 'The User';
-
+        // dd($this->subject,
+        //     $this->body,
+        //     $this->attachments,
+        //     $userName);
         // The Service handles everything
         $this->analysis = $aiService->analyze(
             $this->subject,
@@ -58,7 +98,7 @@ class EmailViewer extends Component
             $this->attachments,
             $userName
         );
-
+        
         $this->isAnalyzing = false;
     }
 

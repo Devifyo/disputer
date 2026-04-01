@@ -329,7 +329,7 @@
                                         </div>
 
                                         {{-- Row 3: Logic Configuration --}}
-                                        <div class="p-4 bg-slate-50 rounded-lg border border-slate-100 grid grid-cols-2 gap-4">
+                                        <!-- <div class="p-4 bg-slate-50 rounded-lg border border-slate-100 grid grid-cols-2 gap-4">
                                             <div>
                                                 <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Who are we waiting for?</label>
                                                 <input type="text" wire:model="workflow_steps.{{ $index }}.waiting_for" placeholder="e.g. Airline, Bank, User" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs focus:border-primary-500 outline-none bg-white">
@@ -340,8 +340,42 @@
                                                     <span class="text-xs font-bold text-slate-700">This is a Final Step (Resolution/Closed)</span>
                                                 </label>
                                             </div>
-                                        </div>
+                                        </div> -->
+                                        {{-- Row 3: Logic Configuration --}}
+                                        <div class="p-4 bg-slate-50 rounded-lg border border-slate-100 grid grid-cols-1 md:grid-cols-3 gap-4">
+                                            
+                                            {{-- Waiting For --}}
+                                            <div>
+                                                <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Who are we waiting for?</label>
+                                                <input type="text" wire:model="workflow_steps.{{ $index }}.waiting_for" placeholder="e.g. Airline, Bank, User" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs focus:border-primary-500 outline-none bg-white">
+                                            </div>
 
+                                            {{-- THE NEW AUTO-ADVANCE DROPDOWN --}}
+                                            <div>
+                                                <div class="flex items-center justify-between mb-1">
+                                                    <label class="block text-[10px] font-bold text-slate-500 uppercase">On Email Reply</label>
+                                                </div>
+                                                <select wire:model="workflow_steps.{{ $index }}.on_inbound_email_step" 
+                                                        class="w-full px-3 py-2 rounded-lg border {{ $errors->has('workflow_steps.'.$index.'.on_inbound_email_step') ? 'border-rose-400 ring-1 ring-rose-500/20' : 'border-slate-200' }} text-xs focus:border-primary-500 outline-none bg-white cursor-pointer">
+                                                    <option value="">-- Do Not Auto-Advance --</option>
+                                                    @foreach($workflow_steps as $targetStep)
+                                                        @if(!empty($targetStep['step_key']) && $targetStep['step_key'] !== $step['step_key'])
+                                                            <option value="{{ $targetStep['step_key'] }}">Auto-Move to: {{ $targetStep['step_key'] }}</option>
+                                                        @endif
+                                                    @endforeach
+                                                </select>
+                                                @error('workflow_steps.'.$index.'.on_inbound_email_step') <div class="text-[9px] text-rose-500 font-bold px-1 mt-1">{{ $message }}</div> @enderror
+                                            </div>
+
+                                            {{-- Final Step Checkbox --}}
+                                            <div class="flex items-end pb-2">
+                                                <label class="flex items-center gap-2 cursor-pointer">
+                                                    <input type="checkbox" wire:model="workflow_steps.{{ $index }}.is_final" class="rounded text-primary-600 focus:ring-primary-500 w-4 h-4 border-slate-300">
+                                                    <span class="text-xs font-bold text-slate-700">This is a Final Step</span>
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <!-- end of row 3 -->
                                         {{-- Sub-section: Actions --}}
                                         <div>
                                             <div class="flex items-center justify-between mb-2">

@@ -184,7 +184,14 @@
                     <span wire:loading wire:target="askAiForHelp">Analyzing Case...</span>
                 </button>
             </div>
-            
+            {{-- ======================================================== --}}
+            {{-- UNREAD EMAILS ALERT BANNER --}}
+            {{-- ======================================================== --}}
+            @if($this->unreadEmails->isNotEmpty())
+               {{-- This is now all you need in your main file --}}
+                <x-case.unread-emails-stack :emails="$this->unreadEmails" :case="$case" />
+            @endif
+            {{-- ======================================================== --}}
             <p class="text-slate-500 text-sm leading-relaxed max-w-2xl mb-8">{{ $currentStepConfig['description'] ?? 'No additional description available.' }}</p>
 
             @if(isset($currentStepConfig['timeouts']) && count($currentStepConfig['timeouts']) > 0)

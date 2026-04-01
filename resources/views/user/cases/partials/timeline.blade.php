@@ -55,12 +55,12 @@
                             if (is_array($rawRecipient)) { $rawRecipient = reset($rawRecipient); }
                             $safeRecipient = (string) $rawRecipient;
 
-                            // 1. Get Body
+                            // 1. Get Body & Check Unread Status
                             $rawBody = $log->metadata['full_body'] ?? $log->metadata['body'] ?? '';
                             if (is_array($rawBody)) { $rawBody = reset($rawBody); }
                             
-                            // 2. Fetch Attachments & Fallback Body
                             $attachmentsData = []; 
+                            $isUnread = false; // NEW: Track unread state
                             
                             if ($rawEmailId) {
                                 $linkedEmail = \App\Models\Email::find($rawEmailId);
@@ -68,6 +68,12 @@
                                     if (empty($rawBody)) {
                                         $rawBody = $linkedEmail->body_html ?? $linkedEmail->body_text ?? '';
                                     }
+                                    
+                                    // NEW: If inbound and not read, flag it as unread
+                                    if ($direction === 'inbound' && !$linkedEmail->is_read) {
+                                        $isUnread = true;
+                                    }
+
                                     $attachments = \App\Models\Attachment::where('email_id', $rawEmailId)->get();
                                     foreach($attachments as $att) {
                                         $attachmentsData[] = [
@@ -88,23 +94,25 @@
                                 'body' => $safeBody, 
                                 'direction' => $direction,
                                 'attachments' => $attachmentsData,
-                                'recipient' => $safeRecipient
+                                'recipient' => $safeRecipient,
+                                'caseId' => $case->id,
                             ];
                         @endphp
 
-                        <div class="relative pl-12 group">
-                            <div class="absolute left-0 top-0 border-2 rounded-full w-8 h-8 flex items-center justify-center z-10 shadow-sm bg-white
-                                @if($log->type == 'email_sent' || $log->type == 'email_received' || $log->type == 'escalation_sent')
-                                    {{ $direction === 'inbound' ? 'border-emerald-100 text-emerald-600' : 'border-blue-100 text-blue-600' }}
-                                @elseif($log->type == 'case_created')
-                                    border-slate-100 text-slate-500
-                                @elseif($log->type == 'workflow_change')
-                                    border-purple-100 text-purple-500
-                                @elseif($log->type == 'escalation_sent')
-                                    border-rose-100 text-rose-600
-                                @else
-                                    border-slate-100 text-slate-400
-                                @endif">
+                        {{-- Main wrapper --}}
+                        {{-- Alpine State Wrapper: Tracks 'isUnread' for this specific log --}}
+                        <div x-data="{ isUnread: {{ $isUnread ? 'true' : 'false' }} }" 
+                            
+                            @email-read-state-changed.window="if ($event.detail.emailId == '{{ $rawEmailId }}') isUnread = false"
+
+                            class="relative group transition-all duration-500"
+                            :class="isUnread ? 'bg-rose-50/40 p-2 -ml-2 rounded-xl border border-rose-100 pl-[3.25rem]' : 'pl-12'">
+                            
+                            {{-- Icon Circle --}}
+                            <div class="absolute top-0 border-2 rounded-full w-8 h-8 flex items-center justify-center z-10 bg-white transition-all duration-500"
+                                :class="isUnread 
+                                    ? 'border-rose-500 text-rose-600 shadow-[0_0_12px_rgba(244,63,94,0.6)] animate-pulse ring-2 ring-rose-500/20 left-2 top-2' 
+                                    : 'left-0 @if($log->type == 'email_sent' || $log->type == 'email_received' || $log->type == 'escalation_sent'){{ $direction === 'inbound' ? 'border-emerald-100 text-emerald-600 shadow-sm' : 'border-blue-100 text-blue-600 shadow-sm' }}@elseif($log->type == 'case_created')border-slate-100 text-slate-500 shadow-sm @elseif($log->type == 'workflow_change')border-purple-100 text-purple-500 shadow-sm @elseif($log->type == 'escalation_sent')border-rose-100 text-rose-600 shadow-sm @else border-slate-100 text-slate-400 shadow-sm @endif'">
                                 
                                 @if($direction === 'inbound') <i data-lucide="arrow-down-left" class="w-4 h-4"></i>
                                 @elseif($log->type == 'email_sent') <i data-lucide="arrow-up-right" class="w-4 h-4"></i>
@@ -114,7 +122,7 @@
                                 @else <i data-lucide="circle" class="w-3 h-3"></i> @endif
                             </div>
 
-                            <div class="flex flex-col gap-1.5">
+                            <div class="flex flex-col gap-1.5 transition-all duration-500" :class="isUnread ? 'mt-1' : ''">
                                 <div class="flex flex-wrap items-center justify-between gap-2">
                                     <div class="flex items-center gap-2">
                                         <span class="text-sm font-bold text-slate-900 leading-none">
@@ -123,7 +131,13 @@
                                         
                                         @if($log->type == 'email_sent' || $log->type == 'email_received' || $log->type == 'escalation_sent')
                                             @if($direction === 'inbound')
-                                                <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700 uppercase tracking-wide border border-emerald-200">Received</span>
+                                                {{-- Badges swap dynamically based on Alpine state --}}
+                                                <template x-if="isUnread">
+                                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500 text-white uppercase tracking-wide shadow-[0_0_8px_rgba(244,63,94,0.5)] animate-pulse">New / Unread</span>
+                                                </template>
+                                                <template x-if="!isUnread">
+                                                    <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700 uppercase tracking-wide border border-emerald-200">Received</span>
+                                                </template>
                                             @elseif($log->type == 'escalation_sent')
                                                 <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-700 uppercase tracking-wide border border-rose-200">Escalation</span>
                                             @elseif($log->metadata['is_followup'] ?? false)
@@ -137,32 +151,29 @@
                                             <i data-lucide="paperclip" class="w-3 h-3 text-slate-400"></i>
                                         @endif
                                     </div>
-                                    <span class="text-[10px] font-semibold text-slate-400 uppercase bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100 whitespace-nowrap">
+                                    <span class="text-[10px] font-semibold text-slate-400 uppercase bg-slate-50 px-1.5 py-0.5 rounded border transition-colors duration-500 whitespace-nowrap"
+                                        :class="isUnread ? 'bg-white border-rose-100' : 'border-slate-100'">
                                         {{ $log->occurred_at ? $log->occurred_at->diffForHumans(null, true) : 'N/A' }}
                                     </span>
                                 </div>
                                 <p class="text-xs text-slate-600 leading-relaxed line-clamp-2">{{ $log->description }}</p>
+                                
                                 @if(in_array($log->type, ['email_sent', 'email_received', 'escalation_sent']))
                                     <div class="mt-2 flex items-center gap-2">
-                                        <!-- <button 
-                                            type="button"
-                                            @click='$dispatch("open-email", {!! json_encode($emailPayload, JSON_HEX_APOS | JSON_HEX_QUOT) !!})'
-                                            class="flex items-center gap-2 px-3.5 py-1.5 rounded-lg border border-indigo-100 bg-indigo-50/50 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700 hover:border-indigo-200 transition-all text-[11px] font-bold shadow-sm active:scale-95"
-                                        >
-                                            <i data-lucide="eye" class="w-3.5 h-3.5"></i>
-                                            <span>View Message</span>
-                                        </button> -->
+                                        {{-- DYNAMIC BUTTON: Dispatches to Livewire AND instantly updates Alpine state --}}
                                         <button 
                                             type="button"
-                                            @click="$dispatch('open-email', @js($emailPayload))"
-                                            class="flex items-center gap-2 px-3.5 py-1.5 rounded-lg border border-indigo-100 bg-indigo-50/50 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700 hover:border-indigo-200 transition-all text-[11px] font-bold shadow-sm active:scale-95"
+                                            @click="$dispatch('open-email', @js($emailPayload)); isUnread = false;"
+                                            class="flex items-center gap-2 px-3.5 py-1.5 rounded-lg border transition-all duration-300 text-[11px] font-bold shadow-sm active:scale-95"
+                                            :class="isUnread 
+                                                ? 'border-rose-500 bg-rose-500 text-white hover:bg-rose-600 shadow-[0_0_12px_rgba(244,63,94,0.4)] ring-2 ring-rose-500/20' 
+                                                : 'border-indigo-100 bg-indigo-50/50 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700 hover:border-indigo-200'"
                                         >
                                             <i data-lucide="eye" class="w-3.5 h-3.5"></i>
                                             <span>View Message</span>
                                         </button>
 
                                         @if($direction === 'inbound')
-                                            {{-- REPLY BUTTON: Dispatches to Parent --}}
                                             <button 
                                                 type="button"
                                                 @click="$dispatch('open-compose-modal', { 
@@ -173,7 +184,10 @@
                                                     isFollowUp: false,
                                                     replyEmailId: '{{ $rawEmailId }}'
                                                 })" 
-                                                class="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-blue-200 bg-blue-50 hover:bg-blue-100 hover:border-blue-300 transition-all text-xs font-bold text-blue-600 shadow-sm">
+                                                class="flex items-center gap-1.5 px-3 py-1.5 rounded-md border transition-all duration-300 text-xs font-bold shadow-sm"
+                                                :class="isUnread 
+                                                    ? 'border-rose-200 bg-rose-50 hover:bg-rose-100 hover:border-rose-300 text-rose-700' 
+                                                    : 'border-blue-200 bg-blue-50 hover:bg-blue-100 hover:border-blue-300 text-blue-600'">
                                                 <i data-lucide="reply" class="w-3.5 h-3.5"></i> Reply
                                             </button>
                                         @endif

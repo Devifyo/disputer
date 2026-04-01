@@ -62,7 +62,9 @@ class SendGridInboundController extends Controller
         $messageId = $this->extractHeader($request->input('headers', ''), 'Message-ID');
 
         DB::transaction(function () use ($case, $request, $fromAddress, $subject, $htmlBody, $textBody, $messageId) {
-            
+            // 1. DYNAMIC WORKFLOW AUTOMATION
+            $this->applyDynamicWorkflowUpdate($case);
+
             $timeline = CaseTimeline::create([
                 'case_id' => $case->id,
                 'type' => 'email_received',
@@ -141,5 +143,39 @@ class SendGridInboundController extends Controller
             return trim($matches[1]);
         }
         return null;
+    }
+
+    /**
+     * Dynamically updates the case stage and workflow step based on the category configuration.
+     */
+    private function applyDynamicWorkflowUpdate(Cases $case): void
+    {
+        $workflowConfig = $case->institution?->category?->workflow_config;
+        $currentStepKey = $case->current_workflow_step;
+        $currentStepConfig = $workflowConfig['steps'][$currentStepKey] ?? null;
+
+        // Base update array (status and resetting the clock)
+        $updateData = [
+            'next_action_at' => now()->addDays(7)
+        ];
+
+        if ($currentStepConfig) {
+            if (!empty($currentStepConfig['on_inbound_email_step'])) {
+                // ADMIN SET A TARGET: Advance the workflow step
+                $newStepKey = $currentStepConfig['on_inbound_email_step'];
+                
+                $updateData['current_workflow_step'] = $newStepKey;
+                $updateData['stage'] = $workflowConfig['steps'][$newStepKey]['label'] ?? 'Review Required';
+            } else {
+                // ADMIN LEFT IT BLANK: Do NOT change the step. Just prepend the alert emoji to the stage.
+                $updateData['stage'] = "🚨 Reply Received: " . ($currentStepConfig['label'] ?? 'Review Required');
+            }
+        } else {
+            // Fallback if config is totally missing
+            $updateData['stage'] = '🚨 Reply Received - Review Required';
+        }
+
+        // Apply the update to the Case
+        $case->update($updateData);
     }
 }

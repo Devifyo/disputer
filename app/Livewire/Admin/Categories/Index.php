@@ -52,7 +52,8 @@ class Index extends Component
             'workflow_steps.*.label' => 'required|string',
             'workflow_steps.*.actions' => 'array',
             'workflow_steps.*.actions.*.label' => 'required|string',
-            'workflow_steps.*.actions.*.to_step' => ['required', 'string', Rule::in($stepKeys)], 
+            'workflow_steps.*.actions.*.to_step' => ['required', 'string', Rule::in($stepKeys)],
+            'workflow_steps.*.on_inbound_email_step' => ['nullable', 'string', Rule::in($stepKeys)],
         ];
     }
 
@@ -77,7 +78,8 @@ class Index extends Component
         $this->workflow_steps[] = [
             'id' => (string) Str::uuid(),
             'step_key' => '', 'label' => '', 'description' => '', 
-            'status_color' => 'slate', 'icon' => 'file', 'waiting_for' => '', 
+            'status_color' => 'slate', 'icon' => 'file', 'waiting_for' => '',
+            'on_inbound_email_step' => '',
             'actions' => [], 'timeouts' => [], 'is_final' => false,
             'is_new' => true
         ];
@@ -122,6 +124,7 @@ class Index extends Component
             [   
                 'id' => (string) Str::uuid(),
                 'step_key' => 'ticket_open', 'label' => 'Ticket Open', 'description' => 'Awaiting initial review.',
+                'on_inbound_email_step' => '',
                 'status_color' => 'slate', 'icon' => 'ticket', 'waiting_for' => '', 
                 'actions' => [], 'timeouts' => [], 'is_final' => false
             ]
@@ -151,7 +154,7 @@ class Index extends Component
         foreach (($config['steps'] ?? []) as $key => $data) {
             $data['id'] = (string) Str::uuid(); // ADD THIS
             $data['step_key'] = $key;
-            
+            $data['on_inbound_email_step'] = $data['on_inbound_email_step'] ?? '';
             // Add UUIDs to existing actions
             $data['actions'] = $data['actions'] ?? [];
             foreach ($data['actions'] as &$action) {
@@ -181,7 +184,7 @@ class Index extends Component
             } else {
                 unset($step['actions']);
             }
-
+            if (empty($step['on_inbound_email_step'])) unset($step['on_inbound_email_step']);
             if (empty($step['timeouts'])) unset($step['timeouts']);
             if (!$step['is_final']) unset($step['is_final']);
 
