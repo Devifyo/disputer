@@ -20,6 +20,7 @@ class Institution extends Model
         'is_internal',
         'created_by',
         'is_popular',
+        'user_id'
     ];
 
     protected $casts = [
@@ -27,6 +28,11 @@ class Institution extends Model
         'is_internal' => 'boolean',
         'is_popular' => 'boolean',
     ];
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
 
     public function category()
     {

@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class InstitutionCategory extends Model
 {   
     use SoftDeletes;
-    protected $fillable = ['name', 'slug', 'workflow_config', 'is_verified', 'fallback_escalation_email'];
+    protected $fillable = ['name', 'slug', 'workflow_config', 'is_verified', 'fallback_escalation_email','user_id'];
 
     protected $casts = [
         'workflow_config' => 'array',
@@ -17,5 +17,9 @@ class InstitutionCategory extends Model
     public function institutions()
     {
         return $this->hasMany(Institution::class);
+    }
+    public function user()
+    {
+        return $this->belongsTo(User::class);
     }
 }

@@ -151,10 +151,20 @@ class CreateDispute extends Component
     public function updatedQuery()
     {
         $searchTerm = trim($this->query);
+        
         if (strlen($searchTerm) >= 1) {
+            $userId = auth()->id(); // Get the ID once
+
             $this->results = Institution::with('category')
                 ->whereRaw('LOWER(name) LIKE ?', ['%' . strtolower($searchTerm) . '%'])
-                ->where('is_verified', true)
+                ->where(function ($query) use ($userId) {
+                    $query->where('is_verified', true);
+                    
+                    // Only add the OR condition if the user is actually logged in
+                    if ($userId) {
+                        $query->orWhere('user_id', $userId);
+                    }
+                })
                 ->limit(5)
                 ->get();
         } else {
@@ -327,7 +337,8 @@ class CreateDispute extends Component
                         [
                             'slug' => Str::slug($this->customCategoryName),
                             'workflow_config' => config('workflow_templates.standard'),
-                            'is_verified' => false 
+                            'is_verified' => false,
+                            'user_id' => auth()->id()
                         ]
                     );
                     $finalCategoryId = $newCat->id;
@@ -335,6 +346,7 @@ class CreateDispute extends Component
 
                 $newInst = Institution::create([
                     'name' => $this->selectedInstitutionName,
+                    'user_id' => auth()->id(),
                     'institution_category_id' => $finalCategoryId,
                     'is_internal' => false,
                     'created_by' => auth()->id(),
