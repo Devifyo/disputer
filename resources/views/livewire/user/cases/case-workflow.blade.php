@@ -332,7 +332,7 @@ document.addEventListener('alpine:init', () => {
                 this.replyEmailId = data.replyEmailId || null;
                   this.targetStepKey = data.targetStepKey || null;
                 if (data.targetStepKey) {
-                    this.generateAIReply('{{ $case->id }}');
+                    // this.generateAIReply('{{ $case->id }}');
                 }
                 this.isLocked = !!data.recipient;
             }

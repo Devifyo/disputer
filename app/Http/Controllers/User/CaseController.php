@@ -159,7 +159,13 @@ class CaseController extends Controller
                 ];
             }
 
-            // 3. SEND EMAIL 
+            // If this email is being sent as part of a manual step jump, record the target step
+            $targetStepKey = $request->input('target_step_key');
+            if ($targetStepKey) {
+                $timelineOverrides['metadata'] = array_merge($timelineOverrides['metadata'] ?? [], ['step_key' => $targetStepKey]);
+            }
+
+            // 3. SEND EMAIL
             $this->emailService->sendAndLog(
                 auth()->user(),
                 $case,

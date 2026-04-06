@@ -163,7 +163,7 @@ class SendEmailService
 
             $emailRecord = Email::create([
                 'case_id' => $case->id,
-                'step_key' => $currentStep,
+                'step_key' => $overrides['metadata']['step_key'] ?? $currentStep,
                 'timeline_id' => $timeline->id,
                 'parent_id' => $parentEmail?->id,
                 'direction' => 'outbound',

@@ -256,7 +256,6 @@ public function jumpToStep($targetStepKey)
 {   
     $category = $this->case->institution->category;
     $stepLabel = $this->workflowConfig['steps'][$targetStepKey]['label'] ?? $targetStepKey;
-
     if ($category->stepRequiresEmail($targetStepKey)) {
         if ($this->case->hasSentEmailForStep($targetStepKey)) {
             // Already sent? Dispatch choice to Alpine
@@ -298,10 +297,10 @@ public function sendEmail(\App\Services\SendEmailService $emailService)
     $this->validate(['recipient' => 'required|email', 'subject' => 'required', 'body' => 'required']);
 
     // 1. Update object in memory so Service "sees" the target step
-$overrides = [];
-if ($this->pendingStepJump) {
-    $overrides['metadata'] = ['step_key' => $this->pendingStepJump];
-}
+    $overrides = [];
+    if ($this->pendingStepJump) {
+        $overrides['metadata'] = ['step_key' => $this->pendingStepJump];
+    }
 
 
     // 2. Dispatch Email

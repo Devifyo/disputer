@@ -88,7 +88,8 @@ class Cases extends Model
     }
 
     public function hasSentEmailForStep($stepKey)
-    {
+    {   
+        // dd($stepKey);
         return $this->timeline()
             ->where('type', 'email_sent')
             ->where('metadata->step_key', $stepKey)
