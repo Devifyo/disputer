@@ -125,54 +125,54 @@ class CaseWorkflow extends Component
     /**
      * Handles the final submission from the Compose Email Modal
      */
-    public function sendEmail()
-    {   
-        $this->validate([
-            'recipient' => 'required|email',
-            'subject'   => 'required|string|max:255',
-            'body'      => 'required|string',
-        ]);
+    // public function sendEmail()
+    // {   
+    //     $this->validate([
+    //         'recipient' => 'required|email',
+    //         'subject'   => 'required|string|max:255',
+    //         'body'      => 'required|string',
+    //     ]);
 
-        // 1. Determine if this is an escalation based on our flag OR subject fallback
-        $isEscalation = $this->isEscalationMode || str_contains(strtolower($this->subject), 'escalat');
+    //     // 1. Determine if this is an escalation based on our flag OR subject fallback
+    //     $isEscalation = $this->isEscalationMode || str_contains(strtolower($this->subject), 'escalat');
 
-        // 2. Log to Timeline
-        CaseTimeline::create([
-            'case_id'     => $this->case->id,
-            'type'        => $isEscalation ? 'escalation_sent' : 'email_sent',
-            'actor'       => 'user',
-            'description' => $isEscalation 
-                ? "Escalation (Level " . ($this->case->escalation_level + 1) . ") sent to {$this->recipient}" 
-                : "Email sent to {$this->recipient}",
-            'occurred_at' => now(),
-            'metadata'    => [
-                'recipient'    => $this->recipient,
-                'sender_email' => Auth::user()->email,
-                'subject'      => $this->subject,
-                'body'         => $this->body,
-                'direction'    => 'outbound',
-                'level'        => $isEscalation ? ($this->case->escalation_level + 1) : null
-            ]
-        ]);
+    //     // 2. Log to Timeline
+    //     CaseTimeline::create([
+    //         'case_id'     => $this->case->id,
+    //         'type'        => $isEscalation ? 'escalation_sent' : 'email_sent',
+    //         'actor'       => 'user',
+    //         'description' => $isEscalation 
+    //             ? "Escalation (Level " . ($this->case->escalation_level + 1) . ") sent to {$this->recipient}" 
+    //             : "Email sent to {$this->recipient}",
+    //         'occurred_at' => now(),
+    //         'metadata'    => [
+    //             'recipient'    => $this->recipient,
+    //             'sender_email' => Auth::user()->email,
+    //             'subject'      => $this->subject,
+    //             'body'         => $this->body,
+    //             'direction'    => 'outbound',
+    //             'level'        => $isEscalation ? ($this->case->escalation_level + 1) : null
+    //         ]
+    //     ]);
 
-        // 3. Update State if Escalation
-        if ($isEscalation) {
-            $this->case->update([
-                'escalation_level' => $this->case->escalation_level + 1,
-                'last_escalated_at' => now(),
-                // Use the string if you don't have the Enum imported, or \App\Enums\CaseStatus::ESCALATED
-                'status' => 'escalated' 
-            ]);
+    //     // 3. Update State if Escalation
+    //     if ($isEscalation) {
+    //         $this->case->update([
+    //             'escalation_level' => $this->case->escalation_level + 1,
+    //             'last_escalated_at' => now(),
+    //             // Use the string if you don't have the Enum imported, or \App\Enums\CaseStatus::ESCALATED
+    //             'status' => 'escalated' 
+    //         ]);
 
-            // Refresh model so UI updates immediately
-            $this->case->refresh();
-        }
+    //         // Refresh model so UI updates immediately
+    //         $this->case->refresh();
+    //     }
 
-        // 4. Reset & Close
-        $this->reset(['recipient', 'subject', 'body', 'attachments', 'isEscalationMode']);
-        $this->dispatch('email-sent'); 
-        $this->dispatch('workflow-updated');
-    }
+    //     // 4. Reset & Close
+    //     $this->reset(['recipient', 'subject', 'body', 'attachments', 'isEscalationMode']);
+    //     $this->dispatch('email-sent'); 
+    //     $this->dispatch('workflow-updated');
+    // }
 
     // =========================================================================
     //  AI COPILOT LOGIC
@@ -241,42 +241,105 @@ class CaseWorkflow extends Component
     // =========================================================================
 
     public function triggerAction($actionKey)
-    {   
+    {
         if (!$this->currentStepConfig) return;
 
         $actions = collect($this->currentStepConfig['actions'] ?? []);
         $actionDef = $actions->firstWhere('key', $actionKey);
 
         if ($actionDef) {
-            $this->transitionTo($actionDef['to_step'], "User action: {$actionDef['label']}");
-        }
-        $this->dispatch('step-jumped-successfully');
-
-    }
-
-    public function jumpToStep($targetStepKey)
-    {   
-        $category = $this->case->institution->category;
-        if (isset($this->workflowConfig['steps'][$targetStepKey])) {
-            $this->transitionTo($targetStepKey, "Manual administrative override.");
-            $this->dispatch('step-jumped-successfully');
+            $this->jumpToStep($actionDef['to_step']);
         }
     }
+
+public function jumpToStep($targetStepKey)
+{   
+    $category = $this->case->institution->category;
+    $stepLabel = $this->workflowConfig['steps'][$targetStepKey]['label'] ?? $targetStepKey;
+
+    if ($category->stepRequiresEmail($targetStepKey)) {
+        if ($this->case->hasSentEmailForStep($targetStepKey)) {
+            // Already sent? Dispatch choice to Alpine
+            $this->dispatch('email-already-sent-for-step', [
+                'stepKey' => $targetStepKey,
+                'stepLabel' => $stepLabel
+            ]);
+            return;
+        }
+        // Not sent? Open forced modal
+        $this->resendEmailForStep($targetStepKey);
+        return;
+    }
+
+    $this->proceedToStep($targetStepKey);
+}
+
+public function proceedToStep($stepKey)
+{
+    $this->transitionTo($stepKey, "Manual jump.");
+    $this->dispatch('step-jumped-successfully');
+}
+
+public function resendEmailForStep($stepKey)
+{
+    $this->pendingStepJump = $stepKey;
+    $recipientData = $this->case->institution->getStepRecipient($stepKey);
+    
+    $this->dispatch('open-compose-modal', [
+        'subject' => "Re: Case #{$this->case->case_reference_id}",
+        'recipient' => $recipientData['value'] ?? '',
+        'targetStepKey' => $stepKey
+    ]);
+}
+
+
+public function sendEmail(\App\Services\SendEmailService $emailService)
+{   
+    $this->validate(['recipient' => 'required|email', 'subject' => 'required', 'body' => 'required']);
+
+    // 1. Update object in memory so Service "sees" the target step
+$overrides = [];
+if ($this->pendingStepJump) {
+    $overrides['metadata'] = ['step_key' => $this->pendingStepJump];
+}
+
+
+    // 2. Dispatch Email
+    $emailService->sendAndLog(
+        Auth::user(), $this->case, $this->recipient,
+    $this->subject, $this->body, $this->attachments,
+    null, $overrides
+    );
+
+    // 3. Finalize the Status Change
+    if ($this->pendingStepJump) {
+        $this->transitionTo($this->pendingStepJump, "Workflow advanced via required email.");
+        $this->pendingStepJump = null;
+    }
+
+    $this->case->refresh();
+    $this->reset(['recipient', 'subject', 'body', 'attachments', 'isEscalationMode']);
+    $this->dispatch('email-sent'); 
+    $this->dispatch('workflow-updated');
+    $this->dispatch('step-jumped-successfully'); // Triggers Alpine reload
+}
 
     private function transitionTo($newStep, $reason)
     {
+        $oldStep = $this->currentStepKey;
+
+        if($this->isStepFinal($newStep)){
+            $this->case->update(['current_workflow_step' => $newStep, 'status' => \App\Enums\CaseStatus::CLOSED]);
+        }else{
+
+            $this->case->update(['current_workflow_step' => $newStep]);
+        }
+        $this->currentStepKey = $newStep;
+        $this->loadStepConfig();
+         $stepLabel = $this->currentStepConfig['label'] ?? $newStep;
+
         try {
-            $oldStep = $this->currentStepKey;
-
-            if($this->isStepFinal($newStep)){
-                $this->case->update(['current_workflow_step' => $newStep, 'status' => \App\Enums\CaseStatus::CLOSED]);
-            }else{
-
-                $this->case->update(['current_workflow_step' => $newStep]);
-            }
             
-            $this->currentStepKey = $newStep;
-            $this->loadStepConfig();
             // =========================================================
             // NEW CODE: Update Dynamic Recipient Email for the Frontend
             // =========================================================

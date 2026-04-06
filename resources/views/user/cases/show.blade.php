@@ -16,22 +16,24 @@
         isFollowUp: false,
         isLocked: false, // NEW: Dedicated lock state
         replyEmailId: null,
+        targetStepKey: null,
         // Central function to open Compose/Reply modal
         openCompose(detail) {
             let data = Array.isArray(detail) ? detail[0] : (detail || {});
-            
+
             // Determine the email to use
             let targetEmail = data.recipient !== undefined ? data.recipient : this.dynamicRecipientEmail;
-            
+
             this.replyTo = targetEmail || '';
             this.isLocked = targetEmail ? true : false; // Lock ONLY if the system provided the email
             this.hasSystemEmail = targetEmail ? true : false;
-            
+
             this.replySubject = data.subject || '';
             this.replyBody = data.body || '';
             this.isEscalation = data.isEscalation || false;
             this.isFollowUp   = !!data.isFollowUp;
             this.replyEmailId = data.replyEmailId || null;
+            this.targetStepKey = data.targetStepKey || null;
             this.composeModalOpen = true;
         }
      }"

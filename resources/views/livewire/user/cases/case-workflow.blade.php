@@ -1,123 +1,5 @@
 <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mb-8 relative"
-     x-data="{ 
-        aiOpen: @entangle('showAiModal'),
-        composeModalOpen: false,
-        replyTo: @entangle('recipient'),
-        replySubject: @entangle('subject'),
-        replyBody: @entangle('body'),
-        
-        // AI Context Flags
-        isEscalation: false,
-        isFollowUp: false,
-        isLocked: false,
-        replyEmailId: null,
-
-        // AI Generation State
-        isGenerating: false,
-
-        async generateAIReply(caseId) {
-            this.isGenerating = true;
-            
-            try {
-                const response = await fetch(`/cases/${caseId}/ai-reply`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                    },
-                    body: JSON.stringify({ 
-                        subject: this.replySubject,
-                        is_escalation: this.isEscalation,
-                        is_followup: this.isFollowUp,
-                        reply_email_id: this.replyEmailId
-                    })
-                });
-                
-                const data = await response.json();
-                
-                if (data.text) {
-                    this.replyBody = data.text;
-                    if (data.subject && !this.replySubject) {
-                        this.replySubject = data.subject; 
-                    }
-                } else {
-                    alert('AI generation failed. Please try again.');
-                }
-            } catch (error) {
-                alert('A network error occurred contacting the AI.');
-            }
-            
-            this.isGenerating = false;
-        },
-
-        init() {
-            // 1. Listen for backend Livewire triggers
-            Livewire.on('open-compose-modal', (detail) => {
-                let data = Array.isArray(detail) ? detail[0] : (detail || {});
-                this.openCompose(data);
-            });
-
-            // 2. Listen for frontend Alpine dispatches (like your Follow-Up button)
-            window.addEventListener('open-compose-modal', (e) => {
-                this.openCompose(e.detail);
-            });
-        },
-
-        // Unified method to open modal and set state
-        openCompose(data) {
-            this.composeModalOpen = true;
-            
-            if(data) {
-                // Keep entangled data unless explicitly overridden by the button
-                this.replyTo = data.recipient || this.replyTo || '';
-                this.replySubject = data.subject || this.replySubject || '';
-                this.replyBody = data.body || this.replyBody || '';
-                
-                // Set the AI flags!
-                this.isEscalation = data.isEscalation || false;
-                this.isFollowUp = data.isFollowUp || false;
-                this.replyEmailId = data.replyEmailId || null;
-                
-                // Lock the recipient field if a specific one was provided
-                this.isLocked = data.recipient ? true : false;
-            }
-        },
-
-        confirmAction(actionKey, actionLabel) {
-            Swal.fire({
-                title: 'Confirm Action',
-                text: `Are you sure you want to proceed with '${actionLabel}'?`,
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonColor: '#2563eb', 
-                cancelButtonColor: '#64748b',
-                confirmButtonText: 'Yes, proceed',
-                cancelButtonText: 'Cancel',
-                reverseButtons: true
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    $wire.triggerAction(actionKey);
-                }
-            })
-        },
-
-        confirmManualJump(stepKey, stepLabel) {
-            Swal.fire({
-                title: 'Manual Override',
-                text: `You are manually jumping to '${stepLabel}'. This bypasses standard timers. Continue?`,
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#e11d48', 
-                cancelButtonColor: '#64748b',
-                confirmButtonText: 'Yes, change stage',
-                cancelButtonText: 'Cancel'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    $wire.jumpToStep(stepKey);
-                }
-            })
-        }
-     }" 
+     x-data="caseWorkflowComponent($wire)" 
      @email-sent.window="composeModalOpen = false"
      @keydown.escape.window="aiOpen = false; composeModalOpen = false"
      @step-jumped-successfully.window="window.location.reload()">
@@ -184,14 +66,11 @@
                     <span wire:loading wire:target="askAiForHelp">Analyzing Case...</span>
                 </button>
             </div>
-            {{-- ======================================================== --}}
-            {{-- UNREAD EMAILS ALERT BANNER --}}
-            {{-- ======================================================== --}}
+            
             @if($this->unreadEmails->isNotEmpty())
-               {{-- This is now all you need in your main file --}}
                 <x-case.unread-emails-stack :emails="$this->unreadEmails" :case="$case" />
             @endif
-            {{-- ======================================================== --}}
+            
             <p class="text-slate-500 text-sm leading-relaxed max-w-2xl mb-8">{{ $currentStepConfig['description'] ?? 'No additional description available.' }}</p>
 
             @if(isset($currentStepConfig['timeouts']) && count($currentStepConfig['timeouts']) > 0)
@@ -358,3 +237,141 @@
     {{-- @include('user.cases.partials.modals.compose_email') --}}
 
 </div>
+
+{{-- ALPINE SCRIPT BLOCK --}}
+<script>
+document.addEventListener('alpine:init', () => {
+    Alpine.data('caseWorkflowComponent', ($wire) => ({
+        aiOpen: @entangle('showAiModal'),
+        composeModalOpen: false,
+        replyTo: @entangle('recipient'),
+        replySubject: @entangle('subject'),
+        replyBody: @entangle('body'),
+        
+        isEscalation: false,
+        isFollowUp: false,
+        isLocked: false,
+        replyEmailId: null,
+        isGenerating: false,
+    targetStepKey: null,
+        async generateAIReply(caseId) {
+            this.isGenerating = true;
+            try {
+                const response = await fetch(`/cases/${caseId}/ai-reply`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({ 
+                        subject: this.replySubject,
+                        is_escalation: this.isEscalation,
+                        is_followup: this.isFollowUp,
+                        reply_email_id: this.replyEmailId
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.text) {
+                    this.replyBody = data.text;
+                    if (data.subject && !this.replySubject) {
+                        this.replySubject = data.subject; 
+                    }
+                } else {
+                    alert('AI generation failed. Please try again.');
+                }
+            } catch (error) {
+                alert('A network error occurred contacting the AI.');
+            }
+            this.isGenerating = false;
+        },
+
+        init() {
+            Livewire.on('open-compose-modal', (detail) => {
+                let data = Array.isArray(detail) ? detail[0] : (detail || {});
+                this.openCompose(data);
+            });
+
+            window.addEventListener('open-compose-modal', (e) => {
+                this.openCompose(e.detail);
+            });
+
+            // Gatekeeper Listener for choice popup
+            Livewire.on('email-already-sent-for-step', (detail) => {
+                let data = Array.isArray(detail) ? detail[0] : (detail || {});
+                Swal.fire({
+                    title: 'Email Already Sent',
+                    text: `An email for "${data.stepLabel}" has already been sent. What would you like to do?`,
+                    icon: 'info',
+                    showCancelButton: true,
+                    showDenyButton: true,
+                    confirmButtonText: 'Move to Next Step',
+                    denyButtonText: 'Resend Email',
+                    cancelButtonText: 'Cancel',
+                    confirmButtonColor: '#020617',
+                    denyButtonColor: '#2563eb',
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        $wire.proceedToStep(data.stepKey);
+                    } else if (result.isDenied) {
+                        $wire.resendEmailForStep(data.stepKey);
+                    }
+                });
+            });
+        },
+
+        openCompose(data) {
+            this.composeModalOpen = true;
+            if(data) {
+                this.replyTo = data.recipient || '';
+                this.replySubject = data.subject || '';
+                this.replyBody = data.body || '';
+                this.isEscalation = data.isEscalation || false;
+                this.isFollowUp = data.isFollowUp || false;
+                this.replyEmailId = data.replyEmailId || null;
+                  this.targetStepKey = data.targetStepKey || null;
+                if (data.targetStepKey) {
+                    this.generateAIReply('{{ $case->id }}');
+                }
+                this.isLocked = !!data.recipient;
+            }
+        },
+
+        confirmAction(actionKey, actionLabel) {
+            Swal.fire({
+                title: 'Confirm Action',
+                text: `Are you sure you want to proceed with '${actionLabel}'?`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#2563eb', 
+                cancelButtonColor: '#64748b',
+                confirmButtonText: 'Yes, proceed',
+                cancelButtonText: 'Cancel',
+                reverseButtons: true
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    $wire.triggerAction(actionKey);
+                }
+            })
+        },
+
+        confirmManualJump(stepKey, stepLabel) {
+            Swal.fire({
+                title: 'Manual Override',
+                text: `You are manually jumping to '${stepLabel}'. This bypasses standard timers. Continue?`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#e11d48', 
+                cancelButtonColor: '#64748b',
+                confirmButtonText: 'Yes, change stage',
+                cancelButtonText: 'Cancel'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    $wire.jumpToStep(stepKey);
+                }
+            })
+        }
+    }));
+});
+</script>

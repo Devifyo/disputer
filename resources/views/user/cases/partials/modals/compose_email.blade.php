@@ -14,6 +14,7 @@
             @csrf
             <input type="hidden" name="is_escalation" :value="isEscalation ? 1 : 0">
             <input type="hidden" name="is_followup"   :value="isFollowUp ? 1 : 0">
+            <input type="hidden" name="target_step_key" x-model="targetStepKey">
             
             <div class="px-6 py-4 bg-slate-900 flex justify-between items-center text-white shrink-0">
                 <h3 class="font-bold text-sm flex items-center gap-2">New Message</h3>

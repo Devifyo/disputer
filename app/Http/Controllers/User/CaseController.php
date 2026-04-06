@@ -106,7 +106,8 @@ class CaseController extends Controller
             'attachments' => 'array',
             'attachments.*' => 'nullable|file|mimes:pdf,jpg,jpeg,png,doc,docx|max:10240',
             'is_escalation' => 'nullable|boolean',
-            'save_contact' => 'nullable|in:0,1'
+            'save_contact' => 'nullable|in:0,1',
+            'target_step_key' => 'nullable|string'
         ], [
             // Custom error messages to explain exactly why it failed to the user
             'recipient.dns' => 'This email domain cannot receive mail. Please verify the address to prevent a bounce.',
@@ -198,9 +199,23 @@ class CaseController extends Controller
                 $case->update([
                     'escalation_level' => $newLevel,
                     'last_escalated_at' => now(),
-                    'status' => \App\Enums\CaseStatus::ESCALATED 
+                    'status' => \App\Enums\CaseStatus::ESCALATED
                 ]);
                 $case->timestamps = true;
+            }
+
+            // 5. ADVANCE WORKFLOW STEP if this email was required for a manual jump
+            $targetStepKey = $request->input('target_step_key');
+            if ($targetStepKey) {
+                $workflowSteps = $case->institution->category->workflow_config['steps'] ?? [];
+                if (isset($workflowSteps[$targetStepKey])) {
+                    $stepConfig = $workflowSteps[$targetStepKey];
+                    $updateData = ['current_workflow_step' => $targetStepKey];
+                    if (!empty($stepConfig['is_final'])) {
+                        $updateData['status'] = \App\Enums\CaseStatus::CLOSED;
+                    }
+                    $case->update($updateData);
+                }
             }
 
             $message = $isEscalation ? 'Escalation initiated successfully.' : 'Email sent successfully.';
