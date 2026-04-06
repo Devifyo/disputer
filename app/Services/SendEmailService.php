@@ -42,15 +42,23 @@ class SendEmailService
         $senderName = "{$user->name} (Unjamm Case #" . strtoupper($caseRef) . ")";
         $messageId = time() . "." . bin2hex(random_bytes(8)) . "@" . $domain;
 
-        $this->transmitEmail(
-            $recipient, $subject, $body, $fromEmail, $replyToEmail, 
-            $senderName, $messageId, $attachments, $parentEmail
-        );
-
-        $this->logTransaction(
+        // 1. MUST log transaction FIRST to get the Email ID
+        $emailRecord = $this->logTransaction(
             $case, $recipient, $subject, $body, $replyToEmail, 
             $messageId, $attachments, $parentEmail, $overrides
         );
+
+        try {
+            // 2. Transmit the email, passing the $emailRecord along
+            $this->transmitEmail(
+                $case, $emailRecord, $recipient, $subject, $body, $fromEmail, 
+                $replyToEmail, $senderName, $messageId, $attachments, $parentEmail
+            );
+        } catch (Exception $e) {
+            // 3. If SendGrid fails immediately, update the DB so it's not stuck as "sent"
+            $emailRecord->update(['delivery_status' => 'failed']);
+            throw $e; 
+        }
     }
 
     /**
@@ -63,6 +71,7 @@ class SendEmailService
      * Handle the SMTP transmission via Laravel Mailer.
      */
     private function transmitEmail(
+        Cases $case, Email $emailRecord,
         string $recipient, string $subject, string $body, 
         string $from, string $replyTo, string $senderName, 
         string $messageId, array $attachments, ?Email $parentEmail
@@ -85,7 +94,7 @@ class SendEmailService
         </html>';
 
         try {
-            Mail::send([], [], function ($message) use ($recipient, $subject, $htmlBody, $body, $from, $replyTo, $senderName, $messageId, $attachments, $parentEmail) {
+            Mail::send([], [], function ($message) use ($case, $emailRecord, $recipient, $subject, $htmlBody, $body, $from, $replyTo, $senderName, $messageId, $attachments, $parentEmail) {
                 
                 $message->to($recipient)
                         ->subject($subject)
@@ -95,7 +104,15 @@ class SendEmailService
                         ->text(strip_tags($body));            // The plain-text fallback (keeps original \n for spam filters)
 
                 $message->getHeaders()->addIdHeader('Message-ID', $messageId);
-
+                $message->getHeaders()->addTextHeader(
+                    'X-SMTPAPI', 
+                    json_encode([
+                        'unique_args' => [
+                            'case_id' => (string) $case->id,
+                            'email_id' => (string) $emailRecord->id
+                        ]
+                    ])
+                );
                 if ($parentEmail?->message_id) {
                     $cleanParentId = trim($parentEmail->message_id, '<>');
                     $message->getHeaders()->addIdHeader('In-Reply-To', $cleanParentId);
@@ -124,10 +141,10 @@ class SendEmailService
         Cases $case, string $recipient, string $subject, string $body, 
         string $replyToEmail, string $messageId, array $attachments, 
         ?Email $parentEmail, array $overrides
-    ): void {
-        DB::transaction(function () use ($case, $recipient, $subject, $body, $replyToEmail, $messageId, $attachments, $parentEmail, $overrides) {
+    ): Email {
+        return DB::transaction(function () use ($case, $recipient, $subject, $body, $replyToEmail, $messageId, $attachments, $parentEmail, $overrides) {
             $dbMessageId = "<{$messageId}>";
-
+            $currentStep = $case->current_workflow_step;
             $timeline = CaseTimeline::create([
                 'case_id' => $case->id,
                 'type' => $overrides['type'] ?? 'email_sent',
@@ -140,11 +157,13 @@ class SendEmailService
                     'direction' => 'outbound',
                     'message_id' => $dbMessageId,
                     'email_id' => null,
+                    'step_key' => $currentStep,
                 ], $overrides['metadata'] ?? []),
             ]);
 
             $emailRecord = Email::create([
                 'case_id' => $case->id,
+                'step_key' => $currentStep,
                 'timeline_id' => $timeline->id,
                 'parent_id' => $parentEmail?->id,
                 'direction' => 'outbound',
@@ -163,6 +182,7 @@ class SendEmailService
             if (!empty($attachments)) {
                 $this->storeAttachments($attachments, $case->id, $emailRecord->id);
             }
+            return $emailRecord;
         });
     }
 

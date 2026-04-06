@@ -34,7 +34,7 @@ class CaseWorkflow extends Component
     
     // 🚩 CRITICAL FIX: Track escalation mode explicitly
     public $isEscalationMode = false;
-
+    public $pendingStepJump = null;
     /**
      * Initialize the component with Case data and Workflow configurations
      */
@@ -255,7 +255,8 @@ class CaseWorkflow extends Component
     }
 
     public function jumpToStep($targetStepKey)
-    {
+    {   
+        $category = $this->case->institution->category;
         if (isset($this->workflowConfig['steps'][$targetStepKey])) {
             $this->transitionTo($targetStepKey, "Manual administrative override.");
             $this->dispatch('step-jumped-successfully');

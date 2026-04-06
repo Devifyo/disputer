@@ -54,6 +54,7 @@ class Index extends Component
             'workflow_steps.*.actions.*.label' => 'required|string',
             'workflow_steps.*.actions.*.to_step' => ['required', 'string', Rule::in($stepKeys)],
             'workflow_steps.*.on_inbound_email_step' => ['nullable', 'string', Rule::in($stepKeys)],
+            'workflow_steps.*.requires_email' => 'boolean',
         ];
     }
 
@@ -80,6 +81,7 @@ class Index extends Component
             'step_key' => '', 'label' => '', 'description' => '', 
             'status_color' => 'slate', 'icon' => 'file', 'waiting_for' => '',
             'on_inbound_email_step' => '',
+            'requires_email' => false,
             'actions' => [], 'timeouts' => [], 'is_final' => false,
             'is_new' => true
         ];
@@ -126,7 +128,7 @@ class Index extends Component
                 'step_key' => 'ticket_open', 'label' => 'Ticket Open', 'description' => 'Awaiting initial review.',
                 'on_inbound_email_step' => '',
                 'status_color' => 'slate', 'icon' => 'ticket', 'waiting_for' => '', 
-                'actions' => [], 'timeouts' => [], 'is_final' => false
+                'actions' => [], 'timeouts' => [], 'is_final' => false,'requires_email' => false,
             ]
         ];
 
@@ -163,6 +165,7 @@ class Index extends Component
             
             $data['timeouts'] = $data['timeouts'] ?? [];
             $data['is_final'] = $data['is_final'] ?? false;
+            $data['requires_email'] = $data['requires_email'] ?? false;
             $this->workflow_steps[] = $data;
         }
 
@@ -187,7 +190,7 @@ class Index extends Component
             if (empty($step['on_inbound_email_step'])) unset($step['on_inbound_email_step']);
             if (empty($step['timeouts'])) unset($step['timeouts']);
             if (!$step['is_final']) unset($step['is_final']);
-
+            if (empty($step['requires_email'])) unset($step['requires_email']);
             $stepsDb[$key] = array_filter($step, fn($value) => !is_null($value) && $value !== '');
         }
 

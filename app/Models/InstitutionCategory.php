@@ -14,6 +14,17 @@ class InstitutionCategory extends Model
         'workflow_config' => 'array',
         'is_verified' => 'boolean',
     ];
+    public function stepRequiresEmail(string $stepKey): bool
+    {
+        $steps = $this->workflow_config['steps'] ?? [];
+        
+        // Check if the step exists and if 'requires_email' is true
+        return isset($steps[$stepKey]['requires_email']) && $steps[$stepKey]['requires_email'] === true;
+    }
+    public function getStepConfig(string $stepKey): ?array
+    {
+        return $this->workflow_config['steps'][$stepKey] ?? null;
+    }
     public function institutions()
     {
         return $this->hasMany(Institution::class);

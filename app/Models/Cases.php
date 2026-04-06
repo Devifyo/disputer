@@ -78,4 +78,20 @@ class Cases extends Model
         // and filters it to only show ones waiting for approval.
         return $this->suggestions()->where('status', 'pending')->get();
     }
+
+    public function getCurrentStepConfigAttribute()
+    {
+        $config = $this->institution?->category?->workflow_config ?? [];
+        $stepKey = $this->current_workflow_step;
+
+        return $config['steps'][$stepKey] ?? null;
+    }
+
+    public function hasSentEmailForStep($stepKey)
+    {
+        return $this->timeline()
+            ->where('type', 'email_sent')
+            ->where('metadata->step_key', $stepKey)
+            ->exists();
+    }
 }

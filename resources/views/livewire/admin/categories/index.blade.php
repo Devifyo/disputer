@@ -367,12 +367,21 @@
                                                 @error('workflow_steps.'.$index.'.on_inbound_email_step') <div class="text-[9px] text-rose-500 font-bold px-1 mt-1">{{ $message }}</div> @enderror
                                             </div>
 
-                                            {{-- Final Step Checkbox --}}
-                                            <div class="flex items-end pb-2">
-                                                <label class="flex items-center gap-2 cursor-pointer">
-                                                    <input type="checkbox" wire:model="workflow_steps.{{ $index }}.is_final" class="rounded text-primary-600 focus:ring-primary-500 w-4 h-4 border-slate-300">
-                                                    <span class="text-xs font-bold text-slate-700">This is a Final Step</span>
+                                            {{-- Step Requirements & Flags --}}
+                                            <div class="flex flex-col justify-center gap-3 pt-2 md:pt-0 pl-1">
+                                                
+                                                {{-- NEW: Requires Email Checkbox --}}
+                                                <label class="flex items-center gap-2 cursor-pointer group" title="Require user to send an email before this step is complete">
+                                                    <input type="checkbox" wire:model="workflow_steps.{{ $index }}.requires_email" class="rounded text-primary-600 focus:ring-primary-500 w-4 h-4 border-slate-300 transition-colors">
+                                                    <span class="text-xs font-bold text-slate-700 group-hover:text-primary-600 transition-colors">Requires Outbound Email</span>
                                                 </label>
+
+                                                {{-- Final Step Checkbox --}}
+                                                <label class="flex items-center gap-2 cursor-pointer group">
+                                                    <input type="checkbox" wire:model="workflow_steps.{{ $index }}.is_final" class="rounded text-primary-600 focus:ring-primary-500 w-4 h-4 border-slate-300 transition-colors">
+                                                    <span class="text-xs font-bold text-slate-700 group-hover:text-primary-600 transition-colors">This is a Final Step</span>
+                                                </label>
+                                                
                                             </div>
                                         </div>
                                         <!-- end of row 3 -->

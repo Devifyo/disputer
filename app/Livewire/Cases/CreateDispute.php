@@ -471,10 +471,12 @@ class CreateDispute extends Component
            session()->put('success', 'Dispute Sent Successfully!');
         } catch (\Exception $e) {
             \Log::error("Initial dispute email failed: " . $e->getMessage());
-            return redirect()->route('user.cases.index')->with('error', 'Case created, but failed to send the email.');
+            return redirect()->route('user.cases.show', ['case_reference_id' => $case->case_reference_id])
+                         ->with('error', 'Case created, but failed to send the initial email.');
         }
 
-       return redirect()->route('user.cases.index')->with('success', 'Dispute Sent Successfully!');
+       return redirect()->route('user.cases.show', ['case_reference_id' => $case->case_reference_id])
+                    ->with('success', "Case Accepted. Your dispute with {$this->selectedInstitutionName} is now in the hands of the Unjamm Advocate AI.");
     }
 
     public function removeAttachment($index)
