@@ -22,8 +22,9 @@
     .contact-form { background: var(--white); border: 1px solid var(--border); border-radius: 24px; padding: 40px; box-shadow: 0 20px 60px rgba(15, 23, 42, 0.05); }
     .form-group { margin-bottom: 20px; text-align: left; }
     .form-label { display: block; font-size: 0.875rem; font-weight: 600; color: var(--ink); margin-bottom: 8px; }
-    .form-input, .form-textarea { width: 100%; padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--paper); font-family: 'Inter', sans-serif; font-size: 1rem; color: var(--ink); outline: none; transition: border-color 0.2s, box-shadow 0.2s; }
-    .form-input:focus, .form-textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1); background: var(--white); }
+    .form-input, .form-textarea, .form-select { width: 100%; padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--paper); font-family: 'Inter', sans-serif; font-size: 1rem; color: var(--ink); outline: none; transition: border-color 0.2s, box-shadow 0.2s; }
+    .form-input:focus, .form-textarea:focus, .form-select:focus { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1); background: var(--white); }
+    .form-select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 44px; cursor: pointer; }
     .form-textarea { min-height: 120px; resize: vertical; }
 
     /* Tighter FAQ gap */
@@ -68,44 +69,121 @@
             </p>
             
             @if(session('success'))
-                <div style="background: rgba(22, 163, 74, 0.1); color: #16a34a; padding: 16px; border-radius: 12px; margin-bottom: 24px; font-weight: 600; font-size: 0.9rem;">
+                <div style="display:flex; align-items:center; gap:12px; background:rgba(22,163,74,0.08); border:1px solid rgba(22,163,74,0.2); color:#15803d; padding:16px 20px; border-radius:12px; margin-bottom:24px; font-weight:600; font-size:0.9rem;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="flex-shrink:0;"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                     {{ session('success') }}
                 </div>
             @endif
 
-            <form action="{{ route('support.submit') }}" method="POST">
+            <form id="support-form" action="{{ route('support.submit') }}" method="POST" novalidate>
                 @csrf
                 <div class="form-group">
                     <label class="form-label" for="name">Your Name</label>
                     <input type="text" id="name" name="name" class="form-input" placeholder="Jane Doe" required value="{{ old('name', auth()->user()->name ?? '') }}">
-                    @error('name') <span class="text-red-500 text-xs font-bold mt-1 block">{{ $message }}</span> @enderror
+                    @error('name') <span style="color:#ef4444; font-size:0.75rem; font-weight:700; margin-top:4px; display:block;">{{ $message }}</span> @enderror
                 </div>
-                
+
                 <div class="form-group">
                     <label class="form-label" for="email">Email Address</label>
                     <input type="email" id="email" name="email" class="form-input" placeholder="jane@example.com" required value="{{ old('email', auth()->user()->email ?? '') }}">
-                    @error('email') <span class="text-red-500 text-xs font-bold mt-1 block">{{ $message }}</span> @enderror
+                    <span id="email-error" style="display:none; color:#ef4444; font-size:0.75rem; font-weight:700; margin-top:4px;">Please enter a valid email address.</span>
+                    @error('email') <span style="color:#ef4444; font-size:0.75rem; font-weight:700; margin-top:4px; display:block;">{{ $message }}</span> @enderror
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="subject">Subject</label>
+                    <select id="subject" name="subject" class="form-select" required onchange="toggleCustomSubject(this.value)">
+                        <option value="" disabled {{ old('subject') ? '' : 'selected' }}>Select a topic...</option>
+                        <option value="Billing Question" {{ old('subject') === 'Billing Question' ? 'selected' : '' }}>Billing Question</option>
+                        <option value="Technical Issue"  {{ old('subject') === 'Technical Issue'  ? 'selected' : '' }}>Technical Issue</option>
+                        <option value="Case Advice"      {{ old('subject') === 'Case Advice'      ? 'selected' : '' }}>Case Advice</option>
+                        <option value="Other"            {{ old('subject') === 'Other'            ? 'selected' : '' }}>Other</option>
+                    </select>
+                    @error('subject') <span style="color:#ef4444; font-size:0.75rem; font-weight:700; margin-top:4px; display:block;">{{ $message }}</span> @enderror
+
+                    <div id="custom-subject-wrap" style="display:{{ old('subject') === 'Other' ? 'block' : 'none' }}; margin-top:12px;">
+                        <input type="text" id="custom_subject" name="custom_subject" class="form-input"
+                               placeholder="Briefly describe your subject..."
+                               value="{{ old('custom_subject') }}"
+                               maxlength="255">
+                        @error('custom_subject') <span style="color:#ef4444; font-size:0.75rem; font-weight:700; margin-top:4px; display:block;">{{ $message }}</span> @enderror
+                    </div>
                 </div>
 
                 <div class="form-group">
                     <label class="form-label" for="message">How can we help?</label>
                     <textarea id="message" name="message" class="form-textarea" placeholder="Describe your issue or question here..." required>{{ old('message') }}</textarea>
-                    @error('message') <span class="text-red-500 text-xs font-bold mt-1 block">{{ $message }}</span> @enderror
+                    @error('message') <span style="color:#ef4444; font-size:0.75rem; font-weight:700; margin-top:4px; display:block;">{{ $message }}</span> @enderror
                 </div>
 
-                <button type="submit" class="btn-primary" style="width: 100%; justify-content: center; margin-top: 8px;">
-                    Send Message
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 18px; height: 18px;"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                <button id="submit-btn" type="submit" class="btn-primary" style="width:100%; justify-content:center; margin-top:8px;">
+                    <span id="btn-default" style="display:flex; align-items:center; gap:8px;">
+                        Send Message
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                    </span>
+                    <span id="btn-loading" style="display:none; align-items:center; gap:8px;">
+                        <svg style="width:18px;height:18px;animation:spin 1s linear infinite;" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="60" stroke-dashoffset="20" stroke-linecap="round"/></svg>
+                        Sending...
+                    </span>
                 </button>
             </form>
+
+            @push('scripts')
+            <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
+            <script>
+                function toggleCustomSubject(value) {
+                    var wrap  = document.getElementById('custom-subject-wrap');
+                    var input = document.getElementById('custom_subject');
+                    var show  = value === 'Other';
+                    wrap.style.display = show ? 'block' : 'none';
+                    input.required     = show;
+                    if (!show) input.value = '';
+                }
+            </script>
+            <script>
+                document.getElementById('support-form').addEventListener('submit', function(e) {
+                    const emailInput = document.getElementById('email');
+                    const emailError = document.getElementById('email-error');
+                    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+                    if (!emailRegex.test(emailInput.value.trim())) {
+                        e.preventDefault();
+                        emailError.style.display = 'block';
+                        emailInput.style.borderColor = '#ef4444';
+                        emailInput.focus();
+                        return;
+                    }
+
+                    emailError.style.display = 'none';
+                    emailInput.style.borderColor = '';
+
+                    const btn = document.getElementById('submit-btn');
+                    btn.disabled = true;
+                    btn.style.opacity = '0.75';
+                    btn.style.cursor = 'not-allowed';
+                    document.getElementById('btn-default').style.display = 'none';
+                    document.getElementById('btn-loading').style.display = 'flex';
+                });
+
+                document.getElementById('email').addEventListener('input', function() {
+                    document.getElementById('email-error').style.display = 'none';
+                    this.style.borderColor = '';
+                });
+            </script>
+            @endpush
         </div>
 
         <div class="faq-section">
             <h2 style="font-size: 1.5rem; font-weight: 800; color: var(--ink); margin-bottom: 8px; letter-spacing: -0.02em;">Common Questions</h2>
             
             <div class="faq-card">
-                <h3 class="faq-question">How does billing work?</h3>
-                <p class="faq-answer">We offer one-time purchases for individual cases, or a yearly subscription for unlimited cases. You will never be charged hidden fees.</p>
+                <h3 class="faq-question">What are the pricing plans?</h3>
+                <p class="faq-answer">We offer three tiers: <strong>Starter</strong> at $14.99 (1 case), <strong>Standard</strong> at $29.99 (3 cases), and <strong>Pro</strong> at $99.99/year for unlimited cases. No hidden fees.</p>
+            </div>
+
+            <div class="faq-card">
+                <h3 class="faq-question">Can I get a refund?</h3>
+                <p class="faq-answer">If you experience a technical issue that prevents you from using the platform, contact us within 7 days of purchase. We review all refund requests fairly and promptly.</p>
             </div>
 
             <div class="faq-card">
@@ -115,13 +193,8 @@
 
             <div class="faq-card">
                 <h3 class="faq-question">Can I cancel my subscription?</h3>
-                <p class="faq-answer">Absolutely. You can cancel your subscription at any time directly from your billing dashboard. You will retain access until the end of your billing cycle.</p>
+                <p class="faq-answer">Absolutely. You can cancel at any time from your billing dashboard. You retain full access until the end of your current billing cycle.</p>
             </div>
-
-            <!-- <div class="faq-card">
-                <h3 class="faq-question">What languages do you support?</h3>
-                <p class="faq-answer">Our AI can draft and respond in over 30 languages, making it perfect for navigating foreign institutions or cross-border issues.</p>
-            </div> -->
         </div>
     </section>
 @endsection

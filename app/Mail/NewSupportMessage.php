@@ -30,7 +30,7 @@ class NewSupportMessage extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'New Support Request: ' . $this->supportMessage->name,
+            subject: '[' . $this->supportMessage->subject . '] Support Request from ' . $this->supportMessage->name,
             // This allows you to hit "Reply" and email the user directly!
             replyTo: [
                 new Address($this->supportMessage->email, $this->supportMessage->name),

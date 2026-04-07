@@ -18,6 +18,7 @@ class SupportMessage extends Model
         'user_id',
         'name',
         'email',
+        'subject',
         'message',
         'status',
     ];

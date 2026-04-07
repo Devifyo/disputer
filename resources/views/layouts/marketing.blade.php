@@ -240,6 +240,9 @@
     {{-- Yield page-specific modals (like the success story form) --}}
     @stack('modals')
 
+    {{-- Yield page-specific scripts --}}
+    @stack('scripts')
+
     <script>
         lucide.createIcons();
     </script>

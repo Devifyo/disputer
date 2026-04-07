@@ -35,6 +35,7 @@
                 <thead class="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] tracking-widest">
                     <tr>
                         <th class="px-6 py-4">Sender Details</th>
+                        <th class="px-6 py-4">Subject</th>
                         <th class="px-6 py-4">Message Preview</th>
                         <th class="px-6 py-4">Status</th>
                         <th class="px-6 py-4">Date</th>
@@ -54,6 +55,17 @@
                                         <div class="text-xs text-slate-400">{{ $msg->email }}</div>
                                     </div>
                                 </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold border
+                                    {{ match($msg->subject) {
+                                        'Billing Question' => 'bg-amber-50 text-amber-700 border-amber-200',
+                                        'Technical Issue'  => 'bg-red-50 text-red-700 border-red-200',
+                                        'Case Advice'      => 'bg-blue-50 text-blue-700 border-blue-200',
+                                        default            => 'bg-slate-50 text-slate-600 border-slate-200',
+                                    } }}">
+                                    {{ $msg->subject ?? '—' }}
+                                </span>
                             </td>
                             <td class="px-6 py-4 max-w-xs truncate text-slate-600 {{ $msg->status === 'new' ? 'font-bold text-slate-900' : '' }}">
                                 {{ \Illuminate\Support\Str::limit($msg->message, 60) }}
@@ -80,7 +92,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" class="px-6 py-12 text-center text-slate-500">
+                            <td colspan="6" class="px-6 py-12 text-center text-slate-500">
                                 <div class="flex flex-col items-center justify-center gap-2">
                                     <i data-lucide="inbox" class="w-8 h-8 text-slate-300"></i>
                                     <p class="text-sm font-medium text-slate-600">No messages found</p>
@@ -124,6 +136,18 @@
                             <span class="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">Date Sent</span>
                             <div class="text-sm font-bold text-slate-700">{{ $selectedMessage->created_at->format('F d, Y \a\t h:i A') }}</div>
                             <div class="text-xs font-medium text-slate-400 mt-1">{{ $selectedMessage->created_at->diffForHumans() }}</div>
+                        </div>
+                        <div class="sm:col-span-2">
+                            <span class="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">Subject</span>
+                            <span class="inline-flex items-center px-3 py-1 rounded-lg text-xs font-bold border
+                                {{ match($selectedMessage->subject) {
+                                    'Billing Question' => 'bg-amber-50 text-amber-700 border-amber-200',
+                                    'Technical Issue'  => 'bg-red-50 text-red-700 border-red-200',
+                                    'Case Advice'      => 'bg-blue-50 text-blue-700 border-blue-200',
+                                    default            => 'bg-slate-100 text-slate-600 border-slate-200',
+                                } }}">
+                                {{ $selectedMessage->subject ?? '—' }}
+                            </span>
                         </div>
                     </div>
 

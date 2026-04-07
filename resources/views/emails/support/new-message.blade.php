@@ -17,6 +17,10 @@
                 {{ $supportMessage->email }}
             </a>
         </p>
+        <p style="margin: 0 0 8px 0; color: #475569; font-size: 0.95rem;">
+            <strong style="color: #0f172a;">Subject:</strong>
+            <span style="display:inline-block; background:#dbeafe; color:#1d4ed8; font-size:0.8rem; font-weight:700; padding:2px 10px; border-radius:20px; margin-left:4px;">{{ $supportMessage->subject }}</span>
+        </p>
         <p style="margin: 0; color: #475569; font-size: 0.95rem;">
             <strong style="color: #0f172a;">User ID:</strong> {{ $supportMessage->user_id ?? 'Guest (Not logged in)' }}
         </p>
