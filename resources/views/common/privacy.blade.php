@@ -25,10 +25,17 @@
                 <span class="font-bold text-slate-900 tracking-tight">{{ config('app.name') }}</span>
             </div>
             
-            <a href="{{ url()->previous() }}" class="inline-flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-lg transition-colors">
-                <i data-lucide="arrow-left" class="w-4 h-4"></i>
-                Back
-            </a>
+            @auth
+                <a href="{{ route('user.dashboard') }}" class="inline-flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-lg transition-colors">
+                    <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                    Back to Dashboard
+                </a>
+            @else
+                <a href="{{ route('home') }}" class="inline-flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-lg transition-colors">
+                    <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                    Back to Home
+                </a>
+            @endauth
         </div>
     </nav>
 

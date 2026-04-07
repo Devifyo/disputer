@@ -9,6 +9,12 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
             {{-- <x-flash /> --}}
             @include('user.cases.partials.alerts')
+
+            <a href="{{ route('user.dashboard') }}" class="inline-flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-lg transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+                Back to Dashboard
+            </a>
+
             <div class="mb-6">
                 <h2 class="text-2xl font-bold text-slate-900 tracking-tight">
                     {{ __('Account Settings') }}

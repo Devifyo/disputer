@@ -235,25 +235,7 @@
     {{-- Page Content Injected Here --}}
     @yield('content')
 
-    <footer>
-        <div class="footer-inner">
-            <a class="footer-logo" href="{{ route('home') }}">
-                <div class="footer-logo-mark">
-                    <img src="/icon.svg" alt="Icon" />
-                </div>
-                <div class="nav-logo-text">
-                    <span class="nav-logo-title" style="font-size: 1.1rem; color: var(--paper);">Unjamm</span>
-                    <span class="nav-logo-subtitle" style="font-size: 0.55rem; color: rgba(248, 250, 252, 0.6);">Get Unstuck.</span>
-                </div>
-            </a>
-            <p>&copy; {{ date('Y') }} Unjamm. All rights reserved.</p>
-            <div class="footer-links">
-                <a href="{{ route('privacy') ?? '#' }}">Privacy</a>
-                <a href="{{ route('terms') ?? '#' }}">Terms</a>
-                <a href="{{ route('support') }}">Support</a>
-            </div>
-        </div>
-    </footer>
+    @include('layouts.partials.global_footer')
 
     {{-- Yield page-specific modals (like the success story form) --}}
     @stack('modals')

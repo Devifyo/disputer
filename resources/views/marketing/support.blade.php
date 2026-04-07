@@ -42,6 +42,16 @@
 @endpush
 
 @section('content')
+    <div style="max-width:1100px; margin:0 auto; padding:88px 48px 0;">
+        @php
+            $backHref  = auth()->check() ? route('user.dashboard') : route('home');
+            $backLabel = auth()->check() ? 'Back to Dashboard' : 'Back to Home';
+        @endphp
+        <a href="{{ $backHref }}" style="display:inline-flex; align-items:center; gap:8px; font-size:0.875rem; font-weight:700; color:#475569; background:#f1f5f9; padding:8px 16px; border-radius:8px; text-decoration:none; transition:background 0.2s, color 0.2s;" onmouseover="this.style.background='#e2e8f0';this.style.color='#0f172a'" onmouseout="this.style.background='#f1f5f9';this.style.color='#475569'">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+            {{ $backLabel }}
+        </a>
+    </div>
     <header>
         <div class="support-bg-shape shape-1"></div>
         <div class="support-bg-shape shape-2"></div>

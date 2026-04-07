@@ -119,14 +119,8 @@
             </div>
         </div>
 
-        <div class="relative z-10 flex items-center justify-between border-t border-white/10 pt-6 mt-8">
-            <div class="text-xs text-slate-500 font-mono">
-                &copy; {{ date('Y') }} Unjamm
-            </div>
-            <div class="flex gap-4">
-                <a href="{{ route('home') }}" class="text-xs text-slate-400 hover:text-white transition-colors">Home</a>
-                <a href="{{ route('support') }}" class="text-xs text-slate-400 hover:text-white transition-colors">Support</a>
-            </div>
+        <div class="relative z-10 border-t border-white/10 pt-6 mt-8">
+            <div class="text-xs text-slate-500 font-mono">&copy; {{ date('Y') }} {{ config('app.name') }}</div>
         </div>
     </div>
 
@@ -149,8 +143,10 @@
 
         <footer class="py-6 shrink-0">
             <div class="max-w-7xl mx-auto px-6 flex flex-wrap justify-center gap-x-6 gap-y-2">
+                <a href="{{ route('home') }}"    class="text-xs text-slate-400 hover:text-blue-600 transition-colors">Home</a>
+                <a href="{{ route('support') }}" class="text-xs text-slate-400 hover:text-blue-600 transition-colors">Support</a>
+                <a href="{{ route('terms') }}"   class="text-xs text-slate-400 hover:text-blue-600 transition-colors">Terms</a>
                 <a href="{{ route('privacy') }}" class="text-xs text-slate-400 hover:text-blue-600 transition-colors">Privacy Policy</a>
-                <a href="{{ route('terms') }}" class="text-xs text-slate-400 hover:text-blue-600 transition-colors">Terms of Service</a>
             </div>
         </footer>
 
