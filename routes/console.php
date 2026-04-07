@@ -9,3 +9,5 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 // Schedule::command('imap:check --sync')->everyMinute()->withoutOverlapping();
+
+Schedule::command('cases:alert-escalations')->everyMinute()->withoutOverlapping();

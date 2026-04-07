@@ -7,7 +7,7 @@ use App\Enums\CaseStatus;
 class Cases extends Model
 {
    protected $fillable = [
-        'user_id', 'institution_id', 'institution_name', 
+        'user_id', 'institution_id', 'institution_name',
         'case_reference_id', 'email_route_id', 'case_email',
         'status', 'stage', 'current_workflow_step', 'next_action_at',
         'escalation_level','last_escalated_at', 'user_subscription_id',
@@ -59,12 +59,12 @@ class Cases extends Model
             default => 'bg-blue-50 text-blue-700 border-blue-100'
         };
     }
-    
+
     // Accessor for human readable Timeline Type
     public function getReadableTypeAttribute($value)
     {
         // Convert "case_created" to "Case Created"
-        return ucwords(str_replace('_', ' ', $value)); 
+        return ucwords(str_replace('_', ' ', $value));
     }
 
     public function suggestions()
@@ -74,8 +74,8 @@ class Cases extends Model
 
     public function getPendingSuggestionsAttPribute()
     {
-        // It uses the relationship above ('suggestions') 
-        // and filters it to only show ones waiting for approval.
+        // It uses the relationship above ('suggestions')
+        // and filters it to only show ones automatically.
         return $this->suggestions()->where('status', 'pending')->get();
     }
 
@@ -88,11 +88,44 @@ class Cases extends Model
     }
 
     public function hasSentEmailForStep($stepKey)
-    {   
+    {
         // dd($stepKey);
         return $this->timeline()
             ->where('type', 'email_sent')
             ->where('metadata->step_key', $stepKey)
             ->exists();
+    }
+
+    /**
+     * Returns an array summarising the current workflow status.
+     * $isEscalated is determined by the timeout config: true when daysElapsed >= maxDays.
+     */
+    public function getWorkflowStatus(): array
+    {
+        $stepKey    = $this->current_workflow_step ?? '';
+        $stepConfig = $this->getCurrentStepConfigAttribute();
+        $stepName   = $stepConfig['label'] ?? $stepKey;
+
+        $timeout       = $stepConfig['timeouts'][0] ?? null;
+        $maxDays       = $timeout ? (int) $timeout['days'] : null;
+        $daysElapsed   = (int) $this->updated_at->diffInDays(now());
+        $daysRemaining = $maxDays !== null ? max(0, $maxDays - $daysElapsed) : null;
+        $percentage    = ($maxDays > 0) ? min(100, ($daysElapsed / $maxDays) * 100) : null;
+        $waitingFor    = $stepConfig['waiting_for'] ?? 'Response';
+
+        $isEscalated       = $maxDays !== null && $daysElapsed >= $maxDays;
+        $escalatedFromDays = $isEscalated ? $daysElapsed - $maxDays : null;
+
+        return [
+            'is_escalated'        => $isEscalated,
+            'escalated_from_days' => $escalatedFromDays,
+            'step_key'            => $stepKey,
+            'step_name'           => $stepName,
+            'max_days'            => $maxDays,
+            'days_elapsed'        => $daysElapsed,
+            'days_remaining'      => $daysRemaining,
+            'percentage'          => $percentage,
+            'waiting_for'         => $waitingFor,
+        ];
     }
 }

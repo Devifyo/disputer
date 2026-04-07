@@ -38,7 +38,7 @@
                     @foreach($case->timeline->sortByDesc('id') as $log)
                         @php
                             // --- FILTER: HIDE INTERNAL LOGS ---
-                            if (in_array($log->type, ['Ai_guidance_workflow', 'system_suggestion', 'debug_log'])) {
+                            if (in_array($log->type, ['Ai_guidance_workflow', 'system_suggestion', 'debug_log', 'escalation_deadline_alert'])) {
                                 continue;
                             }
 

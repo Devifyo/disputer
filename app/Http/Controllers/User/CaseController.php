@@ -29,6 +29,7 @@ class CaseController extends Controller
     public function show($case_reference_id)
     {
         $case = $this->caseService->getCaseByReference($case_reference_id);
+
         $escalationService = new \App\Services\EscalationService();
         $escalationDetails = $escalationService->getEscalationDetails($case);
         $metadata = $this->caseService->extractCaseMetadata($case);
@@ -239,7 +240,7 @@ class CaseController extends Controller
         $metadata = $this->caseService->extractCaseMetadata($case);
 
         $publicTimeline = $case->timeline->filter(function($log) {
-            return !in_array($log->type, ['Ai_guidance_workflow', 'system_suggestion', 'debug_log']);
+            return !in_array($log->type, ['Ai_guidance_workflow', 'system_suggestion', 'debug_log', 'escalation_deadline_alert']);
         });
 
         $pdf = Pdf::loadView('user.cases.pdf', compact('case', 'metadata', 'publicTimeline'));
