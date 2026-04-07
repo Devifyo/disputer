@@ -88,8 +88,8 @@
         border-radius: 100px; font-size: 0.72rem; font-weight: 700;
         letter-spacing: 0.04em; text-transform: uppercase;
     }
-    .badge-resolved { background: rgba(22,163,74,0.1); color: #16a34a; }
-    .badge-inprogress { background: rgba(37, 99, 235, 0.1); color: var(--accent); }
+    .badge-resolved { background: #dcfce7; color: #15803d; }
+    .badge-inprogress { background: #dbeafe; color: #1d4ed8; }
 
     /* ─── HOW IT WORKS ─── */
     #how-it-works { padding: 120px 48px; background: var(--white); border-bottom: 1px solid var(--border); }
@@ -120,7 +120,7 @@
     .story-inner { max-width: 800px; margin: 0 auto; text-align: center; }
     .story-inner h2 { margin-bottom: 48px; color: var(--ink); }
     .story-body { text-align: left; display: flex; flex-direction: column; gap: 20px; }
-    .story-body p { font-size: 1.15rem; line-height: 1.85; color: var(--muted); font-weight: 400; }
+    .story-body p { font-size: 1.15rem; line-height: 1.85; color: #334155; font-weight: 400; }
     .story-body p strong { font-weight: 700; font-size: 1.5rem; color: var(--ink); display: block; margin-top: 12px; letter-spacing: -0.02em; }
 
     /* ─── OUTCOMES ─── */
@@ -133,7 +133,7 @@
     .outcome-card { background: var(--white); border: 1px solid var(--border); border-radius: 24px; padding: 36px; display: flex; flex-direction: column; position: relative; transition: all 0.3s; }
     .outcome-card:hover { transform: translateY(-6px); box-shadow: 0 20px 60px rgba(15, 23, 42, 0.08); }
     .outcome-body { flex-grow: 1; margin-bottom: 20px; }
-    .outcome-tag { display: inline-block; padding: 4px 12px; background: var(--cream); border-radius: 100px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 16px; }
+    .outcome-tag { display: inline-block; padding: 4px 12px; background: #e2e8f0; border-radius: 100px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #475569; margin-bottom: 16px; }
     .outcome-card h3 { font-size: 1.2rem; font-weight: 700; color: var(--ink); margin-bottom: 16px; letter-spacing: -0.02em; }
     .outcome-card p { font-size: 0.95rem; color: var(--muted); line-height: 1.7; font-weight: 400; }
     .outcome-result { padding-top: 20px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 8px; min-height: 3.5rem; }
@@ -165,7 +165,7 @@
     details.faq-item summary { list-style: none; font-size: 1.15rem; font-weight: 700; color: var(--ink); cursor: pointer; display: flex; justify-content: space-between; align-items: center; letter-spacing: -0.01em; }
     details.faq-item summary svg { flex-shrink: 0; color: var(--muted); transition: transform 0.3s ease; }
     details.faq-item[open] summary svg { transform: rotate(180deg); color: var(--accent); }
-    .faq-answer { padding-top: 16px; padding-right: 40px; font-size: 1.05rem; color: var(--muted); line-height: 1.7; }
+    .faq-answer { padding-top: 16px; padding-right: 40px; font-size: 1.05rem; color: #334155; line-height: 1.7; }
 
     /* ─── CTA ─── */
     #cta { padding: 80px 48px 120px; background: var(--ink); }

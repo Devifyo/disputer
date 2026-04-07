@@ -2,7 +2,7 @@
     <div class="outcomes-inner">
         <div class="outcomes-header">
             <div>
-                <div class="section-eyebrow" style="color: var(--accent-light)">Real Situations</div>
+                <div class="section-eyebrow" style="color: #6366f1">Real Situations</div>
                 <h2 style="color: var(--ink);">Real Progress, <br>Real Results</h2>
             </div>
             <div>
@@ -30,8 +30,8 @@
                     <p>A refund request approved and then rejected multiple times. A structured three-stage escalation process — ultimately reaching the Better Business Bureau — broke the stalemate.</p>
                 </div>
                 <div class="outcome-result">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="color:#16a34a;"><path d="M20 6L9 17l-5-5"/></svg>
-                    <span style="color: #16a34a; font-weight: 800; font-size: 1rem;">$480.00 Recovered</span>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="color:#15803d;"><path d="M20 6L9 17l-5-5"/></svg>
+                    <span style="color: #15803d; font-weight: 800; font-size: 1rem;">$480.00 Recovered</span>
                 </div>
             </div>
 

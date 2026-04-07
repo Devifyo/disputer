@@ -8,13 +8,13 @@
             <span style="font-weight:800; font-size:1rem; color:#f8fafc; letter-spacing:-0.02em;">{{ config('app.name') }}</span>
         </a>
 
-        <p style="font-size:0.75rem; color:rgba(248,250,252,0.35); margin:0;">&copy; {{ date('Y') }} {{ config('app.name') }}. All rights reserved.</p>
+        <p style="font-size:0.75rem; color:rgba(248,250,252,0.75); margin:0;">&copy; {{ date('Y') }} {{ config('app.name') }}. All rights reserved.</p>
 
         <div style="display:flex; gap:20px; align-items:center; flex-wrap:wrap;">
-            <a href="{{ route('home') }}"    style="font-size:0.75rem; color:rgba(248,250,252,0.5); text-decoration:none; transition:color 0.2s;" onmouseover="this.style.color='#f8fafc'" onmouseout="this.style.color='rgba(248,250,252,0.5)'">Home</a>
-            <a href="{{ route('support') }}" style="font-size:0.75rem; color:rgba(248,250,252,0.5); text-decoration:none; transition:color 0.2s;" onmouseover="this.style.color='#f8fafc'" onmouseout="this.style.color='rgba(248,250,252,0.5)'">Support</a>
-            <a href="{{ route('terms') }}"   style="font-size:0.75rem; color:rgba(248,250,252,0.5); text-decoration:none; transition:color 0.2s;" onmouseover="this.style.color='#f8fafc'" onmouseout="this.style.color='rgba(248,250,252,0.5)'">Terms</a>
-            <a href="{{ route('privacy') }}" style="font-size:0.75rem; color:rgba(248,250,252,0.5); text-decoration:none; transition:color 0.2s;" onmouseover="this.style.color='#f8fafc'" onmouseout="this.style.color='rgba(248,250,252,0.5)'">Privacy Policy</a>
+            <a href="{{ route('home') }}"    style="font-size:0.75rem; color:rgba(248,250,252,0.75); text-decoration:none; transition:color 0.2s;" onmouseover="this.style.color='#f8fafc'" onmouseout="this.style.color='rgba(248,250,252,0.75)'">Home</a>
+            <a href="{{ route('support') }}" style="font-size:0.75rem; color:rgba(248,250,252,0.75); text-decoration:none; transition:color 0.2s;" onmouseover="this.style.color='#f8fafc'" onmouseout="this.style.color='rgba(248,250,252,0.75)'">Support</a>
+            <a href="{{ route('terms') }}"   style="font-size:0.75rem; color:rgba(248,250,252,0.75); text-decoration:none; transition:color 0.2s;" onmouseover="this.style.color='#f8fafc'" onmouseout="this.style.color='rgba(248,250,252,0.75)'">Terms</a>
+            <a href="{{ route('privacy') }}" style="font-size:0.75rem; color:rgba(248,250,252,0.75); text-decoration:none; transition:color 0.2s;" onmouseover="this.style.color='#f8fafc'" onmouseout="this.style.color='rgba(248,250,252,0.75)'">Privacy Policy</a>
         </div>
 
     </div>

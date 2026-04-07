@@ -180,10 +180,10 @@
             display: flex; align-items: center; justify-content: center;
         }
         .footer-logo-mark img { width: 14px; height: 14px; filter: brightness(0) invert(1); }
-        footer p { font-size: 0.8rem; color: rgba(248, 250, 252, 0.4); }
+        footer p { font-size: 0.8rem; color: rgba(248, 250, 252, 0.75); }
         .footer-links { display: flex; gap: 24px; }
         .footer-links a {
-            font-size: 0.8rem; color: rgba(248, 250, 252, 0.5);
+            font-size: 0.8rem; color: rgba(248, 250, 252, 0.75);
             text-decoration: none; transition: color 0.2s;
         }
         .footer-links a:hover { color: var(--paper); }
