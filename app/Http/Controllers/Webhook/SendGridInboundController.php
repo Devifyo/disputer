@@ -91,9 +91,22 @@ class SendGridInboundController extends Controller
                 'message_id'      => $messageId,
             ]);
 
+            $user = $case->user;
+
             $timeline->update(['metadata' => array_merge($timeline->metadata, ['email_id' => $emailRecord->id])]);
 
             $this->storeAttachments($request, $case->id, $emailRecord->id);
+
+            // Notify the case owner that a new inbound email has arrived
+            if ($user) {
+                send_dynamic_email($user->email, 'inbound-email-received', [
+                    '[USER_NAME]'      => $user->name,
+                    '[CASE_REFERENCE]' => $case->case_reference_id,
+                    '[SENDER_EMAIL]'   => $fromAddress,
+                    '[EMAIL_SUBJECT]'  => $subject,
+                    '[CASE_URL]'       => url('/cases/' . $case->case_reference_id),
+                ]);
+            }
         });
     }
 

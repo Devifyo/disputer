@@ -8,7 +8,7 @@
 <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 sm:px-8 shrink-0 z-10 sticky top-0">
     <div class="flex items-center gap-3">
         <h1 class="font-black text-slate-900 text-lg tracking-tight">Dashboard</h1>
-        @if($isEmailConfigured)
+        <!-- @if($isEmailConfigured)
             <span class="hidden sm:inline-flex items-center gap-1.5 text-[10px] font-bold bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-full border border-emerald-100">
                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                 System Active
@@ -18,7 +18,7 @@
                 <i data-lucide="alert-octagon" class="w-3 h-3"></i>
                 Setup Needed
             </span>
-        @endif
+        @endif -->
     </div>
 
     <a href="{{ route('user.cases.create') }}"

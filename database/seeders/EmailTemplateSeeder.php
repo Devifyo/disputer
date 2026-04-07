@@ -10,6 +10,42 @@ class EmailTemplateSeeder extends Seeder
     public function run(): void
     {
         EmailTemplate::updateOrCreate(
+            ['slug' => 'inbound-email-received'],
+            [
+                'subject' => 'New Reply Received on Your Case [CASE_REFERENCE]',
+                'is_active' => true,
+                'body' => '
+                    <tr>
+                        <td style="padding: 48px 40px 24px; text-align: center;">
+                            <div style="display: inline-block; padding: 14px; background-color: #2563eb; border-radius: 14px; margin-bottom: 24px; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);">
+                                <img src="https://img.icons8.com/ios-filled/50/ffffff/email-open.png" width="28" height="28" alt="Email" style="display: block;">
+                            </div>
+                            <h1 style="margin: 0; font-size: 24px; font-weight: 800; color: #0f172a; letter-spacing: -0.5px;">You have a new reply</h1>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td style="padding: 0 40px 40px; font-size: 16px; line-height: 26px; color: #475569; text-align: center;">
+                            <p style="margin: 0 0 16px;">Hello <strong style="color: #0f172a;">[USER_NAME]</strong>,</p>
+                            <p style="margin: 0 0 8px;">A new email has been received on your case:</p>
+                            <p style="margin: 0 0 8px;"><strong style="color: #0f172a;">Case Reference:</strong> [CASE_REFERENCE]</p>
+                            <p style="margin: 0 0 8px;"><strong style="color: #0f172a;">From:</strong> [SENDER_EMAIL]</p>
+                            <p style="margin: 0 0 32px;"><strong style="color: #0f172a;">Subject:</strong> [EMAIL_SUBJECT]</p>
+
+                            <a href="[CASE_URL]" style="display: inline-block; background-color: #0f172a; color: #ffffff; font-weight: 700; font-size: 15px; text-decoration: none; padding: 16px 36px; border-radius: 10px;">View Case</a>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td style="padding: 24px 40px; background-color: #f8fafc; border-top: 1px solid #f1f5f9; font-size: 13px; line-height: 22px; color: #94a3b8; text-align: left;">
+                            <p style="margin: 0;">You are receiving this notification because you have an active case on ' . config('app.name') . '.</p>
+                        </td>
+                    </tr>
+                '
+            ]
+        );
+
+        EmailTemplate::updateOrCreate(
             ['slug' => 'forgot-password'],
             [
                 'subject' => 'Reset Your Password - ' . config('app.name'),
