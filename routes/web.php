@@ -28,7 +28,12 @@ Route::middleware('auth')->group(function () {
     Route::get('/checkout/{slug}', [CheckoutController::class, 'checkout'])->name('checkout');
     Route::get('/checkout-success', [CheckoutController::class, 'success'])->name('checkout.success');
     Route::post('/subscription/cancel', [CheckoutController::class, 'cancelSubscription'])->name('subscription.cancel');
-    Route::post('/subscription/resume', [CheckoutController::class, 'resumeSubscription'])->name('subscription.resume'); // Add this line
+    Route::post('/subscription/resume', [CheckoutController::class, 'resumeSubscription'])->name('subscription.resume');
+    Route::get('/billing/payment-methods', [CheckoutController::class, 'getPaymentMethods'])->name('billing.payment-methods');
+    Route::delete('/billing/payment-method', [CheckoutController::class, 'removePaymentMethod'])->name('billing.remove-payment-method');
+    Route::post('/billing/set-default-payment-method', [CheckoutController::class, 'setDefaultPaymentMethod'])->name('billing.set-default-payment-method');
+    Route::get('/billing/setup-intent', [CheckoutController::class, 'getSetupIntent'])->name('billing.setup-intent');
+    Route::post('/billing/payment-method', [CheckoutController::class, 'updatePaymentMethod'])->name('billing.update-payment-method');
 });
 
 Route::get('/privacy', function () {

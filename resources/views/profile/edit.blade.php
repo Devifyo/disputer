@@ -28,7 +28,7 @@
                         Profile Information
                     </button>
 
-                    <button type="button" data-tab="email" 
+                    <!-- <button type="button" data-tab="email" 
                             class="tab-button flex-shrink-0 whitespace-nowrap lg:w-full flex items-center gap-2 lg:gap-3 px-4 py-2.5 lg:py-3 text-sm font-bold rounded-lg transition-all group text-slate-600 hover:bg-slate-100 hover:text-slate-900">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-75 group-hover:opacity-100"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
                         Email Config
@@ -51,7 +51,7 @@
                                 </span>
                             @endif
                         </div>
-                    </button>
+                    </button> -->
 
                     <button type="button" data-tab="billing" 
                             class="tab-button flex-shrink-0 whitespace-nowrap lg:w-full flex items-center gap-2 lg:gap-3 px-4 py-2.5 lg:py-3 text-sm font-bold rounded-lg transition-all group text-slate-600 hover:bg-slate-100 hover:text-slate-900">
@@ -77,9 +77,9 @@
                         </div>
                     </div>
 
-                    <div id="tab-email" class="tab-pane hidden">
+                    <!-- <div id="tab-email" class="tab-pane hidden">
                         @include('profile.partials.update-email-config-form')
-                    </div>
+                    </div> -->
 
                     <div id="tab-billing" class="tab-pane hidden space-y-6">
                         @include('profile.partials.billing-plans')

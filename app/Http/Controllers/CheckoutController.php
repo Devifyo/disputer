@@ -8,6 +8,9 @@ use Illuminate\Http\Request;
 use Stripe\Stripe;
 use Stripe\Checkout\Session;
 use Stripe\Subscription as StripeSubscription; // Aliased to avoid confusion
+use Stripe\SetupIntent;
+use Stripe\PaymentMethod;
+use Stripe\Customer as StripeCustomer;
 use Exception;
 
 class CheckoutController extends Controller
@@ -63,6 +66,191 @@ class CheckoutController extends Controller
         
         return redirect()->route('profile.edit', ['#billing'])
             ->with('success', 'Payment successful! Your subscription is being activated.');
+    }
+
+    public function getPaymentMethods(Request $request)
+    {
+        $user = $request->user();
+
+        $subscription = UserSubscription::where('user_id', $user->id)
+            ->where('status', 'active')
+            ->whereNotNull('stripe_customer_id')
+            ->latest()
+            ->first();
+
+        if (!$subscription) {
+            return response()->json(['error' => 'No active subscription found.'], 422);
+        }
+
+        try {
+            Stripe::setApiKey(config('services.stripe.secret'));
+
+            $customer = StripeCustomer::retrieve($subscription->stripe_customer_id);
+            $defaultPmId = $customer->invoice_settings->default_payment_method;
+
+            $paymentMethods = PaymentMethod::all([
+                'customer' => $subscription->stripe_customer_id,
+                'type' => 'card',
+            ]);
+
+            $methods = array_map(fn($pm) => [
+                'id'         => $pm->id,
+                'brand'      => $pm->card->brand,
+                'last4'      => $pm->card->last4,
+                'exp_month'  => str_pad($pm->card->exp_month, 2, '0', STR_PAD_LEFT),
+                'exp_year'   => $pm->card->exp_year,
+                'is_default' => $pm->id === $defaultPmId,
+            ], $paymentMethods->data);
+
+            return response()->json(['payment_methods' => array_values($methods)]);
+
+        } catch (Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function setDefaultPaymentMethod(Request $request)
+    {
+        $request->validate(['payment_method_id' => 'required|string']);
+
+        $user = $request->user();
+
+        $subscription = UserSubscription::where('user_id', $user->id)
+            ->where('status', 'active')
+            ->whereNotNull('stripe_customer_id')
+            ->latest()
+            ->first();
+
+        if (!$subscription) {
+            return response()->json(['error' => 'No active subscription found.'], 422);
+        }
+
+        try {
+            Stripe::setApiKey(config('services.stripe.secret'));
+
+            StripeCustomer::update($subscription->stripe_customer_id, [
+                'invoice_settings' => ['default_payment_method' => $request->payment_method_id],
+            ]);
+
+            if ($subscription->stripe_subscription_id) {
+                StripeSubscription::update($subscription->stripe_subscription_id, [
+                    'default_payment_method' => $request->payment_method_id,
+                ]);
+            }
+
+            return response()->json(['success' => true]);
+
+        } catch (Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function removePaymentMethod(Request $request)
+    {
+        $request->validate(['payment_method_id' => 'required|string']);
+
+        $user = $request->user();
+
+        $subscription = UserSubscription::where('user_id', $user->id)
+            ->where('status', 'active')
+            ->whereNotNull('stripe_customer_id')
+            ->latest()
+            ->first();
+
+        if (!$subscription) {
+            return response()->json(['error' => 'No active subscription found.'], 422);
+        }
+
+        try {
+            Stripe::setApiKey(config('services.stripe.secret'));
+
+            // Refuse to remove the default payment method
+            $customer = StripeCustomer::retrieve($subscription->stripe_customer_id);
+            if ($customer->invoice_settings->default_payment_method === $request->payment_method_id) {
+                return response()->json(['error' => 'Cannot remove the default payment method.'], 422);
+            }
+
+            $paymentMethod = PaymentMethod::retrieve($request->payment_method_id);
+            $paymentMethod->detach();
+
+            return response()->json(['success' => true]);
+
+        } catch (Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function getSetupIntent(Request $request)
+    {
+        $user = $request->user();
+
+        $subscription = UserSubscription::where('user_id', $user->id)
+            ->where('status', 'active')
+            ->whereNotNull('stripe_customer_id')
+            ->latest()
+            ->first();
+
+        if (!$subscription) {
+            return response()->json(['error' => 'No active subscription found.'], 422);
+        }
+
+        try {
+            Stripe::setApiKey(config('services.stripe.secret'));
+
+            $setupIntent = SetupIntent::create([
+                'customer' => $subscription->stripe_customer_id,
+                'payment_method_types' => ['card'],
+            ]);
+
+            return response()->json(['client_secret' => $setupIntent->client_secret]);
+
+        } catch (Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function updatePaymentMethod(Request $request)
+    {
+        $request->validate(['payment_method_id' => 'required|string']);
+
+        $user = $request->user();
+
+        $subscription = UserSubscription::where('user_id', $user->id)
+            ->where('status', 'active')
+            ->whereNotNull('stripe_customer_id')
+            ->latest()
+            ->first();
+
+        if (!$subscription) {
+            return response()->json(['error' => 'No active subscription found.'], 422);
+        }
+
+        try {
+            Stripe::setApiKey(config('services.stripe.secret'));
+
+            $paymentMethodId = $request->input('payment_method_id');
+
+            // Attach the new card to the customer
+            $paymentMethod = PaymentMethod::retrieve($paymentMethodId);
+            $paymentMethod->attach(['customer' => $subscription->stripe_customer_id]);
+
+            // Set as customer's default for future invoices
+            StripeCustomer::update($subscription->stripe_customer_id, [
+                'invoice_settings' => ['default_payment_method' => $paymentMethodId],
+            ]);
+
+            // Also update the subscription's default payment method if one exists
+            if ($subscription->stripe_subscription_id) {
+                StripeSubscription::update($subscription->stripe_subscription_id, [
+                    'default_payment_method' => $paymentMethodId,
+                ]);
+            }
+
+            return response()->json(['success' => true]);
+
+        } catch (Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
     }
 
     public function cancelSubscription(Request $request)
