@@ -10,6 +10,7 @@ use App\Livewire\Admin\Templates\Index as AdminTemplates;
 use App\Livewire\Admin\SuccessStories\Index as SuccessStoriesIndex;
 use App\Livewire\Admin\Plans\Index as AdminPlans;
 use App\Livewire\Admin\Support\Index as SupportIndex;
+use App\Livewire\Admin\CmsPages\Index as CmsPagesIndex;
 
 Route::prefix('admin')->name('admin.')->middleware(['auth', 'role_access:admin'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
@@ -22,6 +23,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role_access:admin']
     Route::get('/plans', AdminPlans::class)->name('plans.index');
     Route::get('/impersonate-case/{case}', [DashboardController::class, 'impersonateAndViewCase'])->name('impersonate.case');
     Route::get('/support', SupportIndex::class)->name('support.index');
+    Route::get('/cms-pages', CmsPagesIndex::class)->name('cms-pages.index');
 });
 
     // 1. Leave Impersonation Route

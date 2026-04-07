@@ -260,11 +260,10 @@
     .outcome-result {
         padding-top: 20px;
         border-top: 1px solid var(--border);
-        font-size: 0.875rem; font-weight: 700; color: var(--ink);
         display: flex; align-items: center; gap: 8px;
         min-height: 3.5rem; 
     }
-    .outcome-result svg { color: var(--accent); width: 14px; height: 14px; flex-shrink: 0; }
+    .outcome-result svg { width: 16px; height: 16px; flex-shrink: 0; }
 
     /* ─── EXACT SITUATIONS ─── */
     #situations {
@@ -546,6 +545,20 @@
                     <p>Unjamm was built for that moment. Not just to dispute charges — but to help you get unstuck. Through structured communication, guided escalation, and AI-assisted drafting.</p>
                 </div>
                 <p>We act as your human copilot when dealing with institutions — bringing clarity where there was only confusion, and momentum where there was only stall.</p>
+                
+                <div style="margin-top: 16px;">
+                    @auth
+                        <a href="{{ auth()->user()->role === 'admin' ? route('admin.dashboard') : route('user.dashboard') }}" class="btn-primary" style="background: var(--accent); color: white; display: inline-flex; align-items: center; gap: 8px; padding: 14px 28px; border-radius: 12px; font-weight: 600; text-decoration: none;">
+                            Go to Dashboard
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                        </a>
+                    @else
+                        <a href="{{ route('register') }}" class="btn-primary" style="background: var(--accent); color: white; display: inline-flex; align-items: center; gap: 8px; padding: 14px 28px; border-radius: 12px; font-weight: 600; text-decoration: none;">
+                            Get Started
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                        </a>
+                    @endauth
+                </div>
             </div>
         </div>
     </section>
@@ -583,8 +596,8 @@
                         <p>For years, a pending municipal information request went unresolved. Language was a barrier and formal communication was unclear. AI-drafted Portuguese emails and structured follow-up changed everything.</p>
                     </div>
                     <div class="outcome-result">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width:16px; color:var(--accent);"><path d="M20 6L9 17l-5-5"/></svg>
-                        <span>Information received within 2 months</span>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent);"><path d="M20 6L9 17l-5-5"/></svg>
+                        <span style="color: var(--accent); font-weight: 800; font-size: 1rem;">Information received in 2 months</span>
                     </div>
                 </div>
 
@@ -595,8 +608,8 @@
                         <p>A refund request approved and then rejected multiple times. A structured three-stage escalation process — ultimately reaching the Better Business Bureau — broke the stalemate.</p>
                     </div>
                     <div class="outcome-result">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width:16px; color:var(--accent);"><path d="M20 6L9 17l-5-5"/></svg>
-                        <span>Full refund obtained</span>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="color:#16a34a;"><path d="M20 6L9 17l-5-5"/></svg>
+                        <span style="color: #16a34a; font-weight: 800; font-size: 1rem;">$480.00 Recovered</span>
                     </div>
                 </div>
 
@@ -607,8 +620,8 @@
                         <p>Securing access to public healthcare through the correct channels is notoriously complicated. Structured written requests navigated the system effectively.</p>
                     </div>
                     <div class="outcome-result">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width:16px; color:var(--accent);"><path d="M20 6L9 17l-5-5"/></svg>
-                        <span>Placed on correct waiting list</span>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent);"><path d="M20 6L9 17l-5-5"/></svg>
+                        <span style="color: var(--accent); font-weight: 800; font-size: 1rem;">Placed on correct waiting list</span>
                     </div>
                 </div>
             </div>

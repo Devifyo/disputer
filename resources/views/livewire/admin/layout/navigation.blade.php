@@ -113,6 +113,13 @@
                 Plans & Pricing
             </a>
 
+            <div class="px-3 mt-6 mb-2 text-[10px] uppercase tracking-wider font-bold text-slate-600">Content</div>
+
+            <a href="{{ route('admin.cms-pages.index') }}" wire:navigate class="{{ $navClass('admin.cms-pages.*') }} group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200" @click="mobileSidebarOpen = false">
+                <i data-lucide="layout" class="w-4.5 h-4.5 transition-colors {{ $iconClass('admin.cms-pages.*') }}"></i>
+                CMS Pages
+            </a>
+
             <div class="px-3 mt-6 mb-2 text-[10px] uppercase tracking-wider font-bold text-slate-600">System</div>
             
             <a href="{{ route('admin.settings.index') }}" wire:navigate class="{{ $navClass('admin.settings.*') }} group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200" @click="mobileSidebarOpen = false">

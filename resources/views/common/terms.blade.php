@@ -1,21 +1,28 @@
+@php $page = \App\Models\CmsPage::findBySlug('terms-of-service'); @endphp
 <!DOCTYPE html>
 <html lang="en" class="bg-slate-50 antialiased selection:bg-blue-200 selection:text-blue-900">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Terms of Service - {{ config('app.name') }}</title>
-
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
-    
     <style>
         body { font-family: 'Inter', sans-serif; }
+        .prose h2 { font-size: 1.2rem; font-weight: 700; color: #0f172a; margin-top: 2rem; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 8px; }
+        .prose h2::before { content: ''; display: inline-block; width: 4px; height: 1.1em; background: #2563eb; border-radius: 2px; flex-shrink: 0; }
+        .prose h3 { font-size: 1rem; font-weight: 700; color: #0f172a; margin-top: 1.25rem; margin-bottom: 0.5rem; }
+        .prose p { margin-bottom: 1rem; color: #475569; line-height: 1.75; }
+        .prose ul { list-style: disc; padding-left: 1.5rem; margin-bottom: 1rem; color: #475569; }
+        .prose ul li { margin-bottom: 0.5rem; line-height: 1.7; }
+        .prose strong { color: #1e293b; }
+        .prose a { color: #2563eb; text-decoration: underline; }
+        .prose hr { border: none; border-top: 1px solid #f1f5f9; margin: 2rem 0; }
     </style>
 </head>
 <body class="text-slate-600 bg-slate-50">
 
-    {{-- Sticky Navigation Bar --}}
     <nav class="sticky top-0 z-50 w-full bg-white/80 backdrop-blur-md border-b border-slate-200 shadow-sm">
         <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
             <div class="flex items-center gap-2">
@@ -24,75 +31,27 @@
                 </div>
                 <span class="font-bold text-slate-900 tracking-tight">{{ config('app.name') }}</span>
             </div>
-            
-            @auth
-                <a href="{{ route('user.dashboard') }}" class="inline-flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-lg transition-colors">
-                    <i data-lucide="arrow-left" class="w-4 h-4"></i>
-                    Back to Dashboard
-                </a>
-            @else
-                <a href="{{ route('home') }}" class="inline-flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-lg transition-colors">
-                    <i data-lucide="arrow-left" class="w-4 h-4"></i>
-                    Back to Home
-                </a>
-            @endauth
+            <button onclick="history.back()" class="inline-flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-lg transition-colors">
+                <i data-lucide="arrow-left" class="w-4 h-4"></i> Back
+            </button>
         </div>
     </nav>
 
-    {{-- Header Section --}}
-    <header class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-8 text-center">
-        <h1 class="text-3xl sm:text-4xl font-bold text-slate-900 tracking-tight mb-4">Terms of Service</h1>
-        <p class="text-sm text-slate-500 font-medium bg-slate-200/50 inline-block px-3 py-1 rounded-full">
-            Last Updated: {{ date('F d, Y') }}
+    <header class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-8">
+        <h1 class="text-3xl sm:text-4xl font-bold text-slate-900 tracking-tight mb-3">
+            {{ $page?->title ?? 'Terms of Service' }}
+        </h1>
+        <p class="text-sm text-slate-500 font-medium">
+            Last Updated: {{ $page?->last_updated_at?->format('F d, Y') ?? date('F d, Y') }}
         </p>
     </header>
 
-    {{-- Reading Container --}}
     <main class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 pb-24">
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 sm:p-12 text-[15px] sm:text-base leading-relaxed space-y-6">
-            
-            <p class="text-lg text-slate-700 font-medium">
-                By creating an account and using {{ config('app.name', 'Unjamm') }}, you agree to be bound by these Terms of Service. If you do not agree to these terms, please do not use our platform.
-            </p>
-
-            <hr class="border-slate-100 my-8">
-
-            {{-- UPDATED: Disclaimer Alert Box --}}
-            <div class="bg-amber-50 border-l-4 border-amber-500 p-6 rounded-r-xl mb-8">
-                <h3 class="font-bold text-amber-900 flex items-center gap-2 mb-2">
-                    <i data-lucide="alert-triangle" class="w-5 h-5"></i> Platform Disclaimer & Not Legal Advice
-                </h3>
-                <p class="text-sm text-amber-800">
-                    {{ config('app.name', 'Unjamm') }} is a technology platform that helps users organize and send dispute communications. It does not provide legal advice and does not guarantee dispute outcomes. The letters, templates, and workflows generated by our platform are for informational and organizational purposes only.
-                </p>
-            </div>
-
-            {{-- UPDATED: Added User Responsibility for Reviewing Emails --}}
-            <h2 class="text-xl font-bold text-slate-900 mt-8 mb-4">1. User Responsibilities</h2>
-            <p>
-                You are entirely responsible for the accuracy of the information you provide in your dispute cases. <strong>Users are also strictly responsible for reviewing all emails and communications generated by the platform before they are sent.</strong> Submitting fraudulent claims, falsifying documents, or utilizing our systems to harass institutions violates these terms and will result in immediate account termination.
-            </p>
-
-            <h2 class="text-xl font-bold text-slate-900 mt-8 mb-4">2. Dispute Outcomes</h2>
-            <p>
-                As stated in our disclaimer, {{ config('app.name', 'Unjamm') }} makes no guarantees regarding the outcome, timeframe, or financial recovery of your specific case. Each dispute is subject to the policies of the receiving institution.
-            </p>
-
-            <h2 class="text-xl font-bold text-slate-900 mt-8 mb-4">3. Fair Use</h2>
-            <p>
-                Our AI generation tools and email delivery systems are subject to fair use. Automated scraping, reverse engineering, or attempting to bypass our rate limits is strictly prohibited.
-            </p>
-
-            <h2 class="text-xl font-bold text-slate-900 mt-8 mb-4">4. Account Termination</h2>
-            <p>
-                We reserve the right to suspend or terminate your access to the platform at our sole discretion, without notice, for conduct that we believe violates these Terms of Service or is harmful to other users, us, or third parties.
-            </p>
-
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 sm:p-12 text-[15px] sm:text-base leading-relaxed prose">
+            {!! $page?->content ?? '<p>Content not available.</p>' !!}
         </div>
     </main>
 
-    <script>
-        lucide.createIcons();
-    </script>
+    <script>lucide.createIcons();</script>
 </body>
 </html>
