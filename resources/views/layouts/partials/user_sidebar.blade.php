@@ -47,10 +47,58 @@
 
         <div class="px-2 mt-8 mb-3 text-[10px] uppercase tracking-wider font-bold text-slate-600 font-mono">Tools</div>
 
-        <a href="{{ route('user.templates.index') }}" class="{{ navClass('user.templates.*') }} group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all">
-            <i data-lucide="file-text" class="w-5 h-5 transition-colors {{ request()->routeIs('user.templates.*') ? 'text-blue-400' : 'text-slate-500 group-hover:text-slate-300' }}"></i>
-            Cases Email Templates
-        </a>
+        @if(Auth::user()->canCreateCase())
+            <a href="{{ route('user.templates.index') }}" class="{{ navClass('user.templates.*') }} group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all">
+                <i data-lucide="file-text" class="w-5 h-5 transition-colors {{ request()->routeIs('user.templates.*') ? 'text-blue-400' : 'text-slate-500 group-hover:text-slate-300' }}"></i>
+                Cases Email Templates
+            </a>
+        @else
+            <div x-data="{ open: false }">
+                <button @click="open = true" class="w-full hover:bg-white/5 hover:text-slate-200 text-slate-400 group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all">
+                    <i data-lucide="file-text" class="w-5 h-5 text-slate-500 group-hover:text-slate-300 transition-colors"></i>
+                    <span class="flex-1 text-left">Cases Email Templates</span>
+                    <i data-lucide="lock" class="w-3.5 h-3.5 text-slate-600 group-hover:text-amber-400 transition-colors shrink-0"></i>
+                </button>
+
+                {{-- Subscription required popup --}}
+                <div x-show="open" style="display:none" class="fixed inset-0 z-[999] flex items-center justify-center p-4"
+                     x-transition:enter="transition ease-out duration-200"
+                     x-transition:enter-start="opacity-0"
+                     x-transition:enter-end="opacity-100"
+                     x-transition:leave="transition ease-in duration-150"
+                     x-transition:leave-start="opacity-100"
+                     x-transition:leave-end="opacity-0">
+
+                    <div class="absolute inset-0 bg-slate-900/70 backdrop-blur-sm" @click="open = false"></div>
+
+                    <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 flex flex-col items-center text-center ring-1 ring-slate-900/5"
+                         x-transition:enter="transition ease-out duration-200"
+                         x-transition:enter-start="opacity-0 scale-95"
+                         x-transition:enter-end="opacity-100 scale-100">
+
+                        <div class="w-14 h-14 rounded-full bg-amber-50 border border-amber-100 flex items-center justify-center mb-4">
+                            <i data-lucide="lock" class="w-6 h-6 text-amber-500"></i>
+                        </div>
+
+                        <h3 class="text-slate-900 font-bold text-lg mb-1">Subscription Required</h3>
+                        <p class="text-slate-500 text-sm leading-relaxed mb-6">
+                            Access to <span class="font-semibold text-slate-700">Cases Email Templates</span> requires an active subscription or available cases.
+                        </p>
+
+                        <div class="flex flex-col gap-2 w-full">
+                            <a href="{{ route('profile.edit') }}#billing"
+                               class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold transition-all shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2">
+                                <i data-lucide="credit-card" class="w-4 h-4"></i>
+                                View Plans
+                            </a>
+                            <button @click="open = false" class="w-full py-2.5 text-slate-500 hover:text-slate-700 text-sm font-medium transition-colors">
+                                Maybe later
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        @endif
 
         {{-- <a href="{{ route('user.emails.index') }}" class="{{ navClass('user.emails.*') }} group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all justify-between">
             <div class="flex items-center gap-3">

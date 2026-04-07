@@ -37,11 +37,13 @@ Route::middleware(['auth', 'verified', 'role_access:user'])->name('user.')->grou
     ->name('evidence.download')
     ->middleware('signed');
 
-    // lettler templates
-    Route::get('/templates', [TemplateController::class, 'index'])->name('templates.index');
+    // lettler templates — requires active subscription or cases remaining
+    Route::middleware('requires_subscription')->group(function () {
+        Route::get('/templates', [TemplateController::class, 'index'])->name('templates.index');
+        Route::get('/templates/search', [TemplateController::class, 'search'])->name('templates.search');
+    });
     //emails
     Route::resource('emails', EmailController::class)->only(['index', 'show', 'create', 'store']);
-    Route::get('/templates/search', [TemplateController::class, 'search'])->name('templates.search');
     
     // Add this new route for sending emails from the case timeline
     Route::post('/cases/{case}/send-email', [CaseController::class, 'sendEmail'])->name('cases.send_email');
