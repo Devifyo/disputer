@@ -28,6 +28,7 @@ class AiReplyController extends Controller
             'prompt'         => $request->input('prompt', ''),
             'subject'        => $request->input('subject', ''),
             'user_name'      => $request->user()->name,
+            'attachments'    => $request->file('attachments', []),
         ];
 
         // Call the service

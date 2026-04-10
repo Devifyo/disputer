@@ -191,40 +191,83 @@ class CaseWorkflow extends Component
             return;
         }
 
-        $daysInStage = (int)$this->case->updated_at->diffInDays(now());
-        
-        // Safely extract timeouts so PHP doesn't throw an undefined array key error
+        $daysInStage       = (int) $this->case->updated_at->diffInDays(now());
         $totalDeadlineDays = data_get($this->currentStepConfig, 'timeouts.0.days', 14);
-        
-        $isDeadlinePassed = $daysInStage >= $totalDeadlineDays ? 'Yes' : 'No';
+        $daysRemaining     = max(0, $totalDeadlineDays - $daysInStage);
+        $deadlineBreached  = $daysInStage >= $totalDeadlineDays;
+        $emailsSent        = $this->case->emails()->where('direction', 'outbound')->count();
+        $escalationLevel   = $this->case->escalation_level ?? 0;
+        $stepLabel         = data_get($this->currentStepConfig, 'label', $this->currentStepKey);
 
-        $prompt = "You are a legal workflow assistant. " .
-                "Institution: {$this->case->institution_name}. " .
-                "Current stage: {$this->currentStepKey}. " .
-                "Days elapsed: {$daysInStage}. " .
-                "Deadline passed: {$isDeadlinePassed}. " .
-                "INSTRUCTION: Suggest the single most appropriate next step based strictly on timing. " .
-                "STRICT LIMITS: 30–45 words. Plain text only.";
+        $lastEscalatedAt   = $this->case->last_escalated_at;
+        $daysSinceEscalation = $lastEscalatedAt ? (int) $lastEscalatedAt->diffInDays(now()) : null;
+        $recentlyEscalated = $daysSinceEscalation !== null && $daysSinceEscalation <= 14;
+
+        // Build deadline context
+        $deadlineNote = $deadlineBreached
+            ? "The response deadline has been breached by " . ($daysInStage - $totalDeadlineDays) . " day(s)."
+            : "There are {$daysRemaining} day(s) left before the response deadline.";
+
+        // Build escalation context so the AI doesn't recommend something already done
+        if ($recentlyEscalated) {
+            $escalationContext =
+                "IMPORTANT: This case was already escalated {$daysSinceEscalation} day(s) ago (escalation level: {$escalationLevel}). " .
+                "Do NOT recommend escalating again. The escalation is in progress — the user must wait for the regulator or next party to respond. " .
+                "Advise patience and tell them what signs to watch for that would indicate they need to follow up.";
+        } elseif ($escalationLevel > 0) {
+            $escalationContext =
+                "This case has been escalated (level {$escalationLevel}) but it has been {$daysSinceEscalation} day(s) since the last escalation. " .
+                "If the deadline has been breached, recommend a firm follow-up with the regulator or ombudsman, not a fresh escalation.";
+        } else {
+            $escalationContext =
+                "This case has not been escalated yet (level 0). " .
+                "If the deadline has been breached and no resolution is near, escalation to a regulator or ombudsman may be appropriate.";
+        }
+
+        $prompt =
+            "You are a dispute resolution advisor giving a quick case status briefing to the person running this dispute.\n\n" .
+            "CASE FACTS:\n" .
+            "- Institution: {$this->case->institution_name}\n" .
+            "- Current Stage: {$stepLabel}\n" .
+            "- Days spent in this stage: {$daysInStage} (deadline: {$totalDeadlineDays} days)\n" .
+            "- {$deadlineNote}\n" .
+            "- Outbound emails sent so far: {$emailsSent}\n" .
+            "- {$escalationContext}\n\n" .
+            "Write a plain-text status briefing in exactly 3 short paragraphs (no labels, no bullets, no markdown, no asterisks):\n" .
+            "Paragraph 1 — Where the case stands right now in plain human terms.\n" .
+            "Paragraph 2 — The single most important action they should take next, and why.\n" .
+            "Paragraph 3 — Deadline and escalation status. Follow the escalation context strictly — never recommend an action that has already been taken.\n\n" .
+            "Maximum 90 words total. Write like a knowledgeable friend, not a legal robot.";
 
         try {
-            // Using your confirmed working model and endpoint
-            $model = 'gemini-2.5-flash';
+            $model    = 'gemini-2.5-flash';
             $endpoint = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key={$apiKey}";
 
-            $response = Http::post($endpoint, [
-                'contents' => [['parts' => [['text' => $prompt]]]]
-            ]);
+            $response = Http::timeout(60)
+                ->retry(3, 2000, function (\Exception $e) {
+                    if ($e instanceof \Illuminate\Http\Client\ConnectionException) return true;
+                    if ($e instanceof \Illuminate\Http\Client\RequestException) {
+                        return in_array($e->response->status(), [429, 503]);
+                    }
+                    return false;
+                }, throw: false)
+                ->post($endpoint, [
+                    'contents'         => [['parts' => [['text' => $prompt]]]],
+                    'generationConfig' => ['thinkingConfig' => ['thinkingBudget' => 0]],
+                ]);
 
             if ($response->successful()) {
-                // Safely extract the text from the JSON response
-                $rawText = data_get($response->json(), 'candidates.0.content.parts.0.text', 'Please check back later.');
-                $this->aiResponse = trim(strip_tags($rawText));
+                $rawText = data_get($response->json(), 'candidates.0.content.parts.0.text', '');
+                // Strip any markdown the model sneaks in
+                $clean = preg_replace('/\*{1,3}([^*]+)\*{1,3}/', '$1', $rawText);
+                $clean = preg_replace('/_{1,2}([^_]+)_{1,2}/', '$1', $clean);
+                $this->aiResponse = trim($clean) ?: "No advice could be generated. Please try again.";
             } else {
-                Log::error("Gemini API Error", ['status' => $response->status(), 'body' => $response->body()]);
-                $this->aiResponse = "I'm unable to analyze the case details at this moment.";
+                Log::error('AI Copilot API Error', ['status' => $response->status(), 'body' => $response->body()]);
+                $this->aiResponse = "The AI is temporarily unavailable. Please try again in a moment.";
             }
         } catch (\Exception $e) {
-            Log::error("Gemini Assistant Error: " . $e->getMessage());
+            Log::error('AI Copilot Exception', ['message' => $e->getMessage()]);
             $this->aiResponse = "Connection failed. Please try again shortly.";
         }
 
@@ -371,7 +414,7 @@ public function sendEmail(\App\Services\SendEmailService $emailService)
                     'reason' => $reason
                 ]
             ]);
-
+            
             $this->dispatch('workflow-updated');
 
         } catch (\Exception $e) {

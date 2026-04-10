@@ -216,16 +216,32 @@
                 </div>
             @elseif($aiResponse)
                 <div class="text-left">
-                    <div class="flex items-center gap-3 mb-6">
-                        <div class="p-2.5 bg-indigo-100 rounded-xl text-indigo-600">
-                            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                    <div class="flex items-center gap-3 mb-5">
+                        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-md shadow-indigo-500/25 shrink-0">
+                            <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"/></svg>
                         </div>
-                        <h3 class="text-lg font-bold text-slate-900">AI Advice</h3>
+                        <div>
+                            <h3 class="text-base font-bold text-slate-900 leading-tight">AI Copilot</h3>
+                            <p class="text-[11px] text-slate-400 font-medium">Case status briefing</p>
+                        </div>
                     </div>
-                    <div class="bg-indigo-50/50 rounded-xl p-6 border border-indigo-100 text-sm text-indigo-900 leading-relaxed font-medium">
-                        {{ $aiResponse }}
+
+                    <div class="space-y-3">
+                        @foreach(array_filter(array_map('trim', explode("\n\n", trim($aiResponse)))) as $i => $paragraph)
+                            @php
+                                $icons   = ['M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z', 'M13 10V3L4 14h7v7l9-11h-7z', 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z'];
+                                $colors  = ['bg-emerald-50 border-emerald-100 text-emerald-900', 'bg-indigo-50 border-indigo-100 text-indigo-900', 'bg-amber-50 border-amber-100 text-amber-900'];
+                                $icClr   = ['text-emerald-500', 'text-indigo-500', 'text-amber-500'];
+                                $idx     = min($i, 2);
+                            @endphp
+                            <div class="flex gap-3 p-4 rounded-xl border {{ $colors[$idx] }}">
+                                <svg class="w-4 h-4 mt-0.5 shrink-0 {{ $icClr[$idx] }}" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $icons[$idx] }}"/></svg>
+                                <p class="text-sm leading-relaxed font-medium">{{ $paragraph }}</p>
+                            </div>
+                        @endforeach
                     </div>
-                    <div class="mt-8 flex justify-end">
+
+                    <div class="mt-6 flex justify-end">
                         <button wire:click="closeAiModal" class="px-5 py-2.5 bg-slate-900 text-white text-sm font-bold rounded-lg hover:bg-slate-800 transition-all">Got it, thanks</button>
                     </div>
                 </div>

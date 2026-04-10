@@ -18,15 +18,15 @@
                     </template>
 
                     {{-- NEW EMAIL BUTTON --}}
-                    <button type="button" 
-                            @click="$dispatch('open-compose-modal', { 
+                    <button type="button"
+                            @click="$dispatch('open-compose-modal', {
                                 subject: 'Case #{{ $case->case_reference_id }}',
                                 body: '',
                                 isEscalation: false,
                                 isFollowUp: false
-                            })" 
-                            class="text-xs font-bold text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-1 transition-colors">
-                        <i data-lucide="plus" class="w-3 h-3"></i> New Email
+                            })"
+                            class="text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 active:scale-95 flex items-center gap-1.5 px-3 py-1.5 rounded-lg shadow-sm border border-blue-700 transition-all duration-150">
+                        <i data-lucide="plus" class="w-3.5 h-3.5"></i> New Email
                     </button>
                 </div>
             </div>

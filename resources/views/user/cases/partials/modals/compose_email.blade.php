@@ -139,40 +139,90 @@
                         </button>
                     </div>
 
-                    <textarea name="body" id="body" x-model="replyBody" class="w-full flex-1 text-sm text-slate-700 leading-relaxed border-0 focus:ring-0 resize-none placeholder:text-slate-300 outline-none" placeholder="Type your message here..."></textarea>
-                </div>
-                {{-- text area end --}}
-                <div class="px-6 pb-6 pt-2 bg-slate-50 border-t border-slate-100">
-                    <div class="flex items-center justify-between mb-3">
-                        <label class="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-300 rounded-md shadow-sm text-xs font-bold text-slate-700 hover:bg-slate-100 cursor-pointer transition-all">
-                            <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path></svg>
-                            Attach Files
-                            <input type="file" multiple class="hidden" @change="addFiles($event)">
-                        </label>
-                        <span class="text-[10px] text-slate-400" x-text="files.length + ' files selected'"></span>
-                    </div>
+                    <div class="relative flex-1 flex flex-col min-h-0">
 
-                    <input type="file" name="attachments[]" multiple class="hidden" x-ref="hiddenInput">
+                        {{-- AI Generation Overlay --}}
+                        <div x-show="isGenerating"
+                             x-transition:enter="transition ease-out duration-300"
+                             x-transition:enter-start="opacity-0 scale-[0.98]"
+                             x-transition:enter-end="opacity-100 scale-100"
+                             x-transition:leave="transition ease-in duration-200"
+                             x-transition:leave-start="opacity-100 scale-100"
+                             x-transition:leave-end="opacity-0 scale-[0.98]"
+                             class="absolute inset-0 z-10 rounded-xl overflow-hidden flex flex-col p-4 bg-gradient-to-br from-violet-50 via-white to-purple-50 border border-violet-200 shadow-inner">
 
-                    <div class="space-y-2">
-                        <template x-for="(file, index) in files" :key="index">
-                            <div class="flex items-center justify-between p-2 bg-white border border-slate-200 rounded-lg shadow-sm group hover:border-blue-300 transition-colors">
-                                <div class="flex items-center gap-3 overflow-hidden">
-                                    <div class="w-8 h-8 rounded bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0 text-slate-500 font-bold text-[10px] uppercase">
-                                        <span x-text="file.name.split('.').pop()"></span>
-                                    </div>
-                                    <div class="min-w-0">
-                                        <p class="text-xs font-bold text-slate-700 truncate max-w-[200px]" x-text="file.name"></p>
-                                        <p class="text-[10px] text-slate-400" x-text="formatSize(file.size)"></p>
+                            {{-- Ambient glow orbs --}}
+                            <div class="pointer-events-none absolute -top-6 -left-6 w-28 h-28 rounded-full bg-violet-400 opacity-10 blur-3xl animate-pulse"></div>
+                            <div class="pointer-events-none absolute -bottom-6 -right-6 w-36 h-36 rounded-full bg-purple-500 opacity-10 blur-3xl animate-pulse" style="animation-delay:1.2s"></div>
+
+                            {{-- Status row --}}
+                            <div class="flex items-center gap-3 mb-4 shrink-0">
+                                <div class="w-9 h-9 rounded-full bg-gradient-to-br from-violet-600 to-purple-600 flex items-center justify-center shadow-lg shadow-purple-500/30 shrink-0">
+                                    <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"/></svg>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-xs font-bold text-violet-700 truncate ai-message-fade" x-text="aiMessages[currentAiMessage]"></p>
+                                    <div class="flex items-center gap-1 mt-1">
+                                        <div class="w-1.5 h-1.5 rounded-full bg-violet-500 animate-bounce" style="animation-duration:1.6s;animation-delay:0ms"></div>
+                                        <div class="w-1.5 h-1.5 rounded-full bg-violet-400 animate-bounce" style="animation-duration:1.6s;animation-delay:280ms"></div>
+                                        <div class="w-1.5 h-1.5 rounded-full bg-violet-300 animate-bounce" style="animation-duration:1.6s;animation-delay:560ms"></div>
                                     </div>
                                 </div>
-                                <button type="button" @click="removeFile(index)" class="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-all cursor-pointer">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                                </button>
                             </div>
-                        </template>
-                        <div x-show="files.length === 0" class="text-[10px] text-slate-400 italic py-2">No files attached yet.</div>
+
+                            {{-- Shimmer skeleton lines --}}
+                            <div class="space-y-2.5 flex-1">
+                                <div class="h-2.5 rounded-full ai-shimmer" style="width:91%"></div>
+                                <div class="h-2.5 rounded-full ai-shimmer" style="width:76%;animation-delay:.4s"></div>
+                                <div class="h-2.5 rounded-full ai-shimmer" style="width:87%;animation-delay:.2s"></div>
+                                <div class="h-2.5 rounded-full ai-shimmer" style="width:63%;animation-delay:.6s"></div>
+                                <div class="h-2.5 rounded-full ai-shimmer mt-3" style="width:84%;animation-delay:.15s"></div>
+                                <div class="h-2.5 rounded-full ai-shimmer" style="width:73%;animation-delay:.5s"></div>
+                                <div class="h-2.5 rounded-full ai-shimmer" style="width:89%;animation-delay:.3s"></div>
+                                <div class="h-2.5 rounded-full ai-shimmer mt-3" style="width:58%;animation-delay:.7s"></div>
+                            </div>
+                        </div>
+
+                        <textarea name="body" id="body" x-model="replyBody"
+                                  class="w-full flex-1 text-sm text-slate-700 leading-relaxed border-0 focus:ring-0 resize-none placeholder:text-slate-300 outline-none"
+                                  placeholder="Type your message here..."></textarea>
                     </div>
+                </div>
+                {{-- text area end --}}
+            </div>
+
+            {{-- Attachment bar — shrink-0 so it's always visible on every screen size --}}
+            <div class="px-6 py-3 bg-slate-50 border-t border-slate-100 shrink-0">
+                <div class="flex items-center justify-between mb-2">
+                    <label class="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-300 rounded-md shadow-sm text-xs font-bold text-slate-700 hover:bg-slate-100 cursor-pointer transition-all">
+                        <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path></svg>
+                        Attach Files
+                        <input type="file" multiple class="hidden" @change="addFiles($event)">
+                    </label>
+                    <span class="text-[10px] text-slate-400" x-text="files.length + ' files selected'"></span>
+                </div>
+
+                <input type="file" name="attachments[]" multiple class="hidden" x-ref="hiddenInput">
+
+                {{-- File list capped so many attachments never push the Send button off screen --}}
+                <div class="space-y-1.5 max-h-[110px] overflow-y-auto">
+                    <template x-for="(file, index) in files" :key="index">
+                        <div class="flex items-center justify-between p-2 bg-white border border-slate-200 rounded-lg shadow-sm group hover:border-blue-300 transition-colors">
+                            <div class="flex items-center gap-3 overflow-hidden">
+                                <div class="w-7 h-7 rounded bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0 text-slate-500 font-bold text-[10px] uppercase">
+                                    <span x-text="file.name.split('.').pop()"></span>
+                                </div>
+                                <div class="min-w-0">
+                                    <p class="text-xs font-bold text-slate-700 truncate max-w-[180px] sm:max-w-[260px]" x-text="file.name"></p>
+                                    <p class="text-[10px] text-slate-400" x-text="formatSize(file.size)"></p>
+                                </div>
+                            </div>
+                            <button type="button" @click="removeFile(index)" class="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-all cursor-pointer">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                            </button>
+                        </div>
+                    </template>
+                    <div x-show="files.length === 0" class="text-[10px] text-slate-400 italic py-1">No files attached yet.</div>
                 </div>
             </div>
 
@@ -192,6 +242,23 @@
         </form>
     </div>
     @push('scripts')
+    <style>
+        @keyframes ai-shimmer {
+            0%, 100% { background-color: #ede9fe; }
+            50%       { background-color: #c4b5fd; }
+        }
+        .ai-shimmer {
+            animation: ai-shimmer 2.8s ease-in-out infinite;
+        }
+        @keyframes ai-msg-fade {
+            0%,100% { opacity: 1; transform: translateY(0); }
+            45%     { opacity: 0; transform: translateY(-6px); }
+            55%     { opacity: 0; transform: translateY(6px); }
+        }
+        .ai-message-fade {
+            animation: ai-msg-fade 3.2s ease-in-out infinite;
+        }
+    </style>
     <script>
         $(document).ready(function () {
             $("#composeForm").validate({
@@ -255,11 +322,37 @@
         function fileManager() {
             return {
                 files: [],
-                isGenerating: false, 
-                
+                isGenerating: false,
+
+                aiMessages: [
+                    'Analyzing your case history...',
+                    'Reviewing previous correspondence...',
+                    'Identifying key facts and dates...',
+                    'Building your strongest argument...',
+                    'Selecting the right tone...',
+                    'Drafting your response...',
+                    'Polishing the language...',
+                    'Almost ready...',
+                ],
+                currentAiMessage: 0,
+                _messageTimer: null,
+
+                startMessageCycle() {
+                    this.currentAiMessage = 0;
+                    this._messageTimer = setInterval(() => {
+                        this.currentAiMessage = (this.currentAiMessage + 1) % this.aiMessages.length;
+                    }, 3200);
+                },
+                stopMessageCycle() {
+                    clearInterval(this._messageTimer);
+                    this._messageTimer = null;
+                    this.currentAiMessage = 0;
+                },
+
                 // Added Auto-Retry Logic & SweetAlert Errors
                 async generateAIReply(caseId, currentSubject, isEscalation, isFollowUp, emailId) {
                     this.isGenerating = true;
+                    this.startMessageCycle();
                     
                     let maxRetries = 3;
                     let attempt = 0;
@@ -268,18 +361,21 @@
                     while (attempt < maxRetries && !success) {
                         try {
                             attempt++;
+                            const formData = new FormData();
+                                formData.append('subject', currentSubject ?? '');
+                                formData.append('is_escalation', isEscalation ? '1' : '0');
+                                formData.append('is_followup', isFollowUp ? '1' : '0');
+                                if (emailId) formData.append('reply_email_id', emailId);
+                                this.files.forEach((file, i) => {
+                                    formData.append(`attachments[${i}]`, file, file.name);
+                                });
+
                             const response = await fetch(`/cases/${caseId}/ai-reply`, {
                                 method: 'POST',
                                 headers: {
-                                    'Content-Type': 'application/json',
                                     'X-CSRF-TOKEN': '{{ csrf_token() }}'
                                 },
-                                body: JSON.stringify({ 
-                                    subject: currentSubject,
-                                    is_escalation: isEscalation,
-                                    is_followup: isFollowUp,
-                                    reply_email_id: emailId
-                                })
+                                body: formData
                             });
                             
                             const data = await response.json();
@@ -322,6 +418,7 @@
                         }
                     }
                     
+                    this.stopMessageCycle();
                     this.isGenerating = false;
                 },
 
