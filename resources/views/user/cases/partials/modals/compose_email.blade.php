@@ -6,11 +6,11 @@
     <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" 
          @click="composeModalOpen = false"></div>
     
-    <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden max-h-[90vh]"
+    <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden max-h-[75vh] sm:max-h-[85vh] lg:max-h-[90vh]"
          x-data="fileManager('{{ encrypt_id($case->id) ?? $case->id }}')">
          
         {{-- ADDED @submit.prevent to intercept the submission --}}
-        <form @submit.prevent="submitForm" action="{{ route('user.cases.send_email', encrypt_id($case->id)) }}" method="POST" enctype="multipart/form-data" class="flex flex-col h-full" id="composeForm">
+        <form @submit.prevent="submitForm" action="{{ route('user.cases.send_email', encrypt_id($case->id)) }}" method="POST" enctype="multipart/form-data" class="flex flex-col flex-1 min-h-0" id="composeForm">
             @csrf
             <input type="hidden" name="is_escalation" :value="isEscalation ? 1 : 0">
             <input type="hidden" name="is_followup"   :value="isFollowUp ? 1 : 0">
@@ -23,7 +23,7 @@
                 </button>
             </div>
 
-            <div class="flex-1 overflow-y-auto">
+            <div class="flex-1 overflow-y-auto min-h-0">
                 <!-- <div class="px-6 pt-4 pb-2 space-y-1">
                     
                     {{-- To Field --}}
@@ -112,22 +112,28 @@
                     <textarea name="body" x-model="replyBody" class="w-full h-full text-sm text-slate-700 leading-relaxed border-0 focus:ring-0 resize-none placeholder:text-slate-300 outline-none" placeholder="Type your message here..."></textarea>
                 </div> --}}
                 {{-- EMAIL BODY WITH 1-CLICK AI BUTTON --}}
-                <div class="px-6 py-3 flex-1 flex flex-col min-h-[250px]">
+                <div class="px-6 py-3 flex-1 flex flex-col min-h-[100px] sm:min-h-[180px] lg:min-h-[250px]">
                     
-                    <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center justify-between mb-3">
                         <label class="text-xs font-semibold text-slate-500">Message</label>
-                        
+
                     {{-- 1-Click AI Generate Button --}}
-                        <button type="button" 
+                        <button type="button"
                                 @click="generateAIReply('{{ encrypt_id($case->id) ?? $case->id }}', replySubject, isEscalation, isFollowUp, replyEmailId)"
                                 :disabled="isGenerating"
-                                class="text-[10px] font-bold px-3 py-1.5 rounded-md border transition-all flex items-center gap-1.5 bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100 shadow-sm disabled:opacity-50 disabled:cursor-wait">
-                            <span x-show="!isGenerating" class="flex items-center gap-1.5">
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                                class="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold text-white
+                                       bg-gradient-to-r from-violet-600 to-purple-600
+                                       hover:from-violet-500 hover:to-purple-500
+                                       shadow-md shadow-purple-500/30 hover:shadow-lg hover:shadow-purple-500/50
+                                       hover:scale-[1.03] active:scale-[0.97]
+                                       transition-all duration-200
+                                       disabled:opacity-60 disabled:cursor-wait disabled:scale-100 disabled:shadow-md">
+                            <span x-show="!isGenerating" class="flex items-center gap-2">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"/></svg>
                                 Auto-Draft with AI
                             </span>
-                            <span x-show="isGenerating" class="flex items-center gap-1.5">
-                                <svg class="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                            <span x-show="isGenerating" class="flex items-center gap-2">
+                                <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                                 AI is writing...
                             </span>
                         </button>
@@ -279,9 +285,15 @@
                             const data = await response.json();
                             
                             if (data.text) {
-                                this.replyBody = data.text; 
+                                this.replyBody = data.text;
+                                this.$nextTick(() => {
+                                    const validator = $("#composeForm").data("validator");
+                                    if (validator) {
+                                        validator.element("#body");
+                                    }
+                                });
                                 if (data.subject && !this.replySubject) {
-                                    this.replySubject = data.subject; 
+                                    this.replySubject = data.subject;
                                 }
                                 success = true; // Success! Break the retry loop.
                             } else {
