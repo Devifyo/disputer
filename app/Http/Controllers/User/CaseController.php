@@ -105,7 +105,7 @@ class CaseController extends Controller
             'subject' => 'required|string|max:255',
             'body' => 'required|string',
             'attachments' => 'array',
-            'attachments.*' => 'nullable|file|mimes:pdf,jpg,jpeg,png,doc,docx|max:10240',
+            'attachments.*' => 'nullable|file|mimes:pdf,jpg,jpeg,png,doc,docx,mp4,mov,avi,mkv,webm|max:102400',
             'is_escalation' => 'nullable|boolean',
             'save_contact' => 'nullable|in:0,1',
             'target_step_key' => 'nullable|string'

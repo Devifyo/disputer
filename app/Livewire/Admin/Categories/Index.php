@@ -43,18 +43,21 @@ class Index extends Component
             'slug' => 'required|string|max:255|unique:institution_categories,slug,' . $this->category_id,
             'fallback_escalation_email' => 'nullable|email|max:255',
             'is_verified' => 'boolean',
-            
+
             // STRICT VALIDATION: Now enforced globally by Livewire
-            'initial_step' => ['required', 'string', Rule::in($stepKeys)], 
-            
+            'initial_step' => ['required', 'string', Rule::in($stepKeys)],
+
             'workflow_steps' => 'array|min:1',
-            'workflow_steps.*.step_key' => 'required|string|distinct',  
+            'workflow_steps.*.step_key' => 'required|string|distinct',
             'workflow_steps.*.label' => 'required|string',
             'workflow_steps.*.actions' => 'array',
             'workflow_steps.*.actions.*.label' => 'required|string',
             'workflow_steps.*.actions.*.to_step' => ['required', 'string', Rule::in($stepKeys)],
             'workflow_steps.*.on_inbound_email_step' => ['nullable', 'string', Rule::in($stepKeys)],
             'workflow_steps.*.requires_email' => 'boolean',
+            'workflow_steps.*.timeout_days' => 'nullable|integer|min:1',
+            'workflow_steps.*.escalation_target' => 'nullable|string|max:255',
+            'workflow_steps.*.escalation_email' => 'nullable|email|max:255',
         ];
     }
 
@@ -78,10 +81,13 @@ class Index extends Component
     {
         $this->workflow_steps[] = [
             'id' => (string) Str::uuid(),
-            'step_key' => '', 'label' => '', 'description' => '', 
+            'step_key' => '', 'label' => '', 'description' => '',
             'status_color' => 'slate', 'icon' => 'file', 'waiting_for' => '',
             'on_inbound_email_step' => '',
             'requires_email' => false,
+            'timeout_days' => '',
+            'escalation_target' => '',
+            'escalation_email' => '',
             'actions' => [], 'timeouts' => [], 'is_final' => false,
             'is_new' => true
         ];
@@ -123,12 +129,15 @@ class Index extends Component
         
         $this->initial_step = 'ticket_open';
         $this->workflow_steps = [
-            [   
+            [
                 'id' => (string) Str::uuid(),
                 'step_key' => 'ticket_open', 'label' => 'Ticket Open', 'description' => 'Awaiting initial review.',
                 'on_inbound_email_step' => '',
-                'status_color' => 'slate', 'icon' => 'ticket', 'waiting_for' => '', 
-                'actions' => [], 'timeouts' => [], 'is_final' => false,'requires_email' => false,
+                'status_color' => 'slate', 'icon' => 'ticket', 'waiting_for' => '',
+                'timeout_days' => '',
+                'escalation_target' => '',
+                'escalation_email' => '',
+                'actions' => [], 'timeouts' => [], 'is_final' => false, 'requires_email' => false,
             ]
         ];
 
@@ -160,12 +169,16 @@ class Index extends Component
             // Add UUIDs to existing actions
             $data['actions'] = $data['actions'] ?? [];
             foreach ($data['actions'] as &$action) {
-                $action['id'] = (string) Str::uuid(); // ADD THIS
+                $action['id'] = (string) Str::uuid();
             }
-            
+
+            // Extract timeout days from first timeout entry
+            $data['timeout_days'] = !empty($data['timeouts']) ? ($data['timeouts'][0]['days'] ?? '') : '';
             $data['timeouts'] = $data['timeouts'] ?? [];
             $data['is_final'] = $data['is_final'] ?? false;
             $data['requires_email'] = $data['requires_email'] ?? false;
+            $data['escalation_target'] = $data['escalation_target'] ?? '';
+            $data['escalation_email'] = $data['escalation_email'] ?? '';
             $this->workflow_steps[] = $data;
         }
 
@@ -188,7 +201,21 @@ class Index extends Component
                 unset($step['actions']);
             }
             if (empty($step['on_inbound_email_step'])) unset($step['on_inbound_email_step']);
+
+            // Convert timeout_days -> timeouts array
+            $timeoutDays = $step['timeout_days'] ?? null;
+            unset($step['timeout_days']);
+            if (!empty($timeoutDays) && is_numeric($timeoutDays)) {
+                $step['timeouts'] = [
+                    ['days' => (int) $timeoutDays, 'action' => 'suggest_escalation', 'message' => 'Escalation suggested after ' . (int) $timeoutDays . ' days.']
+                ];
+            }
             if (empty($step['timeouts'])) unset($step['timeouts']);
+
+            // Remove empty escalation fields
+            if (empty($step['escalation_target'])) unset($step['escalation_target']);
+            if (empty($step['escalation_email'])) unset($step['escalation_email']);
+
             if (!$step['is_final']) unset($step['is_final']);
             if (empty($step['requires_email'])) unset($step['requires_email']);
             $stepsDb[$key] = array_filter($step, fn($value) => !is_null($value) && $value !== '');

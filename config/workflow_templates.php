@@ -23,7 +23,7 @@ return [
                     'escalation_target' => 'Ombudsman Services',
                     'escalation_email' => 'contact@ombudsman-services.org',
                     'timeouts' => [
-                        ['days' => 56, 'action' => 'escalate_manager', 'message' => '8 weeks passed. You can now go to the Ombudsman.']
+                        ['days' => 7, 'action' => 'escalate_manager', 'message' => '8 weeks passed. You can now go to the Ombudsman.']
                     ],
                     'actions' => [
                         ['key' => 'reply_received', 'label' => 'Reply Received', 'to_step' => 'active_discussion'],

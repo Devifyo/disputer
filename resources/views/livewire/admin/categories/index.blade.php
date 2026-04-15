@@ -385,6 +385,34 @@
                                             </div>
                                         </div>
                                         <!-- end of row 3 -->
+
+                                        {{-- Row 4: Escalation & Timeout --}}
+                                        <div class="p-4 bg-amber-50/60 rounded-lg border border-amber-100 grid grid-cols-1 md:grid-cols-3 gap-4">
+                                            <div>
+                                                <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Timeout (Days)</label>
+                                                <input type="number" wire:model="workflow_steps.{{ $index }}.timeout_days"
+                                                       placeholder="e.g. 14" min="1"
+                                                       class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs focus:border-primary-500 outline-none bg-white">
+                                                <p class="text-[9px] text-slate-400 mt-1">Days before escalation is suggested. Leave blank for none.</p>
+                                                @error('workflow_steps.'.$index.'.timeout_days') <div class="text-[9px] text-rose-500 font-bold mt-1">{{ $message }}</div> @enderror
+                                            </div>
+                                            <div>
+                                                <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Escalation Target</label>
+                                                <input type="text" wire:model="workflow_steps.{{ $index }}.escalation_target"
+                                                       placeholder="e.g. Civil Aviation Authority"
+                                                       class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs focus:border-primary-500 outline-none bg-white">
+                                                <p class="text-[9px] text-slate-400 mt-1">Leave blank if no escalation for this step.</p>
+                                            </div>
+                                            <div>
+                                                <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Escalation Email</label>
+                                                <input type="email" wire:model="workflow_steps.{{ $index }}.escalation_email"
+                                                       placeholder="e.g. complaints@authority.org"
+                                                       class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs focus:border-primary-500 outline-none bg-white">
+                                                @error('workflow_steps.'.$index.'.escalation_email') <div class="text-[9px] text-rose-500 font-bold mt-1">{{ $message }}</div> @enderror
+                                            </div>
+                                        </div>
+                                        <!-- end of row 4 -->
+
                                         {{-- Sub-section: Actions --}}
                                         <div>
                                             <div class="flex items-center justify-between mb-2">

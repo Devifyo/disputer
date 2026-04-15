@@ -110,7 +110,7 @@
     </div>
 
     <script>
-        const FILE_TYPE = "{{ Str::contains($attachment->mime_type, 'image') ? 'image' : (Str::contains($attachment->mime_type, 'pdf') ? 'pdf' : 'other') }}";
+        const FILE_TYPE = "{{ Str::contains($attachment->mime_type, 'image') ? 'image' : (Str::contains($attachment->mime_type, 'pdf') ? 'pdf' : (Str::contains($attachment->mime_type, 'video') ? 'video' : 'other')) }}";
         const FILE_URL  = "{{ Storage::url($attachment->file_path) }}";
 
         document.addEventListener("DOMContentLoaded", function() {
@@ -135,6 +135,18 @@
                     mount.innerHTML = `
                         <div class="w-full h-full max-w-5xl shadow-2xl shadow-slate-200/50 rounded-xl overflow-hidden bg-white ring-1 ring-slate-900/5">
                             <iframe src="${FILE_URL}#toolbar=0&navpanes=0" class="w-full h-full border-none"></iframe>
+                        </div>`;
+                } else if(FILE_TYPE === 'video') {
+                    mount.innerHTML = `
+                        <div class="relative w-full max-w-4xl shadow-2xl shadow-slate-900/30 rounded-xl overflow-hidden bg-black ring-1 ring-slate-900/10">
+                            <video
+                                src="${FILE_URL}"
+                                controls
+                                controlsList="nodownload noremoteplayback"
+                                disablePictureInPicture
+                                oncontextmenu="return false;"
+                                class="w-full max-h-[80vh] block"
+                            ></video>
                         </div>`;
                 } else {
                     mount.innerHTML = `

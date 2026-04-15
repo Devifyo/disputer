@@ -197,7 +197,7 @@
                     <label class="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-300 rounded-md shadow-sm text-xs font-bold text-slate-700 hover:bg-slate-100 cursor-pointer transition-all">
                         <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path></svg>
                         Attach Files
-                        <input type="file" multiple class="hidden" @change="addFiles($event)">
+                        <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.mp4,.mov,.avi,.mkv,.webm" class="hidden" @change="addFiles($event)">
                     </label>
                     <span class="text-[10px] text-slate-400" x-text="files.length + ' files selected'"></span>
                 </div>

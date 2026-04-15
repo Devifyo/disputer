@@ -52,7 +52,17 @@
             <div class="bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100 relative h-auto overflow-visible block">
 
                 @if($step === 1)
-                    <div class="p-6 md:p-10 animate-fade-in block">
+                    <div class="p-6 md:p-10 animate-fade-in block relative">
+
+                        {{-- Institution selection loader --}}
+                        <div wire:loading.flex wire:target="selectExisting" class="absolute inset-0 z-50 items-center justify-center flex-col gap-3 bg-white/80 backdrop-blur-sm rounded-2xl">
+                            <svg class="animate-spin w-8 h-8 text-blue-500" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span class="text-sm font-semibold text-slate-600">Loading institution...</span>
+                        </div>
+
                         @if($mode === 'search')
                             <div class="text-center max-w-xl mx-auto mb-8">
                                 <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Who is this dispute {{ __('common.case') }} with?</h1>
@@ -223,11 +233,20 @@
                                 <label class="block text-xs font-bold text-slate-700 mb-1.5">Evidence (Optional)</label>
                                 
                                 <div class="flex items-center justify-center w-full">
-                                    <label for="dropzone-file" class="flex flex-col items-center justify-center w-full h-32 border-2 border-slate-300 border-dashed rounded-xl cursor-pointer bg-slate-50 hover:bg-slate-100 transition-colors">
-                                        <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                                    <label for="dropzone-file" class="relative flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-xl cursor-pointer transition-colors border-slate-300 bg-slate-50 hover:bg-slate-100">
+                                        {{-- Normal state --}}
+                                        <div wire:loading.remove wire:target="attachments" class="flex flex-col items-center justify-center">
                                             <i data-lucide="upload-cloud" class="w-8 h-8 text-slate-400 mb-2"></i>
                                             <p class="mb-1 text-sm text-slate-500"><span class="font-semibold">Click to upload</span> or drag and drop</p>
                                             <p class="text-xs text-slate-400">PDF, JPG, PNG (Max 10MB)</p>
+                                        </div>
+                                        {{-- Loading state --}}
+                                        <div wire:loading.flex wire:target="attachments" class="absolute inset-0 items-center justify-center gap-2 rounded-xl bg-slate-50">
+                                            <svg class="animate-spin w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24">
+                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            <span class="text-sm text-blue-600 font-semibold">Attaching file...</span>
                                         </div>
                                         <input id="dropzone-file" type="file" class="hidden" wire:model="attachments" multiple />
                                     </label>
