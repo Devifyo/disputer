@@ -116,10 +116,13 @@ class EmailViewer extends Component
             in_array($ext, ['xls', 'xlsx', 'csv', 'numbers']) 
                 => ['icon' => 'table', 'color' => 'text-emerald-500', 'bg' => 'bg-emerald-50', 'border' => 'border-emerald-100'],
                 
-            in_array($ext, ['doc', 'docx', 'txt', 'rtf']) 
+            in_array($ext, ['doc', 'docx', 'txt', 'rtf'])
                 => ['icon' => 'file-type-2', 'color' => 'text-indigo-500', 'bg' => 'bg-indigo-50', 'border' => 'border-indigo-100'],
-                
-            default 
+
+            in_array($ext, ['mp4', 'mov', 'avi', 'mkv', 'webm'])
+                => ['icon' => 'video', 'color' => 'text-violet-500', 'bg' => 'bg-violet-50', 'border' => 'border-violet-100'],
+
+            default
                 => ['icon' => 'file', 'color' => 'text-slate-400', 'bg' => 'bg-slate-50', 'border' => 'border-slate-100'],
         };
     }

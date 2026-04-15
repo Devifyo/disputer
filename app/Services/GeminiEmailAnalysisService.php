@@ -85,9 +85,22 @@ class GeminiEmailAnalysisService
 
             $fullPath = storage_path('app/public/' . $path);
             
-            // USE MIME TYPE INSTEAD OF EXTENSION!
-            // It looks at "image/png" instead of the missing file extension
             $mimeType = $file['type'] ?? Storage::disk('public')->mimeType($path);
+
+            // Extension-to-canonical-MIME map for types that get stored as application/octet-stream
+            $ext = strtolower(pathinfo($file['name'] ?? '', PATHINFO_EXTENSION));
+            $videoMimeMap = [
+                'mp4'  => 'video/mp4',
+                'mov'  => 'video/quicktime',
+                'avi'  => 'video/x-msvideo',
+                'mkv'  => 'video/x-matroska',
+                'webm' => 'video/webm',
+                'm4v'  => 'video/mp4',
+            ];
+            // If the stored MIME type is generic, derive it from the file extension
+            if (!str_starts_with($mimeType, 'video/') && isset($videoMimeMap[$ext])) {
+                $mimeType = $videoMimeMap[$ext];
+            }
 
             try {
                 // A. Images (Starts with 'image/' like image/jpeg, image/png)
@@ -99,18 +112,33 @@ class GeminiEmailAnalysisService
                         ]
                     ];
                     $textContext .= "\n[Attachment: {$file['name']}] (Image attached for visual analysis)";
-                } 
+                }
                 // B. PDF (Exact match for application/pdf)
                 elseif ($mimeType === 'application/pdf') {
                     $parser = new Parser();
                     $pdf = $parser->parseFile($fullPath);
                     $textContext .= "\n[Attachment: {$file['name']}] PDF Text: " . mb_substr($pdf->getText(), 0, 2000);
-                } 
+                }
                 // C. Text Data (Starts with text/ like text/csv, text/plain)
                 elseif (str_starts_with($mimeType, 'text/') || $mimeType === 'application/csv') {
                     $textContext .= "\n[Attachment: {$file['name']}] Data: " . mb_substr(file_get_contents($fullPath), 0, 2000);
-                } 
-                // D. Unsupported
+                }
+                // D. Video (detected by MIME type or extension)
+                elseif (str_starts_with($mimeType, 'video/')) {
+                    $fileUri = $this->uploadFileToGemini($fullPath, $mimeType, $file['name']);
+                    if ($fileUri) {
+                        $mediaParts[] = [
+                            'fileData' => [
+                                'mimeType' => $mimeType,
+                                'fileUri' => $fileUri
+                            ]
+                        ];
+                        $textContext .= "\n[Attachment: {$file['name']}] (Video attached — please describe its visual content and any relevant details visible in the footage)";
+                    } else {
+                        $textContext .= "\n[Attachment: {$file['name']}] (Video upload failed — could not be processed)";
+                    }
+                }
+                // E. Unsupported
                 else {
                     $textContext .= "\n[Attachment: {$file['name']}] (Unsupported file type: {$mimeType})";
                 }
@@ -121,6 +149,69 @@ class GeminiEmailAnalysisService
         }
 
         return ['text_context' => $textContext, 'media_parts' => $mediaParts];
+    }
+
+    /**
+     * Uploads a file (e.g. video) to the Gemini Files API and returns its URI.
+     * Uses the resumable upload protocol required for large files.
+     */
+    protected function uploadFileToGemini(string $fullPath, string $mimeType, string $fileName): ?string
+    {
+        $fileContent = file_get_contents($fullPath);
+        $fileSize    = strlen($fileContent);
+
+        // Step 1: Initiate a resumable upload session
+        $initResponse = Http::timeout(30)
+            ->withHeaders([
+                'X-Goog-Upload-Protocol'              => 'resumable',
+                'X-Goog-Upload-Command'               => 'start',
+                'X-Goog-Upload-Header-Content-Length' => (string) $fileSize,
+                'X-Goog-Upload-Header-Content-Type'   => $mimeType,
+                'Content-Type'                        => 'application/json',
+            ])
+            ->post("https://generativelanguage.googleapis.com/upload/v1beta/files?key={$this->apiKey}", [
+                'file' => ['display_name' => $fileName]
+            ]);
+
+        $uploadUrl = $initResponse->header('X-Goog-Upload-URL');
+        if (!$uploadUrl) {
+            Log::error("Gemini Files API: failed to get upload URL for [{$fileName}]");
+            return null;
+        }
+
+        // Step 2: Send the raw bytes
+        $uploadResponse = Http::timeout(120)
+            ->withHeaders([
+                'Content-Length'         => (string) $fileSize,
+                'X-Goog-Upload-Offset'   => '0',
+                'X-Goog-Upload-Command'  => 'upload, finalize',
+                'Content-Type'           => $mimeType,
+            ])
+            ->withBody($fileContent, $mimeType)
+            ->post($uploadUrl);
+
+        $fileData  = $uploadResponse->json();
+        $fileUri   = $fileData['file']['uri']   ?? null;
+        $fileState = $fileData['file']['state'] ?? 'UNKNOWN';
+        $fileName  = $fileData['file']['name']  ?? null;
+
+        // Step 3: Poll until ACTIVE (videos need processing time)
+        $maxWait = 60;
+        $waited  = 0;
+        while ($fileState === 'PROCESSING' && $waited < $maxWait && $fileName) {
+            sleep(3);
+            $waited += 3;
+            $poll      = Http::timeout(15)->get("https://generativelanguage.googleapis.com/v1beta/{$fileName}?key={$this->apiKey}");
+            $fileState = $poll->json()['state'] ?? 'UNKNOWN';
+            $fileUri   = $poll->json()['uri']   ?? $fileUri;
+        }
+
+        if ($fileState !== 'ACTIVE') {
+            Log::warning("Gemini Files API: file not ACTIVE after {$waited}s. State: {$fileState}");
+            return null;
+        }
+
+        return $fileUri;
     }
 
     /**
@@ -140,9 +231,12 @@ class GeminiEmailAnalysisService
             Attachments Summary for CURRENT email: " . ($attachmentContext ?: 'None') . "
 
             CRITICAL INSTRUCTION REGARDING EMAIL THREADS:
-            The 'Body' text likely contains a history of previous quoted emails at the bottom (e.g., 'On [Date], [Name] wrote:'). 
-            You must ONLY analyze the NEWEST message at the very top of the thread. 
+            The 'Body' text likely contains a history of previous quoted emails at the bottom (e.g., 'On [Date], [Name] wrote:').
+            You must ONLY analyze the NEWEST message at the very top of the thread.
             Do NOT claim attachments are missing just because an older, quoted message at the bottom says 'I have attached...'. Ignore the historical quoted text when evaluating attachments. Focus ONLY on what the current sender is communicating right now.
+
+            CRITICAL INSTRUCTION REGARDING VIDEO ATTACHMENTS:
+            If a video file is provided, you MUST analyze its visual content — describe what is shown, identify any relevant text, reference numbers, dates, or events visible in the footage. Do NOT say the video is unsupported or cannot be analyzed. Treat it like any other evidence document.
 
             OBJECTIVE:
             Analyze the NEWEST email message and its attachments objectively.
