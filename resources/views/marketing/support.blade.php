@@ -40,6 +40,23 @@
         .contact-form { padding: 32px 24px; }
         .back-wrapper { padding: 88px 24px 0 !important; }
     }
+
+    @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        15%, 45%, 75% { transform: translateX(-6px); }
+        30%, 60%, 90% { transform: translateX(6px); }
+    }
+    .shake { animation: shake 0.5s ease-in-out; }
+    @keyframes slideDown {
+        from { opacity: 0; transform: translateY(-4px); }
+        to   { opacity: 1; transform: translateY(0); }
+    }
+    .slide-down { animation: slideDown 0.2s ease-out forwards; }
+
+    .field-error  { border-color: #f87171 !important; background: rgba(239,68,68,0.03) !important; }
+    .field-success { border-color: #34d399 !important; background: rgba(52,211,153,0.04) !important; }
+    .field-error:focus  { border-color: #f87171 !important; box-shadow: 0 0 0 4px rgba(239,68,68,0.1) !important; }
+    .field-success:focus { border-color: #34d399 !important; box-shadow: 0 0 0 4px rgba(52,211,153,0.1) !important; }
 </style>
 @endpush
 
@@ -72,53 +89,130 @@
                 </div>
             @endif
 
-            <form id="support-form" action="{{ route('support.submit') }}" method="POST" novalidate>
+            <form
+                action="{{ route('support.submit') }}"
+                method="POST"
+                x-data="{
+                    name: '{{ old('name', auth()->user()->name ?? '') }}',
+                    email: '{{ old('email', auth()->user()->email ?? '') }}',
+                    subject: '{{ old('subject', '') }}',
+                    custom_subject: '{{ old('custom_subject', '') }}',
+                    message: '{{ old('message', '') }}',
+                    loading: false,
+                    touched: {
+                        name: {{ old('name') || $errors->has('name') ? 'true' : 'false' }},
+                        email: {{ old('email') || $errors->has('email') ? 'true' : 'false' }},
+                        subject: {{ old('subject') || $errors->has('subject') ? 'true' : 'false' }},
+                        custom_subject: {{ old('custom_subject') || $errors->has('custom_subject') ? 'true' : 'false' }},
+                        message: {{ old('message') || $errors->has('message') ? 'true' : 'false' }}
+                    },
+                    errors: {
+                        name: '{{ addslashes($errors->first('name')) }}',
+                        email: '{{ addslashes($errors->first('email')) }}',
+                        subject: '{{ addslashes($errors->first('subject')) }}',
+                        custom_subject: '{{ addslashes($errors->first('custom_subject')) }}',
+                        message: '{{ addslashes($errors->first('message')) }}'
+                    },
+                    get nameState()    { if (!this.touched.name)    return 'idle'; return this.errors.name    ? 'error' : (this.name.trim()    ? 'success' : 'idle'); },
+                    get emailState()   { if (!this.touched.email)   return 'idle'; return this.errors.email   ? 'error' : (this.email          ? 'success' : 'idle'); },
+                    get subjectState() { if (!this.touched.subject) return 'idle'; return this.errors.subject ? 'error' : (this.subject        ? 'success' : 'idle'); },
+                    get customState()  { if (!this.touched.custom_subject) return 'idle'; return this.errors.custom_subject ? 'error' : (this.custom_subject.trim() ? 'success' : 'idle'); },
+                    get messageState() { if (!this.touched.message) return 'idle'; return this.errors.message ? 'error' : (this.message.trim() ? 'success' : 'idle'); },
+                    validateName()    { this.touched.name = true;    const v = this.name.trim();    if (!v) { this.errors.name = 'Your name is required.'; return; } if (v.length < 2) { this.errors.name = 'Name must be at least 2 characters.'; return; } this.errors.name = ''; },
+                    validateEmail()   { this.touched.email = true;   const v = this.email.trim();   if (!v) { this.errors.email = 'Email address is required.'; return; } if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) { this.errors.email = 'Please enter a valid email address.'; return; } this.errors.email = ''; },
+                    validateSubject() { this.touched.subject = true; if (!this.subject) { this.errors.subject = 'Please select a subject.'; return; } this.errors.subject = ''; if (this.subject !== 'Other') { this.errors.custom_subject = ''; } },
+                    validateCustom()  { this.touched.custom_subject = true; if (this.subject === 'Other' && !this.custom_subject.trim()) { this.errors.custom_subject = 'Please describe your subject.'; return; } this.errors.custom_subject = ''; },
+                    validateMessage() { this.touched.message = true; const v = this.message.trim(); if (!v) { this.errors.message = 'Please describe how we can help.'; return; } if (v.length < 10) { this.errors.message = 'Message must be at least 10 characters.'; return; } this.errors.message = ''; },
+                    handleSubmit() {
+                        this.validateName(); this.validateEmail(); this.validateSubject();
+                        if (this.subject === 'Other') this.validateCustom();
+                        this.validateMessage();
+                        const hasError = this.errors.name || this.errors.email || this.errors.subject || this.errors.custom_subject || this.errors.message;
+                        if (hasError) {
+                            this.$el.classList.add('shake');
+                            setTimeout(() => this.$el.classList.remove('shake'), 500);
+                            return;
+                        }
+                        this.loading = true;
+                        this.$el.submit();
+                    }
+                }"
+                @submit.prevent="handleSubmit()"
+            >
                 @csrf
+
+                {{-- Name --}}
                 <div class="form-group">
                     <label class="form-label" for="name">Your Name</label>
-                    <input type="text" id="name" name="name" class="form-input" placeholder="Jane Doe" required value="{{ old('name', auth()->user()->name ?? '') }}">
-                    @error('name') <span style="color:#ef4444; font-size:0.75rem; font-weight:700; margin-top:4px; display:block;">{{ $message }}</span> @enderror
+                    <input type="text" id="name" name="name" placeholder="Jane Doe"
+                        x-model="name"
+                        @blur="validateName()"
+                        @input="if(touched.name) errors.name = ''"
+                        :class="nameState === 'error' ? 'form-input field-error' : nameState === 'success' ? 'form-input field-success' : 'form-input'">
+                    <p x-show="nameState === 'error'" x-text="errors.name"
+                       class="slide-down" style="color:#ef4444; font-size:0.75rem; font-weight:700; margin-top:4px;"></p>
                 </div>
 
+                {{-- Email --}}
                 <div class="form-group">
                     <label class="form-label" for="email">Email Address</label>
-                    <input type="email" id="email" name="email" class="form-input" placeholder="jane@example.com" required value="{{ old('email', auth()->user()->email ?? '') }}">
-                    <span id="email-error" style="display:none; color:#ef4444; font-size:0.75rem; font-weight:700; margin-top:4px;">Please enter a valid email address.</span>
-                    @error('email') <span style="color:#ef4444; font-size:0.75rem; font-weight:700; margin-top:4px; display:block;">{{ $message }}</span> @enderror
+                    <input type="email" id="email" name="email" placeholder="jane@example.com"
+                        x-model="email"
+                        @blur="validateEmail()"
+                        @input="if(touched.email) errors.email = ''"
+                        :class="emailState === 'error' ? 'form-input field-error' : emailState === 'success' ? 'form-input field-success' : 'form-input'">
+                    <p x-show="emailState === 'error'" x-text="errors.email"
+                       class="slide-down" style="color:#ef4444; font-size:0.75rem; font-weight:700; margin-top:4px;"></p>
                 </div>
 
+                {{-- Subject --}}
                 <div class="form-group">
                     <label class="form-label" for="subject">Subject</label>
-                    <select id="subject" name="subject" class="form-select" required onchange="toggleCustomSubject(this.value)">
-                        <option value="" disabled {{ old('subject') ? '' : 'selected' }}>Select a topic...</option>
-                        <option value="Billing Question" {{ old('subject') === 'Billing Question' ? 'selected' : '' }}>Billing Question</option>
-                        <option value="Technical Issue"  {{ old('subject') === 'Technical Issue'  ? 'selected' : '' }}>Technical Issue</option>
-                        <option value="Case Advice"      {{ old('subject') === 'Case Advice'      ? 'selected' : '' }}>Case Advice</option>
-                        <option value="Other"            {{ old('subject') === 'Other'            ? 'selected' : '' }}>Other</option>
+                    <select id="subject" name="subject"
+                        x-model="subject"
+                        @change="validateSubject()"
+                        :class="subjectState === 'error' ? 'form-select field-error' : subjectState === 'success' ? 'form-select field-success' : 'form-select'">
+                        <option value="" disabled>Select a topic...</option>
+                        <option value="Billing Question">Billing Question</option>
+                        <option value="Technical Issue">Technical Issue</option>
+                        <option value="Case Advice">Case Advice</option>
+                        <option value="Other">Other</option>
                     </select>
-                    @error('subject') <span style="color:#ef4444; font-size:0.75rem; font-weight:700; margin-top:4px; display:block;">{{ $message }}</span> @enderror
+                    <p x-show="subjectState === 'error'" x-text="errors.subject"
+                       class="slide-down" style="color:#ef4444; font-size:0.75rem; font-weight:700; margin-top:4px;"></p>
 
-                    <div id="custom-subject-wrap" style="display:{{ old('subject') === 'Other' ? 'block' : 'none' }}; margin-top:12px;">
-                        <input type="text" id="custom_subject" name="custom_subject" class="form-input"
-                               placeholder="Briefly describe your subject..."
-                               value="{{ old('custom_subject') }}"
-                               maxlength="255">
-                        @error('custom_subject') <span style="color:#ef4444; font-size:0.75rem; font-weight:700; margin-top:4px; display:block;">{{ $message }}</span> @enderror
+                    <div x-show="subject === 'Other'" style="margin-top:12px;">
+                        <input type="text" id="custom_subject" name="custom_subject"
+                            placeholder="Briefly describe your subject..."
+                            maxlength="255"
+                            x-model="custom_subject"
+                            @blur="validateCustom()"
+                            @input="if(touched.custom_subject) errors.custom_subject = ''"
+                            :class="customState === 'error' ? 'form-input field-error' : customState === 'success' ? 'form-input field-success' : 'form-input'">
+                        <p x-show="customState === 'error'" x-text="errors.custom_subject"
+                           class="slide-down" style="color:#ef4444; font-size:0.75rem; font-weight:700; margin-top:4px;"></p>
                     </div>
                 </div>
 
+                {{-- Message --}}
                 <div class="form-group">
                     <label class="form-label" for="message">How can we help?</label>
-                    <textarea id="message" name="message" class="form-textarea" placeholder="Describe your issue or question here..." required>{{ old('message') }}</textarea>
-                    @error('message') <span style="color:#ef4444; font-size:0.75rem; font-weight:700; margin-top:4px; display:block;">{{ $message }}</span> @enderror
+                    <textarea id="message" name="message" placeholder="Describe your issue or question here..."
+                        x-model="message"
+                        @blur="validateMessage()"
+                        @input="if(touched.message) errors.message = ''"
+                        :class="messageState === 'error' ? 'form-textarea field-error' : messageState === 'success' ? 'form-textarea field-success' : 'form-textarea'"></textarea>
+                    <p x-show="messageState === 'error'" x-text="errors.message"
+                       class="slide-down" style="color:#ef4444; font-size:0.75rem; font-weight:700; margin-top:4px;"></p>
                 </div>
 
-                <button id="submit-btn" type="submit" class="btn-primary" style="width:100%; justify-content:center; margin-top:8px;">
-                    <span id="btn-default" style="display:flex; align-items:center; gap:8px;">
+                <button type="submit" class="btn-primary" style="width:100%; justify-content:center; margin-top:8px;"
+                    :disabled="loading" :style="loading ? 'opacity:0.75; cursor:not-allowed;' : ''">
+                    <span x-show="!loading" style="display:flex; align-items:center; gap:8px;">
                         Send Message
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                     </span>
-                    <span id="btn-loading" style="display:none; align-items:center; gap:8px;">
+                    <span x-show="loading" style="display:none; align-items:center; gap:8px;">
                         <svg style="width:18px;height:18px;animation:spin 1s linear infinite;" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="60" stroke-dashoffset="20" stroke-linecap="round"/></svg>
                         Sending...
                     </span>
@@ -127,46 +221,6 @@
 
             @push('scripts')
             <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
-            <script>
-                function toggleCustomSubject(value) {
-                    var wrap  = document.getElementById('custom-subject-wrap');
-                    var input = document.getElementById('custom_subject');
-                    var show  = value === 'Other';
-                    wrap.style.display = show ? 'block' : 'none';
-                    input.required     = show;
-                    if (!show) input.value = '';
-                }
-            </script>
-            <script>
-                document.getElementById('support-form').addEventListener('submit', function(e) {
-                    const emailInput = document.getElementById('email');
-                    const emailError = document.getElementById('email-error');
-                    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-                    if (!emailRegex.test(emailInput.value.trim())) {
-                        e.preventDefault();
-                        emailError.style.display = 'block';
-                        emailInput.style.borderColor = '#ef4444';
-                        emailInput.focus();
-                        return;
-                    }
-
-                    emailError.style.display = 'none';
-                    emailInput.style.borderColor = '';
-
-                    const btn = document.getElementById('submit-btn');
-                    btn.disabled = true;
-                    btn.style.opacity = '0.75';
-                    btn.style.cursor = 'not-allowed';
-                    document.getElementById('btn-default').style.display = 'none';
-                    document.getElementById('btn-loading').style.display = 'flex';
-                });
-
-                document.getElementById('email').addEventListener('input', function() {
-                    document.getElementById('email-error').style.display = 'none';
-                    this.style.borderColor = '';
-                });
-            </script>
             @endpush
         </div>
 
