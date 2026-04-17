@@ -75,11 +75,11 @@
                     },
                     init() {
                         this.$nextTick(() => this.initEditor());
-                        this.$cleanup(() => {
-                            if (this.editorInstance) {
-                                this.editorInstance.remove();
-                            }
-                        });
+                    },
+                    destroy() {
+                        if (this.editorInstance) {
+                            this.editorInstance.remove();
+                        }
                     }
                 }">
                     {{-- x-ref guarantees TinyMCE binds to the right element without ID conflicts --}}
@@ -134,3 +134,7 @@
         </div>
     @endif
 </div>
+
+@push('scripts')
+    <script src="https://cdn.tiny.cloud/1/{{ env('TINYMCE_API_KEY') }}/tinymce/7/tinymce.min.js" referrerpolicy="origin"></script>
+@endpush

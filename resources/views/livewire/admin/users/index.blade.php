@@ -290,7 +290,7 @@
                 }
             }).then((result) => {
                 if (result.isConfirmed) {
-                    @this.call('deleteConfirmed', id);
+                    @this.call('delete', id);
                 }
             })
         }
