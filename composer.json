@@ -11,9 +11,11 @@
         "hashids/hashids": "^5.0",
         "lab404/laravel-impersonate": "^1.7",
         "laravel/framework": "^11.31",
+        "laravel/socialite": "^5.26",
         "laravel/tinker": "^2.9",
         "livewire/livewire": "^3.5",
         "smalot/pdfparser": "^2.12",
+        "socialiteproviders/apple": "^5.10",
         "spatie/laravel-permission": "^6.24",
         "stripe/stripe-php": "^19.4",
         "webklex/laravel-imap": "^6.2"

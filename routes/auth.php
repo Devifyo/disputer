@@ -1,9 +1,14 @@
 <?php
 
 use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\Auth\SocialiteController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function () {
+    // Social Login
+    Route::get('auth/{provider}/redirect', [SocialiteController::class, 'redirect'])->name('social.redirect');
+    Route::get('auth/{provider}/callback', [SocialiteController::class, 'callback'])->name('social.callback');
+
     // Login
     Route::get('login', [AuthController::class, 'createLogin'])->name('login');
     Route::post('login', [AuthController::class, 'storeLogin']);
