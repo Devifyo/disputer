@@ -167,6 +167,8 @@
         @include('marketing.partials._cta')
     </div>
 
+    @livewire('landing-page.success-story-form')
+
 @endsection
 
 @push('scripts')

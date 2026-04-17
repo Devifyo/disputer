@@ -31,7 +31,7 @@
                 </div>
                 <span class="font-bold text-slate-900 tracking-tight">{{ config('app.name') }}</span>
             </div>
-            <button onclick="history.back()" class="inline-flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-lg transition-colors">
+            <button onclick="history.back()" class="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 px-4 py-2 rounded-lg border border-slate-300 shadow-sm transition-all">
                 <i data-lucide="arrow-left" class="w-4 h-4"></i> Back
             </button>
         </div>

@@ -38,13 +38,14 @@
         #support-content { grid-template-columns: 1fr; padding: 20px 24px 80px; gap: 48px; }
         header { padding: 120px 24px 20px; }
         .contact-form { padding: 32px 24px; }
+        .back-wrapper { padding: 88px 24px 0 !important; }
     }
 </style>
 @endpush
 
 @section('content')
-    <div style="max-width:1100px; margin:0 auto; padding:88px 48px 0;">
-        <button onclick="history.back()" style="display:inline-flex; align-items:center; gap:8px; font-size:0.875rem; font-weight:700; color:#475569; background:#f1f5f9; padding:8px 16px; border-radius:8px; border:none; cursor:pointer; transition:background 0.2s, color 0.2s;" onmouseover="this.style.background='#e2e8f0';this.style.color='#0f172a'" onmouseout="this.style.background='#f1f5f9';this.style.color='#475569'">
+    <div class="back-wrapper" style="padding: 88px 48px 0; max-width:1100px; margin:0 auto;">
+        <button onclick="history.back()" style="display:inline-flex; align-items:center; gap:8px; font-size:0.875rem; font-weight:600; color:#334155; background:#fff; padding:8px 16px; border-radius:8px; border:1.5px solid #cbd5e1; cursor:pointer; transition:all 0.2s; box-shadow:0 1px 3px rgba(15,23,42,0.08);" onmouseover="this.style.background='#f8fafc';this.style.borderColor='#94a3b8';this.style.color='#0f172a'" onmouseout="this.style.background='#fff';this.style.borderColor='#cbd5e1';this.style.color='#334155'">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
             Back
         </button>
