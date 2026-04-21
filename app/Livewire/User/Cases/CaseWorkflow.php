@@ -65,6 +65,12 @@ class CaseWorkflow extends Component
     }
 
     #[Computed]
+    public function escalationDetails(): array
+    {
+        return app(EscalationService::class)->getEscalationDetails($this->case);
+    }
+
+    #[Computed]
     public function unreadEmails()
     {
         return Email::where('case_id', $this->case->id)

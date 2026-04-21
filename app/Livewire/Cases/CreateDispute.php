@@ -208,7 +208,10 @@ class CreateDispute extends Component
         ];
 
         if ($this->categoryId === 'other') {
-            $rules['customCategoryName'] = 'required|min:2|unique:institution_categories,name';
+            $rules['customCategoryName'] = [
+                'required', 'min:2',
+                \Illuminate\Validation\Rule::unique('institution_categories', 'name')->whereNull('deleted_at'),
+            ];
         }
 
         $this->validate($rules, [

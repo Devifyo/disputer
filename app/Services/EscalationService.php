@@ -11,29 +11,45 @@ class EscalationService
      */
     public function getEscalationDetails(Cases $case): array
     {
-        // 1. Primary: Check Institution Specific
-        if ($case->institution && $case->institution->escalation_email) {
+        $institution = $case->institution;
+        $category    = $institution?->category;
+
+        // 1. Institution-specific escalation email
+        if ($institution && $institution->escalation_email) {
             return [
-                'email' => $case->institution->escalation_email,
-                'name'  => $case->institution->escalation_contact_name ?? 'Escalation Department',
-                'source' => 'Institution Authority'
-            ];
-        }
-        // 2. Fallback: Check Category Default
-        if ($case->institution->category && $case->institution->category->fallback_escalation_email) {
- 
-            return [
-                'email' => $case->institution->category->fallback_escalation_email,
-                'name'  => $case->institution->category->name . ' Regulator',
-                'source' => 'Category Standard'
+                'email'  => $institution->escalation_email,
+                'name'   => $institution->escalation_contact_name ?? 'Escalation Department',
+                'source' => 'Institution Authority',
             ];
         }
 
-        // 3. Manual Override Required
+        // 2. Current workflow step's escalation_email
+        $stepKey = $case->current_workflow_step;
+        if ($stepKey && $category) {
+            $stepEmail = $category->workflow_config['steps'][$stepKey]['escalation_email'] ?? null;
+            if ($stepEmail) {
+                return [
+                    'email'  => $stepEmail,
+                    'name'   => $category->name . ' Regulator',
+                    'source' => 'Workflow Step',
+                ];
+            }
+        }
+
+        // 3. Category-level fallback
+        if ($category && $category->fallback_escalation_email) {
+            return [
+                'email'  => $category->fallback_escalation_email,
+                'name'   => $category->name . ' Regulator',
+                'source' => 'Category Standard',
+            ];
+        }
+
+        // 4. Manual override required
         return [
-            'email' => '', // Empty to force user input
-            'name'  => 'Authority',
-            'source' => 'Manual Entry'
+            'email'  => '',
+            'name'   => 'Authority',
+            'source' => 'Manual Entry',
         ];
     }
 }

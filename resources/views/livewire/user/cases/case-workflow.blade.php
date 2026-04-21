@@ -139,10 +139,10 @@
                                 @else
                                     <button 
                                         type="button"
-                                        @click="$dispatch('open-compose-modal', { 
-                                            recipient: '{{ $case->institution->escalation_email ?? '' }}', 
+                                        @click="$dispatch('open-compose-modal', {
+                                            recipient: '{{ $this->escalationDetails['email'] }}',
                                             subject: 'Follow Up: Case #{{ $case->case_reference_id }}',
-                                            body: `To {{ $case->institution->escalation_contact_name ?? 'Authority' }},\n\nI am following up on the escalation sent previously regarding Case #{{ $case->case_reference_id }}. I have not yet received a resolution.`,
+                                            body: `To {{ $this->escalationDetails['name'] }},\n\nI am following up on the escalation sent previously regarding Case #{{ $case->case_reference_id }}. I have not yet received a resolution.`,
                                             isEscalation: false,
                                             isFollowUp: true
                                         })"

@@ -137,7 +137,12 @@
                                             <span class="text-xs font-bold text-rose-500 mt-1.5 ml-1 block">{{ $message }}</span> 
                                         @enderror
                                     </div>
-                                    @if($categoryId === 'other') <input wire:model="customCategoryName" type="text" class="w-full px-4 py-3 bg-blue-50 border border-blue-200 text-blue-800 rounded-xl outline-none focus:border-blue-500" placeholder="Custom Category"> @endif
+                                    @if($categoryId === 'other')
+                                        <input wire:model="customCategoryName" type="text" class="w-full px-4 py-3 bg-blue-50 border @error('customCategoryName') border-rose-500 @else border-blue-200 @enderror text-blue-800 rounded-xl outline-none focus:border-blue-500" placeholder="Custom Category">
+                                        @error('customCategoryName')
+                                            <span class="text-xs font-bold text-rose-500 mt-1.5 ml-1 block">{{ $message }}</span>
+                                        @enderror
+                                    @endif
                                     <button wire:click="submitCustom" 
                                             wire:loading.attr="disabled"
                                             class="w-full py-3.5 bg-slate-900 text-white font-bold rounded-xl mt-2 hover:bg-slate-800 transition-all flex items-center justify-center disabled:opacity-75 disabled:cursor-not-allowed">
