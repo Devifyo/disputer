@@ -212,13 +212,13 @@
                 Continue with Google
             </a>
 
-            <a href="{{ route('social.redirect', 'apple') }}"
+            <!-- <a href="{{ route('social.redirect', 'apple') }}"
                class="flex items-center justify-center gap-3 w-full py-2.5 px-4 rounded-lg text-sm font-medium text-white bg-black hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-800 transition-all shadow-sm">
                 <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
                     <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.7 9.05 7.4c1.33.07 2.25.73 3.03.76.93-.16 1.82-.85 2.8-.91 1.27-.1 2.3.4 3.01 1.36-2.73 1.64-2.28 5.36.2 6.43-.57 1.53-1.37 3.03-1.04 5.24zm-5.8-13.38c-.1-2.23 1.66-4.14 3.88-4.34.26 2.3-2.1 4.46-3.88 4.34z"/>
                 </svg>
                 Continue with Apple
-            </a>
+            </a> -->
         </div>
     </div>
 @endsection
