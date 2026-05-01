@@ -49,7 +49,7 @@
     
     @livewire('admin.layout.navigation')
 
-    <main class="flex-1 flex flex-col h-full overflow-hidden bg-slate-50 relative min-w-0 pt-16 lg:pt-0">
+    <main class="flex-1 flex flex-col h-full overflow-y-auto bg-slate-50 relative min-w-0 pt-16 lg:pt-0">
         @yield('content')
     </main>
 

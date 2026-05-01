@@ -33,7 +33,8 @@
 
     {{-- Table --}}
     <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <table class="w-full text-left text-sm">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm whitespace-nowrap">
             <thead class="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] tracking-widest">
                 <tr>
                     <th class="px-6 py-4">User Details</th>
@@ -110,7 +111,8 @@
                     </tr>
                 @endforelse
             </tbody>
-        </table>
+            </table>
+        </div>
         @if($users->hasPages())
             <div class="p-4 border-t border-slate-50">{{ $users->links() }}</div>
         @endif

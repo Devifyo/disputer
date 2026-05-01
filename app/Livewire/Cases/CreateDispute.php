@@ -244,8 +244,18 @@ class CreateDispute extends Component
                 'issueDescription' => 'required|min:10',
             ]);
 
-            $rawContent = $this->generateDisputeLetter();
-            
+            $rawContent = null;
+            for ($attempt = 1; $attempt <= 3; $attempt++) {
+                $rawContent = $this->generateDisputeLetter();
+                if ($rawContent) {
+                    break;
+                }
+                if ($attempt < 3) {
+                    \Log::warning("Gemini generation failed (attempt {$attempt}/3), retrying...");
+                    sleep(2);
+                }
+            }
+
             if ($rawContent) {
                 $cleanJson = trim(preg_replace('/^```json|```$/i', '', $rawContent));
                 $data = json_decode($cleanJson, true);
