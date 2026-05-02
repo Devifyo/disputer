@@ -1,14 +1,15 @@
 <div>
     @if($isOpen)
-    <div class="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6" x-cloak>
+    @teleport('body')
+    <div class="fixed inset-0 z-[999999] sm:flex sm:items-center sm:justify-center sm:p-6" x-cloak>
         <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" wire:click="close"></div>
 
-        <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+        <div class="absolute sm:relative inset-0 sm:inset-auto bg-white sm:rounded-2xl shadow-2xl w-full h-full sm:h-[90vh] sm:max-w-4xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 z-10" style="padding: 0 1rem;" x-data x-init="$nextTick(() => { if (typeof lucide !== 'undefined') lucide.createIcons(); })">
             
-            <div class="px-6 py-3 border-b border-slate-100 flex items-center justify-between bg-white">
+            <div class="px-4 sm:px-6 py-3 border-b border-slate-100 flex items-center justify-between bg-white">
                 <div class="flex items-center gap-2">
                     <div class="w-2 h-2 rounded-full bg-blue-600"></div>
-                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Message Archive</span>
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest hidden sm:inline">Message Archive</span>
                 </div>
 
                 <div class="flex items-center gap-2">
@@ -16,8 +17,8 @@
                             class="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-bold hover:bg-indigo-100 transition-all border border-indigo-100 shadow-sm">
                         <div wire:loading wire:target="analyze" class="animate-spin w-3 h-3 border-2 border-indigo-600 border-t-transparent rounded-full"></div>
                         <i data-lucide="sparkles" class="w-3.5 h-3.5" wire:loading.remove wire:target="analyze"></i>
-                        <span wire:loading.remove wire:target="analyze">Smart Analysis</span>
-                        <span wire:loading wire:target="analyze">Processing...</span>
+                        <span wire:loading.remove wire:target="analyze" class="hidden sm:inline">Smart Analysis</span>
+                        <span wire:loading wire:target="analyze" class="hidden sm:inline">Processing...</span>
                     </button>
 
                     <button wire:click="close" class="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 transition-colors">
@@ -26,7 +27,7 @@
                 </div>
             </div>
  
-            <div class="px-8 py-5 bg-slate-50/50 border-b border-slate-100">
+            <div class="px-4 sm:px-8 py-4 sm:py-5 bg-slate-50/50 border-b border-slate-100">
                 <h2 class="text-lg font-bold text-slate-900 mb-3 leading-tight">{{ $subject }}</h2>
                 <div class="flex flex-col sm:flex-row sm:items-center gap-4 text-xs">
                     <div class="flex items-center gap-2">
@@ -34,7 +35,7 @@
                             {{ $direction === 'inbound' ? 'From' : 'To' }}
                         </span>
                         
-                        <span class="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
+                        <span class="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100 break-all">
                             {{ $recipient_email }}
                         </span>
                     </div>
@@ -47,10 +48,10 @@
                 </div>
             </div>
 
-            <div class="p-0 overflow-y-auto bg-white flex-1">
+            <div class="p-0 overflow-y-auto overflow-x-hidden bg-white flex-1 w-full">
                 
                 @if($isAnalyzing)
-                    <div class="p-6 bg-indigo-50/30 border-b border-indigo-100">
+                    <div class="p-4 sm:p-6 bg-indigo-50/30 border-b border-indigo-100">
                         <div class="flex items-center gap-3 mb-4">
                             <div class="animate-spin w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full"></div>
                             <span class="text-xs font-bold text-indigo-500 uppercase">Analyzing Content & Attachments...</span>
@@ -63,7 +64,7 @@
                     </div>
                     {{-- analysis --}}
                     @elseif(is_array($analysis))
-                        <div class="bg-indigo-50/40 border-b border-indigo-100 p-6 animate-in slide-in-from-top duration-500">
+                        <div class="bg-indigo-50/40 border-b border-indigo-100 p-4 sm:p-6 animate-in slide-in-from-top duration-500">
                             <div class="flex items-start gap-4">
                                 <div class="shrink-0 p-2 bg-white rounded-xl shadow-sm border border-indigo-100 text-indigo-600">
                                     <i data-lucide="brain-circuit" class="w-5 h-5"></i>
@@ -185,35 +186,82 @@
                     @endif
                 {{--  --}}
 
-                <div class="p-8">
-                    <!-- <div class="prose prose-sm prose-slate max-w-none text-slate-700">
-                        {{-- {!! nl2br(e($body)) !!} --}}
-                        {!! $body !!}
-                    </div> -->
-                    <div class="text-sm text-slate-800 leading-relaxed max-w-none overflow-x-auto email-content-wrapper">
-                        
-                        @if(preg_match('/<(br|p|div|html|body|table)[^>]*>/i', $body))
-                            {{-- IT IS AN HTML EMAIL (From Gmail, Outlook, etc.) --}}
-                            {{-- We render it directly, letting its native inline styles work --}}
-                            {!! $body !!}
-                        @else
-                            {{-- IT IS A PLAIN TEXT EMAIL --}}
-                            {{-- We safely escape it and convert invisible newlines to <br> tags --}}
-                            {!! nl2br(e($body)) !!}
-                        @endif
-                        
+                <div class="w-full max-w-full box-border overflow-x-hidden">
+                    <div class="text-sm text-slate-800 leading-relaxed max-w-none w-full" x-data="{
+                        initShadow() {
+                            let shadow = this.$refs.shadowRoot.attachShadow({mode: 'open'});
+                            let content = '';
+                            try {
+                                content = JSON.parse(this.$refs.emailTemplate.textContent);
+                            } catch (e) { console.error('Error parsing email content JSON', e); }
+                            
+                            try {
+                                let attachments = JSON.parse(this.$refs.attachmentsData.textContent);
+                                content = content.replace(/src=['\x22]cid:([^'\x22]+)['\x22]/gi, (match, cid) => {
+                                    let matchedAttachment = attachments.find(a => {
+                                        let cleanCid = cid.split('@')[0];
+                                        return cleanCid.toLowerCase() === a.name.toLowerCase() || 
+                                               cid.toLowerCase().includes(a.name.toLowerCase());
+                                    });
+                                    if (matchedAttachment) {
+                                        return `src='${matchedAttachment.url}'`;
+                                    }
+                                    return `style='display:none;' src='data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs='`;
+                                });
+                            } catch (e) { console.error('Error parsing CID attachments', e); }
+                            
+                            shadow.innerHTML = `
+                                <style>
+                                    :host { display: block; width: 100%; overflow-x: hidden !important; }
+                                    /* Aggressive resets to prevent wide elements from causing horizontal scroll */
+                                    * { 
+                                        max-width: 100% !important; 
+                                        min-width: 0 !important; 
+                                        box-sizing: border-box !important; 
+                                        word-wrap: break-word !important; 
+                                        overflow-wrap: anywhere !important; 
+                                        word-break: break-word !important;
+                                        white-space: normal !important;
+                                    }
+                                    body, html { margin: 0; padding: 0; width: 100%; overflow-x: hidden !important; }
+                                    img { height: auto !important; border-radius: 0.5rem; max-width: 100% !important; display: inline-block; }
+                                    a { color: #2563eb; text-decoration: underline; word-break: break-all !important; }
+                                    blockquote { border-left: 3px solid #e2e8f0; padding-left: 1rem; margin-top: 1rem; color: #64748b; overflow: hidden; }
+                                    div[dir='ltr'] { margin-bottom: 0.75em; }
+                                    
+                                    /* Mobile Email Reflow Engine: Stacks tables vertically */
+                                    @media (max-width: 640px) {
+                                        table, thead, tbody, th, td, tr { 
+                                            display: block !important; 
+                                            width: 100% !important; 
+                                            height: auto !important;
+                                        }
+                                    }
+                                </style>
+                                <div style='font-family: inherit; font-size: inherit; color: inherit; word-wrap: break-word;'>
+                                    ${content}
+                                </div>
+                            `;
+                        }
+                    }" x-init="initShadow()">
+                        <script type="application/json" x-ref="attachmentsData">
+                            {!! json_encode($attachments ?? []) !!}
+                        </script>
+                        <script type="application/json" x-ref="emailTemplate">
+                            @if(preg_match('/<(br|p|div|html|body|table)[^>]*>/i', $body))
+                                {!! json_encode($body) !!}
+                            @else
+                                {!! json_encode(nl2br(e($body))) !!}
+                            @endif
+                        </script>
+                        <div x-ref="shadowRoot" class="w-full overflow-hidden px-4 sm:px-8 py-4 sm:py-6 box-border"></div>
                     </div>
-                    <style>
-                        .email-content-wrapper div[dir="ltr"] { margin-bottom: 0.75em; }
-                        .email-content-wrapper blockquote { border-left: 3px solid #e2e8f0; padding-left: 1rem; margin-top: 1rem; color: #64748b; }
-                        .email-content-wrapper a { color: #2563eb; text-decoration: underline; }
-                    </style>
                     {{-- attachment of email --}}
                     @if(count($attachments) > 0)
-                        <div class="mt-12 pt-6 border-t border-slate-100">
+                        <div class="mt-8 pt-6 border-t border-slate-100 px-4 sm:px-8 pb-6">
                             <h4 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Attached Files</h4>
                             
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" x-data x-init="lucide.createIcons()">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 @foreach($attachments as $file)
                                     @php
                                         // Call the helper function we created
@@ -243,12 +291,13 @@
                 </div>
             </div>
             
-            <div class="px-6 py-4 border-t border-slate-100 bg-white flex justify-end">
+            <div class="px-4 sm:px-6 py-4 border-t border-slate-100 bg-white flex justify-end">
                 <button wire:click="close" class="px-6 py-2 bg-slate-900 text-white rounded-lg text-xs font-bold hover:bg-slate-800 transition-all shadow-md active:scale-95">
                     Close Viewer
                 </button>
             </div>
         </div>
     </div>
+    @endteleport
     @endif
 </div>

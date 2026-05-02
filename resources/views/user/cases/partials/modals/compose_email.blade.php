@@ -316,7 +316,7 @@
                 }
             });
         });
-    </script>s
+    </script>
 
     <script>
         function fileManager() {
