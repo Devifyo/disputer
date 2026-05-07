@@ -169,7 +169,7 @@ class AiReplyService
                 "You must NOT negotiate, apologise, ask clarifying questions, or show any willingness to continue the current dialogue. " .
                 "Draft a formal escalation notice structured as follows:\n" .
                 "  1. Acknowledge their final position in a single, cold sentence.\n" .
-                "  2. State clearly that this matter is now being formally escalated to the relevant regulatory or ombudsman body.\n" .
+                "  2. State clearly that this matter is now being formally escalated to the appropriate external authority — the exact body (regulator, statutory ombudsperson, court, or tribunal) is dictated by the Category Fence further down in this prompt.\n" .
                 "  3. Reference specific facts from the thread (dates, amounts, case references, their exact stated position).\n" .
                 "  4. State that all correspondence is being preserved as evidence for the formal complaint.\n" .
                 "  5. Give them one final opportunity to resolve within 48 hours before the complaint is filed — state this as a deadline, not a request.",
@@ -187,10 +187,10 @@ class AiReplyService
             $context = "This is a direct reply to the institution's recent email. Address their specific points or requests clearly based on the provided thread history.";
         } elseif ($escalation > 0 || $isEscalationReq) {
             $baseTone = $dbTone ?? "cold, factual, and strictly professional";
-            $context = "This email is a formal escalation to higher management or an ombudsman. Standard support failed. Briefly state what is owed based on the history and demand a final ruling and immediate intervention.";
+            $context = "This email is a formal escalation. Prior attempts to resolve the matter through standard channels have not produced a remedy. Briefly state what is being sought based on the history and request a final, written determination on the matter. The exact escalation target (regulator, ombudsperson, court, tribunal) and the framing of the request are governed by the Category Fence further down in this prompt — follow it.";
         } elseif ($isFollowUpReq) {
             $baseTone = $dbTone ?? "firm and direct";
-            $context = "This is a follow-up email. You are annoyed because they ignored the previous email provided in the history. Demand a status update.";
+            $context = "This is a follow-up email. The previous correspondence in the thread history has not been addressed. Request a status update in firm but appropriate terms — the appropriate register (assertive consumer vs. formal civic) is governed by the Category Fence further down in this prompt.";
         } else {
             $baseTone = $dbTone ?? "polite, direct, and factual";
             $context = "This is a standard communication regarding a dispute. Use the conversation history provided to advance the case naturally.";
@@ -203,8 +203,11 @@ class AiReplyService
 
     private function buildPrompt(Cases $case, string $context, string $tone, string $stepKey, string $userPrompt, string $existingSubject, string $userName, string $threadHistory, bool $hardStop = false): string
     {
+        $categoryName = $case->institution->category->name ?? 'Unknown';
+
         $prompt = "You are drafting an email to {$case->institution_name} on behalf of a real person named {$userName}.\n" .
                   "Case Reference: {$case->case_reference_id}.\n" .
+                  "Institution Category: {$categoryName}.\n" .
                   "Context: {$context}\n" .
                   "Tone: {$tone}\n\n";
 
@@ -228,11 +231,11 @@ class AiReplyService
                 "   YOU MUST NOT: negotiate, apologise, ask clarifying questions, or express any desire to continue the current dialogue.\n" .
                 "   The 'body' MUST follow this exact 5-part structure as separate paragraphs:\n" .
                 "   - Paragraph 1: One cold, formal sentence acknowledging their stated final position.\n" .
-                "   - Paragraph 2: State that this matter is being formally escalated to the relevant regulatory body or ombudsman, and name the appropriate body based on the institution type (e.g. Financial Ombudsman Service, ICO, Ofcom, etc.).\n" .
+                "   - Paragraph 2: State that this matter is being formally escalated, and name the appropriate external authority for this institution type — selected per the Category Fence below (a regulator, statutory ombudsperson, court, or tribunal — never a private-sector ombudsman if the institution is a government body).\n" .
                 "   - Paragraph 3: Cite specific facts from the Thread Data — exact dates, amounts, reference numbers, and the institution's own words — that will form the basis of the complaint.\n" .
                 "   - Paragraph 4: State that all correspondence is being preserved as evidence and will be submitted with the formal complaint.\n" .
                 "   - Paragraph 5: Give them a final 48-hour deadline to resolve the matter before the complaint is filed. State this as a deadline, not a request. Then a cold formal sign-off ({$userName}).\n" .
-                "5. NEVER mention internal terms like 'Stage 1', '{$stepKey}', 'Workflow', or 'Escalation Level'.";
+                "5. NEVER mention internal terms like 'Stage 1', '{$stepKey}', 'Workflow', or 'Escalation Level'.\n";
         } else {
             $prompt .=
                 "4. The 'body' MUST seamlessly flow through these 4 structural parts as separate paragraphs:\n" .
@@ -240,10 +243,40 @@ class AiReplyService
                 "   - Paragraph 2 (Body): Plainly state the facts of the dispute and respond to the Thread Data provided.\n" .
                 "   - Paragraph 3 (Request/Next Steps): Clearly and directly state exactly what action you want them to take right now.\n" .
                 "   - Paragraph 4 (Closing): A standard human sign-off (e.g., Best regards, {$userName}).\n" .
-                "5. NEVER mention internal terms like 'Stage 1', '{$stepKey}', 'Workflow', or 'Escalation Level'.";
+                "5. NEVER mention internal terms like 'Stage 1', '{$stepKey}', 'Workflow', or 'Escalation Level'.\n";
         }
 
+        $prompt .= "\n" . $this->categoryFence($categoryName);
+
         return $prompt;
+    }
+
+    /**
+     * Category Fence — final, authoritative tone/register guardrails.
+     * The AI inspects the Institution Category at the top of the prompt and
+     * picks the correct register (Law-Abiding Citizen vs. Fierce Consumer Advocate)
+     * based on whether the institution is a government body or a commercial provider.
+     */
+    private function categoryFence(string $categoryName): string
+    {
+        return
+            "=== CATEGORY FENCE (FINAL, AUTHORITATIVE — OVERRIDES ANY CONFLICTING TONE ABOVE) ===\n" .
+            "Look at the Institution Category at the top of this prompt (\"{$categoryName}\") and decide whether this institution is a GOVERNMENT BODY or a COMMERCIAL PROVIDER. Then apply the matching fence below. Never mix the two registers.\n\n" .
+            "IF GOVERNMENT BODY (e.g. a municipality, city, town, county, federal/provincial/state agency, public authority, tax authority, or any taxpayer-funded institution):\n" .
+            "  - Persona: a Law-Abiding Citizen exercising their statutory rights. Strictly formal, procedural, deferential to due process. No commercial-consumer combativeness.\n" .
+            "  - DO NOT use phrases like \"standard support has failed\", \"your support team\", \"customer service\", \"I demand a final ruling\", or anything that frames the institution as a private vendor. Government bodies do not have \"support teams\" and the citizen does not \"demand\" — they invoke or request under statute.\n" .
+            "  - REQUIRED PHRASING SUBSTITUTIONS (apply these even if the Context above suggested otherwise — never use the left-hand wording in a government letter):\n" .
+            "      • Instead of \"This is a formal escalation\" or \"This email is a formal escalation\" → write \"I am writing regarding this claim\".\n" .
+            "      • Instead of \"full reimbursement has not been issued\", \"payment has not been made\", or similar vendor-style accusations → write \"the claim remains unresolved\".\n" .
+            "      • Instead of \"the appropriate tribunal\", \"the relevant tribunal\", or any vague tribunal reference → write \"Small Claims Court\" (preferred), or \"available legal remedies\" if the specific court is genuinely unclear.\n" .
+            "      These substitutions are mandatory; do not paraphrase your way back into the disallowed phrasing.\n" .
+            "  - Frame requests as a citizen invoking rights under the relevant statute, bylaw, or regulation that governs this body (e.g., the applicable Municipal Act for a city, the governing legislation or charter for an agency). If you do not know the exact statute, refer to it generically as \"the applicable governing legislation\" rather than inventing a name.\n" .
+            "  - When escalating, refer to the correct legal channel for a public body — Small Claims Court, judicial review, or a statutory ombudsperson where one demonstrably exists for that body. NEVER escalate a government dispute to a private-sector \"ombudsman\".\n\n" .
+            "IF COMMERCIAL PROVIDER (e.g. bank, airline, telecom, ISP, insurance, fintech, or any private business):\n" .
+            "  - Persona: a Fierce Consumer Advocate. Keep the assertive, firm tone established above.\n" .
+            "  - Cite the consumer-protection regulation that applies to that industry (e.g., air passenger protection regulations for airlines, banking conduct rules for banks, telecom regulator rules for ISPs). If you do not know the exact regulation, refer to it generically as \"the applicable consumer-protection regulations for this industry\" rather than inventing a name.\n" .
+            "  - When escalating, name the correct industry ombudsman or regulator for that sector (e.g., the relevant transportation regulator for airlines, the financial ombudsman for banks).\n\n" .
+            "If the category is genuinely ambiguous, default to the more formal Law-Abiding Citizen register — it is safer to be too formal than to address a public body as a vendor.";
     }
 
     private function buildAttachmentParts(array $files): array
