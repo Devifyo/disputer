@@ -4,12 +4,12 @@
 >
     <div class="h-20 flex items-center px-6 border-b border-white/5 bg-slate-950 shrink-0">
         <div class="flex items-center gap-3 text-white">
-            <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center shadow-glow">
-                <img src="/icon.svg" class="w-6 h-6 invert brightness-0 invert-[1]" alt="Icon" />            
-            </div>
+            <span class="flex items-center justify-center shrink-0" style="color:#3FCB94">
+                <svg viewBox="0 0 32 32" width="30" height="30" fill="none" aria-hidden="true"><path d="M5 23.5 L16 6 L27 23.5" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"></path><path d="M11 23.5 L16 15.5 L21 23.5" stroke="currentColor" stroke-opacity="0.4" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path><circle cx="16" cy="26" r="2.1" fill="currentColor"></circle></svg>
+            </span>
             <div>
                 <span class="font-bold tracking-tight text-lg block leading-none">{{ config('app.name') }}</span>
-                <span class="text-[10px] text-slate-500 font-mono">Get Unstuck.</span>
+                <span class="text-[10px] text-slate-500 font-mono">Flight Compensation</span>
             </div>
         </div>
         <button @click="sidebarOpen = false" class="lg:hidden ml-auto text-slate-400 hover:text-white">
@@ -38,6 +38,11 @@
         <a href="{{ route('user.documents.index') }}" class="{{ navClass('user.documents.*') }} group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all">
             <i data-lucide="files" class="w-5 h-5 transition-colors {{ request()->routeIs('user.documents.*') ? 'text-blue-400' : 'text-slate-500 group-hover:text-slate-300' }}"></i>
             Documents
+        </a>
+
+        <a href="{{ route('user.itineraries.index') }}" class="{{ navClass('user.itineraries.*') }} group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all">
+            <i data-lucide="plane" class="w-5 h-5 transition-colors {{ request()->routeIs('user.itineraries.*') ? 'text-blue-400' : 'text-slate-500 group-hover:text-slate-300' }}"></i>
+            Flight Disputes
         </a>
 
         <a href="{{ route('user.cases.index') }}" class="{{ navClass('user.cases.*') }} group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all">

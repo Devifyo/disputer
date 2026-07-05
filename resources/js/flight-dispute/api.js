@@ -1,0 +1,38 @@
+import axios from 'axios';
+
+const el = document.getElementById('flight-dispute-app');
+const BASE = el?.dataset.base
+    ? new URL(el.dataset.base, window.location.origin).pathname
+    : '/flight-disputes';
+
+const csrf = document.querySelector('meta[name="csrf-token"]')?.content;
+
+const http = axios.create({
+    baseURL: `${BASE}/api`,
+    withCredentials: true,
+    headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-CSRF-TOKEN': csrf,
+        Accept: 'application/json',
+    },
+});
+
+export default {
+    claims: {
+        list() {
+            return http.get('/claims').then((r) => r.data.data);
+        },
+        get(id) {
+            return http.get(`/claims/${id}`).then((r) => r.data.data);
+        },
+        create(payload) {
+            return http.post('/claims', payload).then((r) => r.data.data);
+        },
+    },
+    // PDF / photo itinerary upload — creates an itinerary + one claim per passenger.
+    uploadItinerary(file, onProgress) {
+        const form = new FormData();
+        form.append('file', file);
+        return http.post('/upload', form, { onUploadProgress: onProgress });
+    },
+};

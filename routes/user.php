@@ -1,7 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\User\{DashboardController, CaseController, DocumentController, TemplateController, EmailController};
+use App\Http\Controllers\User\{DashboardController, CaseController, DocumentController, TemplateController, EmailController, ItineraryController};
 use App\Http\Controllers\AiReplyController;
 /*
 |--------------------------------------------------------------------------
@@ -15,6 +15,28 @@ use App\Http\Controllers\AiReplyController;
 Route::middleware(['auth', 'verified', 'role_access:user'])->name('user.')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])
         ->name('dashboard');
+
+    // Flight Disputes — Vue module (JSON API + SPA shell)
+    Route::prefix('flight-disputes')->name('itineraries.')->group(function () {
+        // Claims API
+        Route::get('api/claims', [\App\Http\Controllers\User\Api\ClaimApiController::class, 'index'])->name('api.claims.index');
+        Route::post('api/claims', [\App\Http\Controllers\User\Api\ClaimApiController::class, 'store'])->name('api.claims.store');
+        Route::get('api/claims/{claim}', [\App\Http\Controllers\User\Api\ClaimApiController::class, 'show'])->name('api.claims.show');
+
+        // Itinerary API (declared before the SPA catch-all)
+        Route::get('api/list', [\App\Http\Controllers\User\Api\ItineraryApiController::class, 'index'])->name('api.index');
+        Route::post('api/upload', [\App\Http\Controllers\User\Api\ItineraryApiController::class, 'store'])->name('api.store');
+        Route::get('api/{itinerary}', [\App\Http\Controllers\User\Api\ItineraryApiController::class, 'show'])->whereNumber('itinerary')->name('api.show');
+        Route::post('api/{itinerary}/reparse', [\App\Http\Controllers\User\Api\ItineraryApiController::class, 'reparse'])->whereNumber('itinerary')->name('api.reparse');
+        Route::delete('api/{itinerary}', [\App\Http\Controllers\User\Api\ItineraryApiController::class, 'destroy'])->whereNumber('itinerary')->name('api.destroy');
+
+        // Original file download
+        Route::get('{itinerary}/file', [ItineraryController::class, 'file'])->whereNumber('itinerary')->name('file');
+
+        // Vue SPA shell — handles /flight-disputes and any client-side route
+        // (e.g. /flight-disputes/claims/new, /flight-disputes/claims/{hash}) on reload/deep-link.
+        Route::get('{path?}', [ItineraryController::class, 'index'])->where('path', '.*')->name('index');
+    });
 
     // ✅ CREATE must come BEFORE {case_reference_id}
     Route::get('/cases/create', [CaseController::class, 'createStep1'])
