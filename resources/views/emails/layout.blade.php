@@ -36,22 +36,18 @@
                         <td align="center">
                             
                             {{-- White Box --}}
-                            <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; border-top: 4px solid #2563eb; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.05);">
+                            <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; border-top: 4px solid #0B6B4C; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.05);">
                                 
                                 {{-- Header with Logo Mark --}}
                                 <tr>
                                     <td class="header-pad" style="padding: 32px 40px 24px 40px; border-bottom: 1px solid #f1f5f9;">
                                         <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
                                             <tr>
-                                                {{-- Logo Icon Box --}}
+                                                {{-- Logo Icon Box — the landing-page peak mark baked into a single
+                                                     opaque PNG: Outlook renders neither SVG nor CSS gradients, so
+                                                     the whole mark ships as one email-safe image. --}}
                                                 <td width="38" valign="middle" style="width: 38px;">
-                                                    <table width="38" cellpadding="0" cellspacing="0" role="presentation">
-                                                        <tr>
-                                                            <td height="38" align="center" valign="middle" style="height: 38px; width: 38px; background-color: #2563eb; background: linear-gradient(135deg, #2563eb, #4f46e5); border-radius: 10px; text-align: center;">
-                                                                <img src="{{ asset('icon.svg') }}" alt="Icon" width="18" height="18" style="display: block; margin: 0 auto; width: 18px; height: 18px; border: 0;" />
-                                                            </td>
-                                                        </tr>
-                                                    </table>
+                                                    <img src="{{ asset('email-logo.png') }}" alt="{{ config('app.name', 'Unjamm') }}" width="38" height="38" style="display: block; width: 38px; height: 38px; border: 0; border-radius: 10px;" />
                                                 </td>
                                                 
                                                 {{-- Spacer --}}
@@ -63,7 +59,7 @@
                                                         {{ config('app.name', 'Unjamm') }}
                                                     </div>
                                                     <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.15em; margin-top: 4px; line-height: 1;">
-                                                        Get Unstuck.
+                                                        Get the money airlines owe you
                                                     </div>
                                                 </td>
                                             </tr>
@@ -85,7 +81,7 @@
                                 <tr>
                                     <td style="padding: 32px 40px; text-align: center; font-size: 13px; color: #64748b; line-height: 1.6;">
                                         &copy; {{ date('Y') }} {{ config('app.name', 'Unjamm') }}. All rights reserved.<br>
-                                        <span style="color: #94a3b8; font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em;">Get Unstuck.</span>
+                                        <span style="color: #94a3b8; font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em;">Get the money airlines owe you</span>
                                     </td>
                                 </tr>
                             </table>

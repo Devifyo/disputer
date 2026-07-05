@@ -41,21 +41,36 @@ class InboundItineraryImporter
 
         $created = 0;
         $duplicates = 0;
+        $failed = 0;
+        $parsedItineraries = [];
 
         foreach ($attachments as $attachment) {
-            $result = $this->processAttachment($user, $attachment);
+            [$result, $itinerary] = $this->processAttachment($user, $attachment);
             $created    += $result === 'created' ? 1 : 0;
             $duplicates += $result === 'duplicate' ? 1 : 0;
+            $failed     += $result === 'failed' ? 1 : 0;
+            if ($result === 'created' && $itinerary) {
+                $parsedItineraries[] = $itinerary;
+            }
         }
 
         // Fall back to the email body for inline-forwarded itineraries.
-        if ($created === 0 && $duplicates === 0) {
+        if ($created === 0 && $duplicates === 0 && $failed === 0) {
             $body = (string) ($text ?: strip_tags((string) $html));
             if (trim($body) !== '') {
-                $result = $this->processBody($user, $subject, $body);
+                [$result, $itinerary] = $this->processBody($user, $subject, $body);
                 $created    += $result === 'created' ? 1 : 0;
                 $duplicates += $result === 'duplicate' ? 1 : 0;
+                if ($result === 'created' && $itinerary) {
+                    $parsedItineraries[] = $itinerary;
+                }
             }
+        }
+
+        // Existing users get a confirmation once the itinerary parses into claims
+        // (new users learn about their claim in the set-password email instead).
+        if (!$isNew && $created > 0) {
+            $this->sendClaimCreatedEmail($user, $parsedItineraries);
         }
 
         Log::info('Inbound itinerary processed', [
@@ -108,18 +123,65 @@ class InboundItineraryImporter
         }
     }
 
-    private function processAttachment(User $user, array $attachment): ?string
+    /**
+     * Confirmation for existing users: their forwarded itinerary parsed into
+     * claim(s) they can review on the dashboard.
+     *
+     * @param array<int, Itinerary> $itineraries
+     */
+    private function sendClaimCreatedEmail(User $user, array $itineraries): void
+    {
+        try {
+            $link = route('user.itineraries.index');
+
+            $claims = collect($itineraries)
+                ->flatMap(fn (Itinerary $itinerary) => $itinerary->claims()->get());
+
+            $flightRows = $claims->map(function ($claim) {
+                $route = e($claim->departure_airport ?: '?') . ' &rarr; ' . e($claim->arrival_airport ?: '?');
+                $meta  = collect([$claim->airline, $claim->flight_number, $claim->flight_date?->format('d M Y')])
+                    ->filter()->map(fn ($part) => e($part))->implode(' &middot; ');
+                return '<tr>'
+                    . '<td style="padding: 10px 14px; border-bottom: 1px solid #f1f5f9; font-size: 14px; color: #0f172a; font-weight: 600;">' . $route . '</td>'
+                    . '<td style="padding: 10px 14px; border-bottom: 1px solid #f1f5f9; font-size: 13px; color: #64748b;">' . $meta . '</td>'
+                    . '</tr>';
+            })->implode('');
+
+            $count = max($claims->count(), 1);
+            $noun  = $count === 1 ? 'claim' : 'claims';
+
+            $subject = 'Your flight ' . $noun . ' ' . ($count === 1 ? 'has' : 'have') . ' been created';
+            $body = '<p style="margin: 0 0 16px 0;">Hi ' . e($user->name) . ',</p>'
+                . '<p style="margin: 0 0 16px 0;">Good news &mdash; we received the flight itinerary you forwarded and created '
+                . ($count === 1 ? 'a claim' : $count . ' claims') . ' on your account.</p>'
+                . ($flightRows !== ''
+                    ? '<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin: 0 0 24px 0; border: 1px solid #e2e8f0; border-radius: 10px; border-collapse: separate; overflow: hidden;">' . $flightRows . '</table>'
+                    : '')
+                . '<table cellpadding="0" cellspacing="0" role="presentation" style="margin: 0 0 24px 0;"><tr>'
+                . '<td style="background-color: #0B6B4C; border-radius: 10px;">'
+                . '<a href="' . e($link) . '" style="display: inline-block; padding: 12px 28px; font-size: 15px; font-weight: 700; color: #ffffff; text-decoration: none;">View your ' . $noun . '</a>'
+                . '</td></tr></table>'
+                . '<p style="margin: 0; color: #64748b; font-size: 13px;">We\'ll review your ' . $noun . ' and keep you posted on the next steps.</p>';
+
+            Mail::to($user->email)->send(new GenericEmail($subject, $body));
+        } catch (\Throwable $e) {
+            Log::error('Inbound itinerary: failed to send claim-created email.', ['email' => $user->email, 'error' => $e->getMessage()]);
+        }
+    }
+
+    /** @return array{0: ?string, 1: ?Itinerary} */
+    private function processAttachment(User $user, array $attachment): array
     {
         $mime  = (string) ($attachment['mime'] ?? '');
         $bytes = $attachment['bytes'] ?? null;
 
         if (!is_string($bytes) || $bytes === '' || !(str_contains($mime, 'pdf') || str_starts_with($mime, 'image/'))) {
-            return null;
+            return [null, null];
         }
 
         $hash = hash('sha256', $bytes);
         if (Itinerary::where('user_id', $user->id)->where('file_hash', $hash)->exists()) {
-            return 'duplicate';
+            return ['duplicate', null];
         }
 
         $name = $attachment['name'] ?? 'itinerary';
@@ -136,16 +198,19 @@ class InboundItineraryImporter
             'status'            => Itinerary::STATUS_UPLOADED,
         ]);
 
-        $this->parser->parse($itinerary);
+        // Only counts as created when the AI recognises an actual flight
+        // itinerary; the stored file stays available for a manual re-parse.
+        $ok = $this->parser->parse($itinerary);
 
-        return 'created';
+        return [$ok ? 'created' : 'failed', $ok ? $itinerary : null];
     }
 
-    private function processBody(User $user, ?string $subject, string $body): ?string
+    /** @return array{0: ?string, 1: ?Itinerary} */
+    private function processBody(User $user, ?string $subject, string $body): array
     {
         $hash = hash('sha256', $body);
         if (Itinerary::where('user_id', $user->id)->where('file_hash', $hash)->exists()) {
-            return 'duplicate';
+            return ['duplicate', null];
         }
 
         $path = 'itineraries/' . $user->id . '/' . Str::uuid() . '-email.txt';
@@ -161,8 +226,8 @@ class InboundItineraryImporter
             'status'            => Itinerary::STATUS_UPLOADED,
         ]);
 
-        $this->parser->parseFromText($itinerary, $body);
+        $ok = $this->parser->parseFromText($itinerary, $body);
 
-        return 'created';
+        return [$ok ? 'created' : 'failed', $ok ? $itinerary : null];
     }
 }
