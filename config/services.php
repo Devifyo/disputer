@@ -18,6 +18,15 @@ return [
         'token' => env('POSTMARK_TOKEN'),
     ],
 
+    // Email-forwarding fallback (handled via SendGrid Inbound Parse).
+    // Leave CLAIMS_INBOUND_ADDRESS unset when the Parse host is dedicated to
+    // claims (e.g. claims.unjamm.com) — all mail there is treated as a claim.
+    // Set it (e.g. claims@unjamm.com) only when the host is a shared domain,
+    // so that just that address is processed and other mail is ignored.
+    'inbound' => [
+        'claims_address' => env('CLAIMS_INBOUND_ADDRESS'),
+    ],
+
     'ses' => [
         'key' => env('AWS_ACCESS_KEY_ID'),
         'secret' => env('AWS_SECRET_ACCESS_KEY'),

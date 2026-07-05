@@ -22,7 +22,7 @@ class SendGridInboundController extends Controller
         try {
             $toAddress = $request->input('to');
             $fromAddress = $this->extractEmailAddress($request->input('from'));
-            
+
             // 1. Extract the Case Reference from the 'To' address (e.g., case-a8x9p2@...)
             if (!preg_match('/case-([a-zA-Z0-9]+)@/i', $toAddress, $matches)) {
                 Log::warning("SendGrid Webhook: Ignored email not matching case routing.", ['to' => $toAddress]);

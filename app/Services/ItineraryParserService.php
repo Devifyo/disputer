@@ -48,6 +48,83 @@ class ItineraryParserService
         }
     }
 
+    /**
+     * Parse an itinerary from raw email text (inline-forwarded confirmations
+     * that have no PDF/image attachment). Runs synchronously.
+     */
+    public function parseFromText(Itinerary $itinerary, string $text): bool
+    {
+        $itinerary->update(['status' => Itinerary::STATUS_PROCESSING, 'parse_error' => null]);
+
+        try {
+            $text = trim($text);
+            if ($text === '') {
+                return $this->fail($itinerary, 'The forwarded email did not contain any itinerary text.');
+            }
+
+            $data = $this->extractStructuredFromText($text);
+            if ($data === null) {
+                return $this->fail($itinerary, 'We could not read a flight itinerary from the forwarded email.', $text);
+            }
+
+            $this->persist($itinerary, $data, $text);
+            return true;
+        } catch (\Throwable $e) {
+            Log::error('Itinerary text parsing failed', ['id' => $itinerary->id, 'error' => $e->getMessage()]);
+            return $this->fail($itinerary, 'An unexpected error occurred while processing the forwarded email.');
+        }
+    }
+
+    private function extractStructuredFromText(string $text): ?array
+    {
+        $apiKey = config('services.gemini.api_key');
+        if (!$apiKey) {
+            Log::error('Gemini API key missing — cannot parse itinerary.');
+            return null;
+        }
+
+        $prompt = "You are a flight itinerary parser for an air-passenger compensation service.\n"
+            . "Read the following forwarded flight itinerary / booking confirmation email and extract its details.\n\n"
+            . "Rules:\n"
+            . "- Extract EVERY flight segment (outbound, return, connections) as separate entries, in travel order.\n"
+            . "- Extract EVERY passenger named on the booking.\n"
+            . "- Airport codes must be 3-letter IATA codes. Convert city/airport names to IATA codes.\n"
+            . "- Dates/times must be ISO 8601 local time YYYY-MM-DDTHH:MM (or YYYY-MM-DD if no time). Empty string if absent.\n"
+            . "- flight_number includes the carrier prefix (e.g. BA249). Do not invent data.\n"
+            . "Return ONLY the structured object.\n\nEmail content:\n\"\"\"\n"
+            . mb_substr($text, 0, 20000) . "\n\"\"\"";
+
+        $endpoint = "https://generativelanguage.googleapis.com/v1beta/models/" . self::MODEL . ":generateContent?key={$apiKey}";
+
+        $response = Http::timeout(90)
+            ->retry(2, 2000, function ($e) {
+                if ($e instanceof \Illuminate\Http\Client\ConnectionException) {
+                    return true;
+                }
+                if ($e instanceof \Illuminate\Http\Client\RequestException) {
+                    return in_array($e->response->status(), [429, 503]);
+                }
+                return false;
+            }, throw: false)
+            ->post($endpoint, [
+                'contents' => [['parts' => [['text' => $prompt]]]],
+                'generationConfig' => [
+                    'responseMimeType' => 'application/json',
+                    'responseSchema'   => $this->itinerarySchema(),
+                    'thinkingConfig'   => ['thinkingBudget' => 0],
+                ],
+            ]);
+
+        if (!$response->successful()) {
+            Log::error('Gemini itinerary (text) request failed', ['status' => $response->status(), 'body' => $response->body()]);
+            return null;
+        }
+
+        $json = $response->json('candidates.0.content.parts.0.text');
+        $parsed = $json ? json_decode($json, true) : null;
+        return is_array($parsed) ? $parsed : null;
+    }
+
     private function extractText(string $path): ?string
     {
         try {
@@ -89,39 +166,7 @@ PROMPT;
 
         $endpoint = "https://generativelanguage.googleapis.com/v1beta/models/" . self::MODEL . ":generateContent?key={$apiKey}";
 
-        $schema = [
-            'type' => 'OBJECT',
-            'properties' => [
-                'booking_reference' => ['type' => 'STRING'],
-                'airline'           => ['type' => 'STRING'],
-                'flights' => [
-                    'type' => 'ARRAY',
-                    'items' => [
-                        'type' => 'OBJECT',
-                        'properties' => [
-                            'airline'            => ['type' => 'STRING'],
-                            'flight_number'      => ['type' => 'STRING'],
-                            'departure_airport'  => ['type' => 'STRING'],
-                            'arrival_airport'    => ['type' => 'STRING'],
-                            'departure_datetime' => ['type' => 'STRING'],
-                            'arrival_datetime'   => ['type' => 'STRING'],
-                            'cabin_class'        => ['type' => 'STRING'],
-                        ],
-                    ],
-                ],
-                'passengers' => [
-                    'type' => 'ARRAY',
-                    'items' => [
-                        'type' => 'OBJECT',
-                        'properties' => [
-                            'full_name'     => ['type' => 'STRING'],
-                            'type'          => ['type' => 'STRING'],
-                            'ticket_number' => ['type' => 'STRING'],
-                        ],
-                    ],
-                ],
-            ],
-        ];
+        $schema = $this->itinerarySchema();
 
         $response = Http::timeout(90)
             ->retry(2, 2000, function ($e) {
@@ -162,6 +207,43 @@ PROMPT;
 
         $parsed = json_decode($json, true);
         return is_array($parsed) ? $parsed : null;
+    }
+
+    private function itinerarySchema(): array
+    {
+        return [
+            'type' => 'OBJECT',
+            'properties' => [
+                'booking_reference' => ['type' => 'STRING'],
+                'airline'           => ['type' => 'STRING'],
+                'flights' => [
+                    'type' => 'ARRAY',
+                    'items' => [
+                        'type' => 'OBJECT',
+                        'properties' => [
+                            'airline'            => ['type' => 'STRING'],
+                            'flight_number'      => ['type' => 'STRING'],
+                            'departure_airport'  => ['type' => 'STRING'],
+                            'arrival_airport'    => ['type' => 'STRING'],
+                            'departure_datetime' => ['type' => 'STRING'],
+                            'arrival_datetime'   => ['type' => 'STRING'],
+                            'cabin_class'        => ['type' => 'STRING'],
+                        ],
+                    ],
+                ],
+                'passengers' => [
+                    'type' => 'ARRAY',
+                    'items' => [
+                        'type' => 'OBJECT',
+                        'properties' => [
+                            'full_name'     => ['type' => 'STRING'],
+                            'type'          => ['type' => 'STRING'],
+                            'ticket_number' => ['type' => 'STRING'],
+                        ],
+                    ],
+                ],
+            ],
+        ];
     }
 
     private function persist(Itinerary $itinerary, array $data, ?string $rawText): void
