@@ -1,57 +1,44 @@
 @php $page = \App\Models\CmsPage::findBySlug('terms-of-service'); @endphp
-<!DOCTYPE html>
-<html lang="en" class="bg-slate-50 antialiased selection:bg-blue-200 selection:text-blue-900">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Terms of Service - {{ config('app.name') }}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <style>
-        body { font-family: 'Inter', sans-serif; }
-        .prose h2 { font-size: 1.2rem; font-weight: 700; color: #0f172a; margin-top: 2rem; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 8px; }
-        .prose h2::before { content: ''; display: inline-block; width: 4px; height: 1.1em; background: #2563eb; border-radius: 2px; flex-shrink: 0; }
-        .prose h3 { font-size: 1rem; font-weight: 700; color: #0f172a; margin-top: 1.25rem; margin-bottom: 0.5rem; }
-        .prose p { margin-bottom: 1rem; color: #475569; line-height: 1.75; }
-        .prose ul { list-style: disc; padding-left: 1.5rem; margin-bottom: 1rem; color: #475569; }
-        .prose ul li { margin-bottom: 0.5rem; line-height: 1.7; }
-        .prose strong { color: #1e293b; }
-        .prose a { color: #2563eb; text-decoration: underline; }
-        .prose hr { border: none; border-top: 1px solid #f1f5f9; margin: 2rem 0; }
-    </style>
-</head>
-<body class="text-slate-600 bg-slate-50">
 
-    <nav class="sticky top-0 z-50 w-full bg-white/80 backdrop-blur-md border-b border-slate-200 shadow-sm">
-        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-            <div class="flex items-center gap-2">
-                <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center">
-                    <i data-lucide="scale" class="w-4 h-4 text-white"></i>
-                </div>
-                <span class="font-bold text-slate-900 tracking-tight">{{ config('app.name') }}</span>
-            </div>
-            <button onclick="history.back()" class="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 px-4 py-2 rounded-lg border border-slate-300 shadow-sm transition-all">
-                <i data-lucide="arrow-left" class="w-4 h-4"></i> Back
-            </button>
-        </div>
-    </nav>
+@extends('layouts.marketing')
 
-    <header class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-8">
-        <h1 class="text-3xl sm:text-4xl font-bold text-slate-900 tracking-tight mb-3">
-            {{ $page?->title ?? 'Terms of Service' }}
-        </h1>
-        <p class="text-sm text-slate-500 font-medium">
-            Last Updated: {{ $page?->last_updated_at?->format('F d, Y') ?? date('F d, Y') }}
-        </p>
+@section('title', 'Terms of Service — Unjamm')
+@section('meta_description', 'The terms governing your use of Unjamm, the automated flight compensation service.')
+
+@push('styles')
+<style>
+    .uj-legal-header { max-width: 820px; margin: 0 auto; padding: 150px 32px 8px; }
+    .uj-legal-header h1 { font-family: 'Bricolage Grotesque', sans-serif; font-size: clamp(2.2rem, 3.6vw, 3rem); font-weight: 700; letter-spacing: -.03em; color: var(--text); margin: 0 0 10px; }
+    .uj-legal-header p { font-size: .9rem; color: var(--faint); font-weight: 500; margin: 0; }
+    .uj-legal-main { max-width: 820px; margin: 0 auto; padding: 24px 32px 120px; }
+    .uj-legal-card { background: var(--card); border: 1px solid var(--border); border-radius: 24px; padding: 40px; box-shadow: 0 40px 90px -55px rgba(0,0,0,.8); }
+    .uj-prose h2 { font-family: 'Bricolage Grotesque', sans-serif; font-size: 1.2rem; font-weight: 700; color: var(--text); margin: 2rem 0 .75rem; display: flex; align-items: center; gap: 10px; }
+    .uj-prose h2::before { content: ''; display: inline-block; width: 4px; height: 1.05em; background: var(--accent); border-radius: 2px; flex-shrink: 0; }
+    .uj-prose h3 { font-family: 'Bricolage Grotesque', sans-serif; font-size: 1rem; font-weight: 600; color: var(--text); margin: 1.25rem 0 .5rem; }
+    .uj-prose p { margin: 0 0 1rem; color: var(--muted); line-height: 1.75; }
+    .uj-prose ul { list-style: disc; padding-left: 1.4rem; margin: 0 0 1rem; color: var(--muted); }
+    .uj-prose ul li { margin-bottom: .5rem; line-height: 1.7; }
+    .uj-prose strong { color: var(--text); }
+    .uj-prose a { color: var(--accent); text-decoration: underline; }
+    .uj-prose hr { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
+    .uj-prose:first-child > :first-child { margin-top: 0; }
+    @media (max-width: 640px) {
+        .uj-legal-header { padding: 130px 24px 8px; }
+        .uj-legal-main { padding: 20px 24px 80px; }
+        .uj-legal-card { padding: 28px 22px; }
+    }
+</style>
+@endpush
+
+@section('content')
+    <header class="uj-legal-header">
+        <h1>{{ $page?->title ?? 'Terms of Service' }}</h1>
+        <p>Last updated: {{ $page?->last_updated_at?->format('F d, Y') ?? date('F d, Y') }}</p>
     </header>
 
-    <main class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 pb-24">
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 sm:p-12 text-[15px] sm:text-base leading-relaxed prose">
+    <main class="uj-legal-main">
+        <div class="uj-legal-card uj-prose">
             {!! $page?->content ?? '<p>Content not available.</p>' !!}
         </div>
     </main>
-
-    <script>lucide.createIcons();</script>
-</body>
-</html>
+@endsection

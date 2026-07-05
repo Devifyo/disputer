@@ -1,21 +1,17 @@
-<footer style="background:#0f172a; border-top:1px solid rgba(248,250,252,0.08); padding:32px 48px;">
-    <div style="max-width:1200px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px;">
-
-        <a href="{{ route('home') }}" style="display:flex; align-items:center; gap:10px; text-decoration:none;">
-            <div style="width:30px; height:30px; background:#2563eb; border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-                <img src="/icon.svg" alt="Unjamm" style="width:14px; height:14px; filter:brightness(0) invert(1);" />
-            </div>
-            <span style="font-weight:800; font-size:1rem; color:#f8fafc; letter-spacing:-0.02em;">{{ config('app.name') }}</span>
-        </a>
-
-        <p style="font-size:0.75rem; color:rgba(248,250,252,0.75); margin:0;">&copy; {{ date('Y') }} {{ config('app.name') }}. All rights reserved.</p>
-
-        <div style="display:flex; gap:20px; align-items:center; flex-wrap:wrap;">
-            <a href="{{ route('home') }}"    style="font-size:0.75rem; color:rgba(248,250,252,0.75); text-decoration:none; transition:color 0.2s;" onmouseover="this.style.color='#f8fafc'" onmouseout="this.style.color='rgba(248,250,252,0.75)'">Home</a>
-            <a href="{{ route('support') }}" style="font-size:0.75rem; color:rgba(248,250,252,0.75); text-decoration:none; transition:color 0.2s;" onmouseover="this.style.color='#f8fafc'" onmouseout="this.style.color='rgba(248,250,252,0.75)'">Support</a>
-            <a href="{{ route('terms') }}"   style="font-size:0.75rem; color:rgba(248,250,252,0.75); text-decoration:none; transition:color 0.2s;" onmouseover="this.style.color='#f8fafc'" onmouseout="this.style.color='rgba(248,250,252,0.75)'">Terms</a>
-            <a href="{{ route('privacy') }}" style="font-size:0.75rem; color:rgba(248,250,252,0.75); text-decoration:none; transition:color 0.2s;" onmouseover="this.style.color='#f8fafc'" onmouseout="this.style.color='rgba(248,250,252,0.75)'">Privacy Policy</a>
+<footer style="background:var(--bg);border-top:1px solid var(--border);">
+    <div style="max-width:1220px;margin:0 auto;padding:40px 32px;display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:11px;flex-wrap:wrap;">
+            <span style="display:flex;color:var(--accent);">
+                <svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><path d="M5 23.5 L16 6 L27 23.5" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"></path><path d="M11 23.5 L16 15.5 L21 23.5" stroke="currentColor" stroke-opacity="0.4" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path><circle cx="16" cy="26" r="2.1" fill="currentColor"></circle></svg>
+            </span>
+            <span style="font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:18px;">Unjamm</span>
+            <span style="font-size:13.5px;color:var(--faint);margin-left:8px;">&copy; {{ date('Y') }} Unjamm Inc. · Toronto, Canada</span>
         </div>
-
+        <div style="display:flex;align-items:center;gap:26px;flex-wrap:wrap;">
+            <a href="{{ route('home') }}" data-hover="color:var(--accent)" style="text-decoration:none;color:var(--muted);font-size:14px;font-weight:500;transition:color .2s;">Home</a>
+            <a href="{{ route('support') }}" data-hover="color:var(--accent)" style="text-decoration:none;color:var(--muted);font-size:14px;font-weight:500;transition:color .2s;">Support</a>
+            <a href="{{ route('privacy') }}" data-hover="color:var(--accent)" style="text-decoration:none;color:var(--muted);font-size:14px;font-weight:500;transition:color .2s;">Privacy</a>
+            <a href="{{ route('terms') }}" data-hover="color:var(--accent)" style="text-decoration:none;color:var(--muted);font-size:14px;font-weight:500;transition:color .2s;">Terms</a>
+        </div>
     </div>
 </footer>
