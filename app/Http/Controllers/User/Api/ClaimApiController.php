@@ -55,7 +55,8 @@ class ClaimApiController extends Controller
             'status'  => Claim::STATUS_DRAFT,
         ]));
 
-        $claim->recordEvent('Claim received', 'done', $claim->created_at);
+        $claim->recordEvent('Your claim case has been received', 'done', $claim->created_at);
+        $claim->recordEvent('Claim under review', 'pending', $claim->created_at, 1);
 
         return response()->json(['data' => $this->detail($claim)], 201);
     }

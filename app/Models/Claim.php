@@ -139,7 +139,8 @@ class Claim extends Model
                 'booking_reference'      => $itinerary->booking_reference,
             ]);
 
-            $claim->recordEvent('Claim received', 'done', $claim->created_at);
+            $claim->recordEvent('Your claim case has been received', 'done', $claim->created_at);
+            $claim->recordEvent('Claim under review', 'pending', $claim->created_at, 1);
         }
     }
 
