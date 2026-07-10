@@ -2,6 +2,8 @@
 
 namespace App\Livewire\Admin\Settings;
 
+use App\Models\Setting;
+use App\Services\Eligibility\EligibilityEngine;
 use Livewire\Component;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
@@ -21,11 +23,26 @@ class Index extends Component
     public $app_name = 'ApplicantBill';
     public $support_email = 'support@example.com';
 
+    // Trip Eligibility — engine verdicts below this confidence are auto-rejected.
+    public $eligibility_confidence_threshold;
+
     public function mount()
     {
         $admin = auth()->user();
         $this->name = $admin->name;
         $this->email = $admin->email;
+        $this->eligibility_confidence_threshold = EligibilityEngine::confidenceThreshold();
+    }
+
+    public function updateEligibility()
+    {
+        $this->validate([
+            'eligibility_confidence_threshold' => 'required|integer|min:0|max:100',
+        ], [], ['eligibility_confidence_threshold' => 'confidence threshold']);
+
+        Setting::set(EligibilityEngine::SETTING_THRESHOLD, (int) $this->eligibility_confidence_threshold);
+
+        $this->dispatch('toast', ['type' => 'success', 'message' => 'Eligibility settings saved.']);
     }
 
     public function updateProfile()

@@ -24,7 +24,13 @@
                     <i data-lucide="shield" class="w-4 h-4"></i> Security
                 </button>
 
-                {{-- <button @click="activeTab = 'system'" 
+                <button @click="activeTab = 'eligibility'"
+                        :class="activeTab === 'eligibility' ? 'bg-white shadow-sm border-slate-200 text-primary-600' : 'border-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900'"
+                        class="flex items-center gap-3 px-4 py-2.5 rounded-xl border text-sm font-bold transition-all text-left">
+                    <i data-lucide="scale" class="w-4 h-4"></i> Trip Eligibility
+                </button>
+
+                {{-- <button @click="activeTab = 'system'"
                         :class="activeTab === 'system' ? 'bg-white shadow-sm border-slate-200 text-primary-600' : 'border-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900'"
                         class="flex items-center gap-3 px-4 py-2.5 rounded-xl border text-sm font-bold transition-all text-left mt-4">
                     <i data-lucide="sliders" class="w-4 h-4"></i> System Preferences
@@ -98,6 +104,38 @@
                         <span wire:loading.remove wire:target="updatePassword">Update Password</span>
                         <span wire:loading.flex wire:target="updatePassword" class="items-center gap-2">
                             <i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Updating...
+                        </span>
+                    </button>
+                </div>
+            </div>
+
+            {{-- TAB: TRIP ELIGIBILITY --}}
+            <div x-show="activeTab === 'eligibility'" x-cloak
+                 x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="opacity-0 translate-y-8"
+                 x-transition:enter-end="opacity-100 translate-y-0"
+                 class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div class="px-6 py-5 border-b border-slate-100">
+                    <h2 class="text-lg font-bold text-slate-800">Trip Eligibility Engine</h2>
+                    <p class="text-xs text-slate-500 mt-1">Controls the automatic eligibility evaluation of disrupted, monitored trips (APPR, EU261, UK261, US DOT).</p>
+                </div>
+                <div class="p-6 space-y-6">
+                    <div class="max-w-md">
+                        <label class="block text-[11px] font-bold text-slate-400 uppercase mb-2">Minimum Confidence Threshold (%)</label>
+                        <input type="number" min="0" max="100" step="1" wire:model="eligibility_confidence_threshold"
+                               class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:border-primary-500 outline-none">
+                        @error('eligibility_confidence_threshold') <span class="text-rose-500 text-[10px] font-bold mt-1 block">{{ $message }}</span> @enderror
+                        <p class="text-xs text-slate-500 mt-2">
+                            Eligible verdicts with a confidence score below this threshold are <strong>automatically rejected</strong>.
+                            Lower it to accept more borderline claims; raise it to only accept high-certainty ones.
+                        </p>
+                    </div>
+                </div>
+                <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+                    <button wire:click="updateEligibility" wire:loading.attr="disabled" class="min-w-[140px] px-6 py-2 bg-slate-900 text-white rounded-xl text-sm font-bold shadow-lg shadow-slate-900/20 hover:bg-slate-800 transition-all disabled:opacity-70 flex justify-center items-center gap-2">
+                        <span wire:loading.remove wire:target="updateEligibility">Save Settings</span>
+                        <span wire:loading.flex wire:target="updateEligibility" class="items-center gap-2">
+                            <i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Saving...
                         </span>
                     </button>
                 </div>

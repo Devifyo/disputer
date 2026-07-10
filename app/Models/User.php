@@ -56,6 +56,20 @@ class User extends Authenticatable
         return $this->hasMany(Cases::class);
     }
 
+    public function trips()
+    {
+        return $this->hasMany(Trip::class);
+    }
+
+    /** Any trip found eligible for compensation whose claim isn't filed yet. */
+    public function hasTripsAwaitingClaim(): bool
+    {
+        return $this->trips()
+            ->where('eligibility_status', 'eligible')
+            ->whereDoesntHave('claims')
+            ->exists();
+    }
+
     public function emailConfig()
     {
         return $this->hasOne(UserEmailConfig::class);

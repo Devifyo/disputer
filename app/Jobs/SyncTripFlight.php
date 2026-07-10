@@ -20,6 +20,9 @@ class SyncTripFlight implements ShouldQueue
 
     public int $tries = 3;
 
+    /** FlightAware sync + AI eligibility can exceed the 60s default. */
+    public int $timeout = 120;
+
     /** @var array<int> seconds between retries */
     public array $backoff = [60, 300];
 

@@ -6,6 +6,7 @@ use App\Models\Trip;
 use App\Models\TripEvent;
 use App\Models\TripMonitorLog;
 use App\Notifications\TripDisruptionDetected;
+use App\Services\Eligibility\EligibilityEngine;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -22,8 +23,10 @@ use Throwable;
  */
 class TripMonitoringService
 {
-    public function __construct(private FlightAwareService $flightAware)
-    {
+    public function __construct(
+        private FlightAwareService $flightAware,
+        private EligibilityEngine $eligibility,
+    ) {
     }
 
     /**
@@ -73,6 +76,7 @@ class TripMonitoringService
         $this->applySnapshot($trip, $flight, notify: true);
         $this->scheduleNextPoll($trip);
         $trip->save();
+        $this->maybeEvaluateEligibility($trip);
 
         return $this->log($trip, $trigger === 'schedule' ? 'registration' : $trigger, TripMonitorLog::RESULT_SYNCED, $result['status']);
     }
@@ -91,8 +95,31 @@ class TripMonitoringService
         $this->applySnapshot($trip, $result['data'], notify: true);
         $this->scheduleNextPoll($trip);
         $trip->save();
+        $this->maybeEvaluateEligibility($trip);
 
         return $this->log($trip, $trigger, TripMonitorLog::RESULT_SYNCED, $result['status']);
+    }
+
+    /**
+     * Run the Eligibility Engine once per trip, as soon as its disruption
+     * is final: the trip was flagged during monitoring and the flight has
+     * finished (landed, cancelled, or monitoring closed at T+24h).
+     */
+    private function maybeEvaluateEligibility(Trip $trip): void
+    {
+        $due = $trip->potentially_eligible
+            && !$trip->eligibility_evaluated_at
+            && $trip->monitoring_status === Trip::MONITORING_COMPLETED;
+
+        if (!$due) {
+            return;
+        }
+
+        try {
+            $this->eligibility->evaluate($trip);
+        } catch (Throwable $e) {
+            Log::error('Eligibility evaluation failed', ['trip' => $trip->id, 'error' => $e->getMessage()]);
+        }
     }
 
     // ── Snapshot / event detection ──────────────────────────

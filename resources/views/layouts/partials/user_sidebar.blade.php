@@ -47,6 +47,7 @@
             $onDisputes = request()->routeIs('user.itineraries.*') && !$onTrips;
             $activeCls = 'bg-blue-600/10 text-blue-400 shadow-[inset_3px_0_0_0_#2563eb]';
             $idleCls = 'hover:bg-white/5 hover:text-slate-200 text-slate-400';
+            $tripsNeedClaim = auth()->user()?->hasTripsAwaitingClaim() ?? false;
         @endphp
         {{-- data-spa-nav: the flight-dispute Vue app re-syncs these two links'
              active state on client-side navigation (see its main.js). --}}
@@ -58,6 +59,9 @@
         <a href="{{ route('user.itineraries.index') }}/trips" data-spa-nav="trips" class="{{ $onTrips ? $activeCls : $idleCls }} group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all">
             <i data-lucide="shield-check" class="w-5 h-5 transition-colors {{ $onTrips ? 'text-blue-400' : 'text-slate-500 group-hover:text-slate-300' }}"></i>
             Protect Your Trip
+            @if ($tripsNeedClaim)
+                <x-claim-alert-dot class="relative ml-auto" />
+            @endif
         </a>
 
         <a href="{{ route('user.cases.index') }}" class="{{ navClass('user.cases.*') }} group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all">

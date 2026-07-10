@@ -62,5 +62,9 @@ export default {
         sync(id) {
             return http.post(`/trips/${id}/sync`).then((r) => r.data.data);
         },
+        // Eligible trip → compensation claims (one per passenger).
+        createClaim(id) {
+            return http.post(`/trips/${id}/claim`).then((r) => r.data);
+        },
     },
 };

@@ -8,6 +8,7 @@ use App\Models\TripEvent;
 use App\Models\TripMonitorLog;
 use App\Models\User;
 use App\Notifications\TripDisruptionDetected;
+use App\Notifications\TripEligibleForCompensation;
 use App\Services\TripMonitoringService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -43,6 +44,7 @@ class TripMonitoringTest extends TestCase
             'services.flightaware.api_key'       => 'test-key',
             'trip_monitoring.api_retries'        => 1,
             'trip_monitoring.api_retry_delay_ms' => 1,
+            'eligibility.evaluator'              => 'rules',
         ]);
 
         $this->user   = User::factory()->create();
@@ -50,14 +52,23 @@ class TripMonitoringTest extends TestCase
     }
 
     /**
-     * Every AeroAPI call returns the current $this->flight — tests mutate it
-     * between syncs to simulate the flight's state changing. Kept out of
-     * setUp because the first registered Http::fake stub wins, which would
-     * shadow per-test fakes.
+     * Every AeroAPI flight call returns the current $this->flight — tests
+     * mutate it between syncs to simulate the flight's state changing.
+     * Airport lookups (used by the Eligibility Engine) resolve FRA/YUL.
+     * Kept out of setUp because the first registered Http::fake stub wins,
+     * which would shadow per-test fakes.
      */
     private function fakeLiveFlight(): void
     {
-        Http::fake(fn () => Http::response(['flights' => [$this->flight]], 200));
+        Http::fake(function ($request) {
+            if (preg_match('#/airports/([A-Z0-9]+)#', $request->url(), $m)) {
+                $country = ['FRA' => 'DE', 'YUL' => 'CA'][$m[1]] ?? null;
+
+                return Http::response(['code_iata' => $m[1], 'country_code' => $country], $country ? 200 : 404);
+            }
+
+            return Http::response(['flights' => [$this->flight]], 200);
+        });
     }
 
     protected function tearDown(): void
@@ -204,11 +215,17 @@ class TripMonitoringTest extends TestCase
 
         $this->assertSame(Trip::FLIGHT_CANCELLED, $trip->flight_status);
         $this->assertTrue($trip->potentially_eligible);
-        $this->assertSame('eligibility_review_pending', $trip->displayStatus());
         $this->assertSame(Trip::MONITORING_COMPLETED, $trip->monitoring_status);
         $this->assertNull($trip->next_poll_at);
         $this->assertTrue($trip->events()->where('type', TripEvent::TYPE_CANCELLATION)->exists());
         Notification::assertSentToTimes($this->user, TripDisruptionDetected::class, 1);
+
+        // Monitoring is over, so the Eligibility Engine ran immediately:
+        // FRA departure + short-notice cancellation → eligible under EU261.
+        $this->assertSame('eligible', $trip->displayStatus());
+        $this->assertSame('EU261', $trip->eligibility_regulation);
+        $this->assertSame('Articles 5 & 7', $trip->eligibility_article);
+        Notification::assertSentToTimes($this->user, TripEligibleForCompensation::class, 1);
     }
 
     public function test_gate_and_schedule_changes_are_recorded_as_events(): void

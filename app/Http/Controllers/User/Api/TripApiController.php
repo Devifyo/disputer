@@ -4,6 +4,7 @@ namespace App\Http\Controllers\User\Api;
 
 use App\Http\Controllers\Controller;
 use App\Jobs\SyncTripFlight;
+use App\Models\Claim;
 use App\Models\Itinerary;
 use App\Models\Trip;
 use App\Services\ItineraryParserService;
@@ -217,6 +218,84 @@ class TripApiController extends Controller
         ]);
     }
 
+    /**
+     * Turn an eligible trip into compensation claims — one per passenger,
+     * pre-filled from the trip's verified flight data. Idempotent: calling
+     * again returns the existing claims.
+     */
+    public function createClaim(Trip $trip)
+    {
+        abort_unless($trip->user_id === Auth::id(), 403);
+
+        if ($trip->eligibility_status !== 'eligible') {
+            return response()->json([
+                'success' => false,
+                'message' => 'This trip is not eligible for a claim.',
+            ], 422);
+        }
+
+        if ($trip->claims()->exists()) {
+            return response()->json([
+                'data'      => $this->claimRefs($trip),
+                'success'   => true,
+                'duplicate' => true,
+                'message'   => 'Claims for this trip already exist.',
+            ]);
+        }
+
+        $passengers = $trip->passengers ?: array_values(array_filter([$trip->passenger_name]));
+        if (empty($passengers)) {
+            return response()->json(['success' => false, 'message' => 'This trip has no passengers to claim for.'], 422);
+        }
+
+        $disruption = $trip->flight_status === Trip::FLIGHT_CANCELLED ? 'cancelled' : 'delayed';
+
+        foreach ($passengers as $passenger) {
+            $claim = Claim::create([
+                'user_id'           => $trip->user_id,
+                'trip_id'           => $trip->id,
+                'itinerary_id'      => $trip->itinerary_id,
+                'status'            => Claim::STATUS_PENDING_ELIGIBILITY,
+                'departure_city'    => $trip->departure_city,
+                'departure_airport' => $trip->departure_airport,
+                'arrival_city'      => $trip->arrival_city,
+                'arrival_airport'   => $trip->arrival_airport,
+                'airline'           => $trip->airline,
+                'flight_number'     => $trip->flight_number,
+                'flight_date'       => $trip->departure_date?->toDateString(),
+                'disruption_type'   => $disruption,
+                'passenger_name'    => $passenger,
+                'booking_reference' => $trip->booking_reference,
+                'contact_email'     => $trip->user?->email,
+            ]);
+
+            $claim->recordEvent('Claim created from your protected trip', 'done', now());
+            $claim->recordEvent(
+                sprintf('Found eligible under %s (%s) at %d%% confidence', $trip->eligibility_regulation, $trip->eligibility_article, $trip->eligibility_confidence),
+                'done',
+                now(),
+                1
+            );
+            $claim->recordEvent('Claim under review', 'pending', now(), 2);
+        }
+
+        $trip->events()->create([
+            'type'        => 'claim_created',
+            'description' => count($passengers) === 1
+                ? 'Compensation claim created from this trip.'
+                : count($passengers) . ' compensation claims created from this trip (one per passenger).',
+            'detected_at' => now(),
+        ]);
+
+        return response()->json([
+            'data'    => $this->claimRefs($trip),
+            'success' => true,
+            'message' => count($passengers) === 1
+                ? 'Your claim has been created.'
+                : count($passengers) . ' claims have been created — one per passenger.',
+        ], 201);
+    }
+
     /** Manual "refresh now" — one synchronous FlightAware sync, lightly throttled. */
     public function sync(Trip $trip, TripMonitoringService $monitor)
     {
@@ -287,7 +366,20 @@ class TripApiController extends Controller
         'completed'                   => 'Completed',
         'potentially_eligible'        => 'Potentially Eligible',
         'eligibility_review_pending'  => 'Eligibility Review Pending',
+        'eligible'                    => 'Eligible for Compensation',
+        'not_eligible'                => 'Not Eligible',
     ];
+
+    /** Lightweight references to the claims created from a trip. */
+    private function claimRefs(Trip $t): array
+    {
+        return $t->claims()->get()->map(fn (Claim $c) => [
+            'id'             => encrypt_id($c->id),
+            'number'         => $c->number,
+            'passenger_name' => $c->passenger_name,
+            'status_label'   => $c->status_label,
+        ])->all();
+    }
 
     private function summary(Trip $t): array
     {
@@ -337,6 +429,21 @@ class TripApiController extends Controller
             'origin_gate'             => $t->origin_gate,
             'destination_gate'        => $t->destination_gate,
             'route_stats'             => $t->route_stats,
+
+            // Trip → claim handoff
+            'can_claim' => $t->eligibility_status === 'eligible' && !$t->claims()->exists(),
+            'claims'    => $this->claimRefs($t),
+
+            // Eligibility Engine verdict (null until evaluated)
+            'eligibility' => $t->eligibility_evaluated_at ? [
+                'status'       => $t->eligibility_status,
+                'regulation'   => $t->eligibility_regulation,
+                'article'      => $t->eligibility_article,
+                'confidence'   => $t->eligibility_confidence,
+                'reason'       => $t->eligibility_reason,
+                'evaluated_at' => $t->eligibility_evaluated_at->toIso8601String(),
+            ] : null,
+
             'last_synced_at'          => $t->last_synced_at?->toIso8601String(),
             'last_synced_human'       => $t->last_synced_at?->diffForHumans(),
             'next_poll_at'            => $t->next_poll_at?->toIso8601String(),

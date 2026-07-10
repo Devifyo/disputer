@@ -47,6 +47,8 @@ class Trip extends Model
         'actual_departure', 'actual_arrival', 'departure_delay_minutes', 'arrival_delay_minutes',
         'origin_gate', 'destination_gate', 'potentially_eligible', 'disruption_notified_at',
         'route_stats', 'last_synced_at', 'next_poll_at',
+        'eligibility_status', 'eligibility_regulation', 'eligibility_article',
+        'eligibility_confidence', 'eligibility_reason', 'eligibility_details', 'eligibility_evaluated_at',
     ];
 
     protected $casts = [
@@ -64,6 +66,8 @@ class Trip extends Model
         'route_stats'             => 'array',
         'last_synced_at'          => 'datetime',
         'next_poll_at'            => 'datetime',
+        'eligibility_details'      => 'array',
+        'eligibility_evaluated_at' => 'datetime',
     ];
 
     public function user(): BelongsTo
@@ -74,6 +78,11 @@ class Trip extends Model
     public function itinerary(): BelongsTo
     {
         return $this->belongsTo(Itinerary::class);
+    }
+
+    public function claims(): HasMany
+    {
+        return $this->hasMany(Claim::class);
     }
 
     public function monitorLogs(): HasMany
@@ -118,10 +127,19 @@ class Trip extends Model
     /**
      * Status shown on the Trip Protection dashboard:
      * scheduled | monitoring | on_time | delayed | cancelled | completed |
-     * potentially_eligible | eligibility_review_pending
+     * potentially_eligible | eligibility_review_pending | eligible | not_eligible
      */
     public function displayStatus(): string
     {
+        // The Eligibility Engine's verdict is final — it outranks the
+        // interim "potentially eligible / review pending" states.
+        if ($this->eligibility_status === 'eligible') {
+            return 'eligible';
+        }
+        if ($this->eligibility_status === 'rejected') {
+            return 'not_eligible';
+        }
+
         if ($this->potentially_eligible) {
             $flightOver = $this->monitoring_status === self::MONITORING_COMPLETED
                 || in_array($this->flight_status, [self::FLIGHT_CANCELLED, self::FLIGHT_COMPLETED], true);

@@ -24,7 +24,7 @@ class Claim extends Model
     ];
 
     protected $fillable = [
-        'reference', 'number', 'user_id', 'itinerary_id', 'itinerary_passenger_id', 'status',
+        'reference', 'number', 'user_id', 'itinerary_id', 'trip_id', 'itinerary_passenger_id', 'status',
         'departure_city', 'departure_airport', 'arrival_city', 'arrival_airport',
         'airline', 'flight_number', 'flight_date', 'disruption_type',
         'passenger_name', 'booking_reference', 'contact_email',
@@ -60,6 +60,11 @@ class Claim extends Model
     public function itinerary(): BelongsTo
     {
         return $this->belongsTo(Itinerary::class);
+    }
+
+    public function trip(): BelongsTo
+    {
+        return $this->belongsTo(Trip::class);
     }
 
     public function passenger(): BelongsTo

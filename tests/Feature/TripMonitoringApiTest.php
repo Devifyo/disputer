@@ -157,7 +157,80 @@ class TripMonitoringApiTest extends TestCase
             ->assertJsonPath('data.last_synced_human', '2 minutes ago');
     }
 
+    // ── Trip → claim handoff ────────────────────────────────
+
+    public function test_eligible_trip_creates_one_claim_per_passenger(): void
+    {
+        $trip = $this->eligibleTrip(passengers: ['Tenzin Hagyal', 'Pema Hagyal']);
+
+        $this->actingAs($this->user)
+            ->postJson(route('user.itineraries.api.trips.claim', $trip))
+            ->assertCreated()
+            ->assertJsonCount(2, 'data');
+
+        $claims = $trip->claims()->get();
+        $this->assertCount(2, $claims);
+        $this->assertEqualsCanonicalizing(['Tenzin Hagyal', 'Pema Hagyal'], $claims->pluck('passenger_name')->all());
+        $this->assertSame('delayed', $claims->first()->disruption_type);
+        $this->assertSame('YEG', $claims->first()->departure_airport);
+        $this->assertTrue($trip->events()->where('type', 'claim_created')->exists());
+    }
+
+    public function test_claim_creation_is_idempotent(): void
+    {
+        $trip = $this->eligibleTrip(passengers: ['Tenzin Hagyal']);
+
+        $this->actingAs($this->user)->postJson(route('user.itineraries.api.trips.claim', $trip))->assertCreated();
+        $this->actingAs($this->user)
+            ->postJson(route('user.itineraries.api.trips.claim', $trip))
+            ->assertOk()
+            ->assertJsonPath('duplicate', true);
+
+        $this->assertSame(1, $trip->claims()->count());
+    }
+
+    public function test_non_eligible_trip_cannot_create_a_claim(): void
+    {
+        $trip = $this->trip(); // never evaluated
+
+        $this->actingAs($this->user)
+            ->postJson(route('user.itineraries.api.trips.claim', $trip))
+            ->assertStatus(422);
+
+        $this->assertSame(0, $trip->claims()->count());
+    }
+
+    public function test_claim_creation_is_forbidden_for_other_users(): void
+    {
+        $stranger = User::factory()->create();
+        $stranger->assignRole('user');
+
+        $this->actingAs($stranger)
+            ->postJson(route('user.itineraries.api.trips.claim', $this->eligibleTrip()))
+            ->assertForbidden();
+    }
+
     // ── Helpers ─────────────────────────────────────────────
+
+    private function eligibleTrip(array $passengers = ['Test Passenger']): Trip
+    {
+        return $this->trip([
+            'departure_airport'      => 'YEG',
+            'arrival_airport'        => 'YYZ',
+            'departure_date'         => now()->subDay()->toDateString(),
+            'flight_status'          => Trip::FLIGHT_COMPLETED,
+            'monitoring_status'      => Trip::MONITORING_COMPLETED,
+            'potentially_eligible'   => true,
+            'arrival_delay_minutes'  => 390,
+            'passengers'             => $passengers,
+            'passenger_name'         => $passengers[0],
+            'eligibility_status'     => 'eligible',
+            'eligibility_regulation' => 'APPR',
+            'eligibility_article'    => 'Section 19(1)(a)',
+            'eligibility_confidence' => 80,
+            'eligibility_evaluated_at' => now(),
+        ]);
+    }
 
     private function trip(array $attrs = []): Trip
     {

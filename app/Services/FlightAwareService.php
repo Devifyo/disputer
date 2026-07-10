@@ -5,6 +5,7 @@ namespace App\Services;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -186,6 +187,24 @@ class FlightAwareService
         return preg_match('/^([A-Z]{2,3})\s*(\d{1,4}[A-Z]?)$/i', trim($ident), $m)
             ? [strtoupper($m[1]), $m[2]]
             : [null, null];
+    }
+
+    /**
+     * Airport metadata (country code, timezone, coordinates) by IATA/ICAO
+     * code. Airports don't move — cached forever.
+     */
+    public function airportInfo(string $code): ?array
+    {
+        $code = strtoupper(trim($code));
+        if ($code === '') {
+            return null;
+        }
+
+        return Cache::rememberForever("flightaware.airport.{$code}", function () use ($code) {
+            $result = $this->get('/airports/' . rawurlencode($code));
+
+            return $result['ok'] ? $result['data'] : null;
+        });
     }
 
     // ── Internals ───────────────────────────────────────────

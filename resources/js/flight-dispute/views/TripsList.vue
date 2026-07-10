@@ -49,7 +49,14 @@
                     <!-- Grouped rows -->
                     <template v-for="group in groups" :key="group.title">
                         <div v-if="group.trips.length && groups.length > 1" class="flex items-center gap-3 mt-6 mb-3 first:mt-0">
-                            <h2 class="text-xs uppercase tracking-wider font-bold text-slate-400">{{ group.title }}</h2>
+                            <h2 class="flex items-center gap-2 text-xs uppercase tracking-wider font-bold" :class="group.alert ? 'text-emerald-600' : 'text-slate-400'">
+                                {{ group.title }}
+                                <!-- Blinking dot: eligible trips still waiting for their claim -->
+                                <span v-if="group.alert" class="relative flex w-2 h-2">
+                                    <span class="absolute inline-flex w-full h-full rounded-full bg-rose-400 opacity-75 animate-ping"></span>
+                                    <span class="relative inline-flex w-2 h-2 rounded-full bg-rose-500"></span>
+                                </span>
+                            </h2>
                             <span class="h-px flex-1 bg-slate-200"></span>
                         </div>
 
@@ -106,7 +113,14 @@
 
                             <!-- Status -->
                             <div class="col-span-2 md:col-span-1 flex md:block items-center justify-between gap-3">
-                                <TripStatusBadge :status="t.display_status" :label="t.display_status_label" />
+                                <span class="inline-flex items-center gap-2">
+                                    <TripStatusBadge :status="t.display_status" :label="t.display_status_label" />
+                                    <!-- Claim not filed yet -->
+                                    <span v-if="t.can_claim" class="relative flex w-2 h-2" title="Claim not filed yet">
+                                        <span class="absolute inline-flex w-full h-full rounded-full bg-rose-400 opacity-75 animate-ping"></span>
+                                        <span class="relative inline-flex w-2 h-2 rounded-full bg-rose-500"></span>
+                                    </span>
+                                </span>
                                 <div v-if="t.last_synced_human" class="text-[11px] text-slate-400 font-medium md:mt-1.5 md:pl-1">Updated {{ t.last_synced_human }}</div>
                             </div>
 
@@ -198,19 +212,25 @@ function matchesSearch(t) {
 
 const visible = computed(() => trips.value.filter((t) => matchesFilter(t) && matchesSearch(t)));
 
-// Upcoming trips first (soonest departure on top); past trips after,
-// most recent first. Grouped with separators only on the unfiltered view.
+// Section order: eligible-for-compensation trips lead (they need action),
+// then upcoming (soonest first), then past (most recent first). Separators
+// only on the unfiltered view.
 const groups = computed(() => {
-    const upcoming = visible.value.filter((t) => t.upcoming);
-    const past = visible.value.filter((t) => !t.upcoming).reverse();
+    const eligible = visible.value.filter((t) => t.display_status === 'eligible').reverse();
+    const rest     = visible.value.filter((t) => t.display_status !== 'eligible');
+    const upcoming = rest.filter((t) => t.upcoming);
+    const past     = rest.filter((t) => !t.upcoming).reverse();
 
-    if (filter.value === 'all' && !q.value && upcoming.length && past.length) {
-        return [
+    if (filter.value === 'all' && !q.value) {
+        const sections = [
+            { title: 'Eligible for compensation', trips: eligible, alert: eligible.some((t) => t.can_claim) },
             { title: 'Upcoming', trips: upcoming },
             { title: 'Past & completed', trips: past },
-        ];
+        ].filter((s) => s.trips.length);
+
+        if (sections.length > 1 || eligible.length) return sections;
     }
-    return [{ title: 'Trips', trips: [...upcoming, ...past] }];
+    return [{ title: 'Trips', trips: [...eligible, ...upcoming, ...past] }];
 });
 
 function clearFilters() {

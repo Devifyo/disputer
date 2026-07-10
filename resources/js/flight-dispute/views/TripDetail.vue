@@ -18,7 +18,7 @@
                     <div class="lg:col-span-2 space-y-5">
                         <!-- Hero -->
                         <div class="relative overflow-hidden rounded-2xl p-6 sm:p-7 text-white" style="background:linear-gradient(105deg,#064e3b 0%,#059669 55%,#10b981 78%,#2563eb 130%);">
-                            <div class="flex flex-col sm:flex-row sm:items-center gap-5">
+                            <div class="flex flex-col lg:flex-row lg:items-center gap-5">
                                 <div class="flex-1 min-w-0">
                                     <div class="flex items-center justify-between text-[11px] font-semibold text-white/70 uppercase tracking-wide mb-1">
                                         <span class="truncate">{{ trip.departure_city || trip.departure_airport }}</span>
@@ -37,7 +37,7 @@
                                     </div>
                                     <div class="text-xs font-bold text-white/70 mt-2">{{ trip.airline || '' }} {{ trip.flight_number || '' }}</div>
                                 </div>
-                                <div class="flex gap-3 shrink-0">
+                                <div class="flex gap-3 shrink-0 flex-wrap">
                                     <div class="rounded-xl bg-white/10 border border-white/15 px-4 py-3 min-w-[130px]">
                                         <div class="text-[10px] font-bold text-white/70 uppercase tracking-wide">Departure</div>
                                         <div class="text-lg font-black">{{ trip.departure_date || '—' }}</div>
@@ -56,7 +56,36 @@
                         </div>
 
                         <!-- Monitoring banner -->
-                        <div v-if="trip.potentially_eligible" class="flex items-start gap-3 bg-violet-50 border border-violet-100 text-violet-800 px-4 py-3 rounded-xl text-sm">
+                        <div v-if="verdict === 'eligible'" class="flex items-center gap-3 bg-emerald-50 border border-emerald-100 text-emerald-800 px-4 py-3 rounded-xl text-sm flex-wrap">
+                            <svg class="w-5 h-5 shrink-0 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            <p class="flex-1 min-w-[220px]">
+                                Good news — this trip is <strong>eligible for compensation</strong> under {{ trip.eligibility.regulation }} ({{ trip.eligibility.article }}).
+                                <template v-if="trip.claims?.length">Your claim{{ trip.claims.length > 1 ? 's are' : ' is' }} underway.</template>
+                            </p>
+                            <button
+                                v-if="trip.can_claim"
+                                @click="startClaim"
+                                :disabled="claiming"
+                                class="inline-flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-slate-900/10 transition-all active:scale-95 disabled:opacity-60"
+                            >
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                                {{ claiming ? 'Creating claim…' : 'Start your claim' }}
+                            </button>
+                            <router-link
+                                v-for="c in trip.claims || []"
+                                :key="c.id"
+                                :to="{ name: 'claim', params: { id: c.id } }"
+                                class="inline-flex items-center gap-1.5 bg-white text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100 px-4 py-2 rounded-xl text-xs font-bold transition-all"
+                            >
+                                View claim #{{ c.number }}
+                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+                            </router-link>
+                        </div>
+                        <div v-else-if="verdict === 'rejected'" class="flex items-start gap-3 bg-slate-50 border border-slate-200 text-slate-600 px-4 py-3 rounded-xl text-sm">
+                            <svg class="w-5 h-5 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path stroke-linecap="round" d="M12 8v4m0 4h.01"/></svg>
+                            <p>{{ trip.eligibility.reason }}</p>
+                        </div>
+                        <div v-else-if="trip.potentially_eligible" class="flex items-start gap-3 bg-violet-50 border border-violet-100 text-violet-800 px-4 py-3 rounded-xl text-sm">
                             <svg class="w-5 h-5 shrink-0 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.3 4.3L2.8 18a2 2 0 001.7 3h15a2 2 0 001.7-3L13.7 4.3a2 2 0 00-3.4 0z"/></svg>
                             <p>This trip was <strong>disrupted</strong> and may be eligible for compensation. <strong>We're reviewing your eligibility</strong> — no action is needed from you right now.</p>
                         </div>
@@ -74,11 +103,17 @@
                                 class="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-colors"
                                 :class="tab === t.key ? 'bg-slate-900 text-white shadow-lg shadow-slate-900/10' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'"
                             >
-                                <!-- Flight status: live-activity pulse · Trip details: ticket -->
+                                <!-- Flight status: live-activity pulse · Compensation: banknote · Trip details: ticket -->
                                 <svg v-if="t.key === 'status'" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.5 12h3.5l2.5-6.5 5 13 2.5-6.5h3.5"/></svg>
+                                <svg v-else-if="t.key === 'compensation'" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path stroke-linecap="round" d="M6 9.5v.01M18 14.5v.01"/></svg>
                                 <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m2.25-13.5h-15A2.25 2.25 0 001.5 6.75v2.25a.75.75 0 00.75.75 2.25 2.25 0 010 4.5.75.75 0 00-.75.75v2.25a2.25 2.25 0 002.25 2.25h15a2.25 2.25 0 002.25-2.25v-2.25a.75.75 0 00-.75-.75 2.25 2.25 0 010-4.5.75.75 0 00.75-.75V6.75a2.25 2.25 0 00-2.25-2.25z"/></svg>
                                 {{ t.label }}
                                 <span v-if="t.key === 'status' && monitoring.events.length" class="ml-0.5 min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-black flex items-center justify-center" :class="tab === t.key ? 'bg-white/25 text-white' : 'bg-slate-100 text-slate-500'">{{ monitoring.events.length }}</span>
+                                <!-- Blinking dot: an eligible verdict is waiting for its claim -->
+                                <span v-if="t.key === 'compensation' && trip.can_claim" class="relative flex w-2.5 h-2.5 ml-0.5">
+                                    <span class="absolute inline-flex w-full h-full rounded-full bg-rose-400 opacity-75 animate-ping"></span>
+                                    <span class="relative inline-flex w-2.5 h-2.5 rounded-full bg-rose-500"></span>
+                                </span>
                             </button>
                         </div>
 
@@ -192,6 +227,73 @@
                             </div>
                         </template>
 
+                        <!-- ═══ TAB: Compensation ═══ -->
+                        <template v-else-if="tab === 'compensation'">
+                            <!-- Eligibility verdict -->
+                            <div v-if="trip.eligibility" class="bg-white rounded-2xl ring-1 ring-slate-900/5 p-6 sm:p-8">
+                                <div class="flex items-center justify-between gap-3 mb-5 flex-wrap">
+                                    <h2 class="font-bold text-slate-900">Compensation eligibility</h2>
+                                    <TripStatusBadge :status="verdict === 'eligible' ? 'eligible' : 'not_eligible'" />
+                                </div>
+                                <div class="grid sm:grid-cols-3 gap-4 mb-5">
+                                    <div class="rounded-xl bg-slate-50 p-4">
+                                        <div class="text-[11px] uppercase tracking-wider font-bold text-slate-400 mb-1">Regulation</div>
+                                        <div class="font-black text-slate-900">{{ regulationLabel(trip.eligibility.regulation) }}</div>
+                                    </div>
+                                    <div class="rounded-xl bg-slate-50 p-4">
+                                        <div class="text-[11px] uppercase tracking-wider font-bold text-slate-400 mb-1">Legal basis</div>
+                                        <div class="font-black text-slate-900">{{ trip.eligibility.article || '—' }}</div>
+                                    </div>
+                                    <div class="rounded-xl bg-slate-50 p-4">
+                                        <div class="flex items-center gap-1 text-[11px] uppercase tracking-wider font-bold text-slate-400 mb-1">
+                                            Confidence
+                                            <InfoTip text="How certain our automated check is about this verdict, based on data quality, jurisdiction and how clearly the disruption crosses the legal threshold." />
+                                        </div>
+                                        <div class="flex items-center gap-3">
+                                            <div class="font-black" :class="confidenceColor">{{ trip.eligibility.confidence }}%</div>
+                                            <div class="flex-1 h-1.5 rounded-full bg-slate-200 overflow-hidden">
+                                                <div class="h-full rounded-full transition-all" :class="confidenceBar" :style="{ width: trip.eligibility.confidence + '%' }"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <p class="text-sm text-slate-600">{{ trip.eligibility.reason }}</p>
+
+                                <div v-if="trip.can_claim" class="mt-5 pt-5 border-t border-slate-100 flex items-center justify-between gap-3 flex-wrap">
+                                    <p class="text-sm text-slate-500">
+                                        {{ (trip.passengers || []).length > 1 ? `We'll create one claim per passenger (${trip.passengers.length}).` : 'Create your claim in one click — everything is pre-filled from this trip.' }}
+                                    </p>
+                                    <button
+                                        @click="startClaim"
+                                        :disabled="claiming"
+                                        class="inline-flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-slate-900/10 transition-all active:scale-95 disabled:opacity-60"
+                                    >
+                                        {{ claiming ? 'Creating claim…' : 'Start your claim' }}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Filed claims -->
+                            <div v-if="(trip.claims || []).length" class="bg-white rounded-2xl ring-1 ring-slate-900/5 p-6 sm:p-8">
+                                <h2 class="font-bold text-slate-900 mb-5">Your claims</h2>
+                                <router-link
+                                    v-for="c in trip.claims"
+                                    :key="c.id"
+                                    :to="{ name: 'claim', params: { id: c.id } }"
+                                    class="flex items-center gap-3 px-4 py-3 rounded-xl border border-slate-200 hover:border-primary-300 hover:bg-primary-50/40 transition-colors mb-2 last:mb-0"
+                                >
+                                    <span class="w-9 h-9 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                    </span>
+                                    <span class="min-w-0">
+                                        <span class="block text-sm font-bold text-slate-800">Claim #{{ c.number }} — {{ c.passenger_name }}</span>
+                                        <span class="block text-xs text-slate-400 font-medium">{{ c.status_label }}</span>
+                                    </span>
+                                    <svg class="w-4 h-4 text-slate-300 ml-auto shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+                                </router-link>
+                            </div>
+                        </template>
+
                         <!-- ═══ TAB: Trip details ═══ -->
                         <template v-else>
                             <!-- Details -->
@@ -255,7 +357,7 @@
 import { ref, computed, watch, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import api from '../api';
-import { confirmRemove } from '../confirm';
+import { confirmAction, confirmRemove } from '../confirm';
 import { formatDateTime } from '../datetime';
 import HelpPanel from '../components/HelpPanel.vue';
 import InfoTip from '../components/InfoTip.vue';
@@ -270,10 +372,17 @@ const error = ref('');
 const monitoring = ref({ events: [] });
 const refreshing = ref(false);
 
-const tabs = [
-    { key: 'status', label: 'Flight status' },
-    { key: 'details', label: 'Trip details' },
-];
+// The Compensation tab appears once the Eligibility Engine has ruled,
+// and leads when the trip is eligible — that's what the user came for.
+const tabs = computed(() => {
+    const compensation = trip.value?.eligibility ? [{ key: 'compensation', label: 'Compensation' }] : [];
+    const status = [{ key: 'status', label: 'Flight status' }];
+    const details = [{ key: 'details', label: 'Trip details' }];
+
+    return trip.value?.eligibility?.status === 'eligible'
+        ? [...compensation, ...status, ...details]
+        : [...status, ...compensation, ...details];
+});
 const tab = ref('status');
 
 const fmt = formatDateTime;
@@ -288,6 +397,30 @@ function scoreColor(score) {
     if (score >= 30) return 'text-amber-600';
     return 'text-emerald-600';
 }
+
+// ── Eligibility Engine verdict ─────────────────────────────
+const verdict = computed(() => trip.value?.eligibility?.status ?? null);
+
+const REGULATIONS = {
+    EU261:  'EU261 (EC 261/2004)',
+    UK261:  'UK261 (retained EU law)',
+    APPR:   'APPR (Canada)',
+    US_DOT: 'US DOT',
+};
+
+function regulationLabel(code) {
+    return REGULATIONS[code] || code || '—';
+}
+
+const confidenceColor = computed(() => {
+    const c = trip.value?.eligibility?.confidence ?? 0;
+    return c >= 70 ? 'text-emerald-600' : c >= 40 ? 'text-amber-600' : 'text-rose-600';
+});
+
+const confidenceBar = computed(() => {
+    const c = trip.value?.eligibility?.confidence ?? 0;
+    return c >= 70 ? 'bg-emerald-500' : c >= 40 ? 'bg-amber-500' : 'bg-rose-500';
+});
 
 // Route reliability stat tiles, each with a plain-language explanation
 // shown behind an ⓘ icon.
@@ -328,6 +461,35 @@ async function loadMonitoring() {
         monitoring.value = await api.trips.monitoring(props.id);
     } catch (e) {
         // Non-fatal: the trip page still works without history.
+    }
+}
+
+const claiming = ref(false);
+
+async function startClaim() {
+    const count = (trip.value?.passengers || []).length || 1;
+    const ok = await confirmAction(
+        'Start your claim?',
+        count > 1
+            ? `We'll file ${count} compensation claims — one per passenger — using this trip's verified flight data. Check that the passenger names are correct before continuing, as the claims will be submitted for review.`
+            : "We'll file a compensation claim using this trip's verified flight data. Check that the passenger name is correct before continuing, as the claim will be submitted for review.",
+        count > 1 ? `Yes, file ${count} claims` : 'Yes, file my claim'
+    );
+    if (!ok) return;
+
+    claiming.value = true;
+    try {
+        const res = await api.trips.createClaim(props.id);
+        const first = res.data?.[0];
+        if (first) {
+            router.push({ name: 'claim', params: { id: first.id } });
+        } else {
+            trip.value = await api.trips.get(props.id);
+        }
+    } catch (e) {
+        window.alert(e.response?.data?.message || 'Could not create the claim. Please try again.');
+    } finally {
+        claiming.value = false;
     }
 }
 
@@ -377,9 +539,10 @@ async function removeTrip() {
 async function load() {
     loading.value = true;
     error.value = '';
-    tab.value = 'status';
     try {
         trip.value = await api.trips.get(props.id);
+        // Eligible trips open on Compensation — the claim is the headline.
+        tab.value = trip.value.eligibility?.status === 'eligible' ? 'compensation' : 'status';
         await loadMonitoring();
     } catch (e) {
         error.value = e.response?.status === 403 ? 'You do not have access to this trip.' : 'Could not load this trip.';

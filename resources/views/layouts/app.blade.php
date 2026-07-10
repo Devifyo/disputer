@@ -127,8 +127,11 @@
         {{--  --}}
         <div class="lg:hidden h-16 flex items-center px-4 bg-white border-b border-slate-200 justify-between shrink-0 z-30">
             <div class="flex items-center gap-3">
-                <button @click="sidebarOpen = true" class="text-slate-500 hover:text-slate-700 p-2 -ml-2 rounded-md hover:bg-slate-100">
+                <button @click="sidebarOpen = true" class="relative text-slate-500 hover:text-slate-700 p-2 -ml-2 rounded-md hover:bg-slate-100">
                     <i data-lucide="menu" class="w-6 h-6"></i>
+                    @if (auth()->user()?->hasTripsAwaitingClaim())
+                        <x-claim-alert-dot class="absolute top-0.5 right-0.5" />
+                    @endif
                 </button>
                 <span class="font-bold text-slate-800">{{config('app.name')}}</span>
             </div>

@@ -18,7 +18,7 @@
                     <div class="lg:col-span-2 space-y-5">
                         <!-- Hero -->
                         <div class="relative overflow-hidden rounded-2xl p-6 sm:p-7 text-white" style="background:linear-gradient(105deg,#064e3b 0%,#059669 55%,#10b981 78%,#2563eb 130%);">
-                            <div class="flex flex-col sm:flex-row sm:items-center gap-5">
+                            <div class="flex flex-col lg:flex-row lg:items-center gap-5">
                                 <div class="flex-1 min-w-0">
                                     <div class="flex items-center justify-between text-[11px] font-semibold text-white/70 uppercase tracking-wide mb-1">
                                         <span class="truncate">{{ claim.departure_city || claim.departure_airport }}</span>
@@ -36,7 +36,7 @@
                                         <span class="text-3xl sm:text-4xl font-black tracking-tight">{{ claim.arrival_airport || '—' }}</span>
                                     </div>
                                 </div>
-                                <div class="flex gap-3 shrink-0">
+                                <div class="flex gap-3 shrink-0 flex-wrap">
                                     <div class="rounded-xl bg-white/10 border border-white/15 px-4 py-3 min-w-[120px]">
                                         <div class="text-[10px] font-bold text-white/70 uppercase tracking-wide">Claim ID</div>
                                         <div class="text-lg font-black">{{ claim.number }}</div>
