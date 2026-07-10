@@ -7,7 +7,7 @@ use App\Services\Eligibility\EligibilityResult;
 use App\Services\Eligibility\RegulationRule;
 
 /**
- * US DOT rules — flights to, from and within the United States. The US
+ * US DOT rules - flights to, from and within the United States. The US
  * mandates no cash compensation for delays; cancellations entitle the
  * passenger to a full refund of the unused ticket (DOT refund rule,
  * 14 CFR Part 260).
@@ -34,7 +34,7 @@ class UsDotRule implements RegulationRule
                 true,
                 '14 CFR Part 260',
                 85,
-                'The flight was cancelled — US DOT rules entitle passengers to a full refund of the unused ticket.',
+                'The flight was cancelled - US DOT rules entitle passengers to a full refund of the unused ticket.',
                 ['US DOT mandates refunds, not cash compensation, for cancellations.'],
             );
         }

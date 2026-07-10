@@ -18,7 +18,7 @@ use Throwable;
  * and flags trips as Potentially Eligible when a qualifying disruption
  * (long delay / cancellation) is reported.
  *
- * It deliberately does NOT calculate compensation or create claims —
+ * It deliberately does NOT calculate compensation or create claims -
  * that is the Eligibility Engine's job, later.
  */
 class TripMonitoringService
@@ -67,7 +67,7 @@ class TripMonitoringService
             'monitoring_status' => Trip::MONITORING_ACTIVE,
         ]);
 
-        // Route reliability is informational and rarely changes — fetch once.
+        // Route reliability is informational and rarely changes - fetch once.
         if (!$trip->route_stats && ($stats = $this->flightAware->historicalStats($ident))) {
             $trip->route_stats = $stats;
             $trip->delay_score = $stats['delay_score'];
@@ -148,6 +148,10 @@ class TripMonitoringService
             'arrival_delay_minutes'   => isset($flight['arrival_delay']) ? (int) round($flight['arrival_delay'] / 60) : null,
             'origin_gate'             => $flight['gate_origin'] ?? $trip->origin_gate,
             'destination_gate'        => $flight['gate_destination'] ?? $trip->destination_gate,
+            'origin_terminal'         => $flight['terminal_origin'] ?? $trip->origin_terminal,
+            'destination_terminal'    => $flight['terminal_destination'] ?? $trip->destination_terminal,
+            'route_distance_miles'    => $flight['route_distance'] ?? $trip->route_distance_miles,
+            'progress_percent'        => $flight['progress_percent'] ?? $trip->progress_percent,
             'flight_status_text'      => $flight['status'] ?? null,
             'last_synced_at'          => now(),
         ]);
@@ -162,7 +166,7 @@ class TripMonitoringService
         $this->detectEvents($trip, $old, $flight);
 
         // A qualifying disruption flags the trip for eligibility review and
-        // notifies the user — once. No compensation math here.
+        // notifies the user - once. No compensation math here.
         $disruption = $this->qualifyingDisruption($trip, $flight);
         if ($disruption && !$trip->potentially_eligible) {
             $trip->potentially_eligible = true;
@@ -289,7 +293,7 @@ class TripMonitoringService
             }
         }
 
-        // Past the last checkpoint (T+24h) without completion — close out.
+        // Past the last checkpoint (T+24h) without completion - close out.
         $trip->monitoring_status = Trip::MONITORING_COMPLETED;
         $trip->next_poll_at      = null;
     }

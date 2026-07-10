@@ -21,6 +21,7 @@ const THEMES = {
     eligibility_review_pending: { label: 'Eligibility Review Pending', chip: 'bg-violet-50 text-violet-700 ring-violet-200',   dot: 'bg-violet-500' },
     eligible:                   { label: 'Eligible for Compensation',  chip: 'bg-emerald-50 text-emerald-700 ring-emerald-200', dot: 'bg-emerald-500' },
     not_eligible:               { label: 'Not Eligible',               chip: 'bg-slate-100 text-slate-600 ring-slate-200',     dot: 'bg-slate-400' },
+    claim_filed:                { label: 'Claim Filed',                chip: 'bg-sky-50 text-sky-700 ring-sky-200',            dot: 'bg-sky-500' },
 };
 
 const props = defineProps({

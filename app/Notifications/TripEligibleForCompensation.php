@@ -31,11 +31,11 @@ class TripEligibleForCompensation extends Notification implements ShouldQueue
         $route = trim(($this->trip->departure_airport ?: '') . ' → ' . ($this->trip->arrival_airport ?: ''), ' →');
 
         return (new MailMessage)
-            ->subject("Good news — your trip {$ident} is eligible for compensation")
+            ->subject("Good news - your trip {$ident} is eligible for compensation")
             ->greeting('You have a claim!')
             ->line($this->headline())
             ->line($route ? "Route: {$route}" . ($this->trip->departure_date ? ', ' . $this->trip->departure_date->format('d M Y') : '') : '')
-            ->line("Legal basis: {$this->trip->eligibility_regulation} — {$this->trip->eligibility_article}.")
+            ->line("Legal basis: {$this->trip->eligibility_regulation} - {$this->trip->eligibility_article}.")
             ->action('View your trip', url('/flight-disputes/trips/' . $this->trip->id))
             ->line('We\'ll guide you through the next steps to claim what you\'re owed.');
     }

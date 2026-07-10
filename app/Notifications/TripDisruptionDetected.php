@@ -11,7 +11,7 @@ use Illuminate\Notifications\Notification;
 /**
  * Sent once when FlightAware reports a qualifying disruption (long delay or
  * cancellation) on a protected trip. Tells the user their trip may be
- * eligible for compensation — the Eligibility Engine reviews it later.
+ * eligible for compensation - the Eligibility Engine reviews it later.
  */
 class TripDisruptionDetected extends Notification implements ShouldQueue
 {
@@ -37,7 +37,7 @@ class TripDisruptionDetected extends Notification implements ShouldQueue
             ->greeting('Trip Protection alert')
             ->line($this->headline())
             ->line($route ? "Route: {$route}" . ($this->trip->departure_date ? ', ' . $this->trip->departure_date->format('d M Y') : '') : '')
-            ->line("We're reviewing your eligibility for compensation — no action is needed from you right now.")
+            ->line("We're reviewing your eligibility for compensation - no action is needed from you right now.")
             ->action('View your trip', url('/flight-disputes/trips/' . $this->trip->id))
             ->line('Thank you for protecting your trip with Unjamm.');
     }

@@ -22,6 +22,6 @@
 
 <script setup>
 // Small ⓘ icon that reveals an explanation on hover (desktop) or tap/focus
-// (mobile). Purely presentational — pass the explanation as `text`.
+// (mobile). Purely presentational - pass the explanation as `text`.
 defineProps({ text: { type: String, required: true } });
 </script>

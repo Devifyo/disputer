@@ -54,6 +54,14 @@ class TripDisplayStatusTest extends TestCase
                 ['monitoring_status' => Trip::MONITORING_COMPLETED, 'flight_status' => Trip::FLIGHT_COMPLETED, 'potentially_eligible' => true],
                 'eligibility_review_pending',
             ],
+            'verdict eligible, claim not filed yet' => [
+                ['eligibility_status' => 'eligible', 'claims_exists' => false],
+                'eligible',
+            ],
+            'verdict eligible, claim filed' => [
+                ['eligibility_status' => 'eligible', 'claims_exists' => true],
+                'claim_filed',
+            ],
         ];
     }
 }

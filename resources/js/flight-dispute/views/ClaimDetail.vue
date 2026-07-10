@@ -25,7 +25,7 @@
                                         <span class="truncate text-right">{{ claim.arrival_city || claim.arrival_airport }}</span>
                                     </div>
                                     <div class="flex items-center gap-3">
-                                        <span class="text-3xl sm:text-4xl font-black tracking-tight">{{ claim.departure_airport || '—' }}</span>
+                                        <span class="text-3xl sm:text-4xl font-black tracking-tight">{{ claim.departure_airport || '-' }}</span>
                                         <span class="flex-1 flex items-center">
                                             <span class="h-px flex-1 bg-white/40"></span>
                                             <span class="w-9 h-9 rounded-full border border-white/50 flex items-center justify-center mx-1 shrink-0">
@@ -33,7 +33,7 @@
                                             </span>
                                             <span class="h-px flex-1 bg-white/40"></span>
                                         </span>
-                                        <span class="text-3xl sm:text-4xl font-black tracking-tight">{{ claim.arrival_airport || '—' }}</span>
+                                        <span class="text-3xl sm:text-4xl font-black tracking-tight">{{ claim.arrival_airport || '-' }}</span>
                                     </div>
                                 </div>
                                 <div class="flex gap-3 shrink-0 flex-wrap">
@@ -106,7 +106,7 @@
                             <dl class="grid sm:grid-cols-2 gap-y-4 gap-x-8">
                                 <div v-for="row in detailRows" :key="row.label">
                                     <dt class="text-[11px] uppercase tracking-wider font-bold text-slate-400">{{ row.label }}</dt>
-                                    <dd class="mt-1 font-medium text-slate-900">{{ row.value || '—' }}</dd>
+                                    <dd class="mt-1 font-medium text-slate-900">{{ row.value || '-' }}</dd>
                                 </div>
                             </dl>
                         </div>
@@ -146,7 +146,7 @@ const tabs = [
 ];
 
 const detailRows = computed(() => claim.value ? [
-    { label: 'Route', value: `${claim.value.departure_airport || '—'} → ${claim.value.arrival_airport || '—'}` },
+    { label: 'Route', value: `${claim.value.departure_airport || '-'} → ${claim.value.arrival_airport || '-'}` },
     { label: 'Airline', value: claim.value.airline },
     { label: 'Flight number', value: claim.value.flight_number },
     { label: 'Flight date', value: claim.value.flight_date },

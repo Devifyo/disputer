@@ -2,7 +2,7 @@
 
 namespace App\Services\Eligibility\Rules;
 
-/** Regulation (EC) No 261/2004 — EU-27, EEA and Switzerland. */
+/** Regulation (EC) No 261/2004 - EU-27, EEA and Switzerland. */
 class Eu261Rule extends EuStyleRule
 {
     public function code(): string

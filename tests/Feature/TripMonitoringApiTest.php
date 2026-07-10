@@ -111,7 +111,8 @@ class TripMonitoringApiTest extends TestCase
             ->postJson(route('user.itineraries.api.trips.sync', $trip))
             ->assertOk();
 
-        Http::assertNothingSent();
+        // No flight-status poll — airport-metadata lookups are fine.
+        Http::assertNotSent(fn ($request) => str_contains($request->url(), '/flights/'));
     }
 
     public function test_creating_a_trip_queues_flightaware_registration(): void
@@ -174,6 +175,13 @@ class TripMonitoringApiTest extends TestCase
         $this->assertSame('delayed', $claims->first()->disruption_type);
         $this->assertSame('YEG', $claims->first()->departure_airport);
         $this->assertTrue($trip->events()->where('type', 'claim_created')->exists());
+
+        // The trip leaves the action-needed state once its claim is filed.
+        $this->actingAs($this->user)
+            ->getJson(route('user.itineraries.api.trips.show', $trip))
+            ->assertJsonPath('data.display_status', 'claim_filed')
+            ->assertJsonPath('data.display_status_label', 'Claim Filed')
+            ->assertJsonPath('data.can_claim', false);
     }
 
     public function test_claim_creation_is_idempotent(): void

@@ -7,6 +7,7 @@ use App\Jobs\SyncTripFlight;
 use App\Models\Claim;
 use App\Models\Itinerary;
 use App\Models\Trip;
+use App\Services\FlightAwareService;
 use App\Services\ItineraryParserService;
 use App\Services\TripMonitoringService;
 use Illuminate\Filesystem\FilesystemAdapter;
@@ -14,17 +15,23 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 /**
- * "Protect Your Trip" — future trips the user registers ahead of travel,
+ * "Protect Your Trip" - future trips the user registers ahead of travel,
  * either manually (funnel form) or by uploading an itinerary. Trips never
  * create claims; they exist so Unjamm can monitor upcoming flights.
  */
 class TripApiController extends Controller
 {
+    public function __construct(private readonly FlightAwareService $flightAware)
+    {
+    }
+
     public function index()
     {
         $trips = Trip::where('user_id', Auth::id())
+            ->withExists('claims')
             ->orderByRaw('departure_date IS NULL, departure_date ASC')
             ->get()
             ->map(fn (Trip $t) => $this->summary($t));
@@ -47,7 +54,7 @@ class TripApiController extends Controller
             'booking_reference' => ['nullable', 'string', 'max:32'],
             'passengers'        => ['required', 'array', 'min:1'],
             'passengers.*'      => ['required', 'string', 'max:190'],
-            // The ticket shows the fare paid — required to value the claim
+            // The ticket shows the fare paid - required to value the claim
             // if this flight ends up disrupted.
             'ticket'            => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,webp,heic,heif', 'max:12288'],
         ], [
@@ -197,7 +204,7 @@ class TripApiController extends Controller
 
     /**
      * Monitoring history shown to the customer: detected flight events only.
-     * Raw poll logs (trip_monitor_logs) are an internal audit trail — HTTP
+     * Raw poll logs (trip_monitor_logs) are an internal audit trail - HTTP
      * codes and provider error strings don't belong in the customer UI.
      */
     public function monitoring(Trip $trip)
@@ -219,7 +226,7 @@ class TripApiController extends Controller
     }
 
     /**
-     * Turn an eligible trip into compensation claims — one per passenger,
+     * Turn an eligible trip into compensation claims - one per passenger,
      * pre-filled from the trip's verified flight data. Idempotent: calling
      * again returns the existing claims.
      */
@@ -292,11 +299,11 @@ class TripApiController extends Controller
             'success' => true,
             'message' => count($passengers) === 1
                 ? 'Your claim has been created.'
-                : count($passengers) . ' claims have been created — one per passenger.',
+                : count($passengers) . ' claims have been created - one per passenger.',
         ], 201);
     }
 
-    /** Manual "refresh now" — one synchronous FlightAware sync, lightly throttled. */
+    /** Manual "refresh now" - one synchronous FlightAware sync, lightly throttled. */
     public function sync(Trip $trip, TripMonitoringService $monitor)
     {
         abort_unless($trip->user_id === Auth::id(), 403);
@@ -368,6 +375,7 @@ class TripApiController extends Controller
         'eligibility_review_pending'  => 'Eligibility Review Pending',
         'eligible'                    => 'Eligible for Compensation',
         'not_eligible'                => 'Not Eligible',
+        'claim_filed'                 => 'Claim Filed',
     ];
 
     /** Lightweight references to the claims created from a trip. */
@@ -413,6 +421,11 @@ class TripApiController extends Controller
             'display_status_label'    => self::STATUS_LABELS[$status] ?? ucfirst($status),
             'flight_status'           => $t->flight_status,
             'flight_status_text'      => $t->flight_status_text,
+            'flight_phase'            => $t->flightPhase(),
+            'origin_timezone'         => $this->airportField($t->departure_airport, 'timezone'),
+            'destination_timezone'    => $this->airportField($t->arrival_airport, 'timezone'),
+            'origin_airport_name'      => $this->airportField($t->departure_airport, 'name'),
+            'destination_airport_name' => $this->airportField($t->arrival_airport, 'name'),
             'monitoring_status'       => $t->monitoring_status,
             'monitoring'              => $t->monitoring_status === Trip::MONITORING_ACTIVE,
             'potentially_eligible'    => $t->potentially_eligible,
@@ -428,6 +441,10 @@ class TripApiController extends Controller
             'arrival_delay_minutes'   => $t->arrival_delay_minutes,
             'origin_gate'             => $t->origin_gate,
             'destination_gate'        => $t->destination_gate,
+            'origin_terminal'         => $t->origin_terminal,
+            'destination_terminal'    => $t->destination_terminal,
+            'route_distance_miles'    => $t->route_distance_miles,
+            'progress_percent'        => $t->progress_percent,
             'route_stats'             => $t->route_stats,
 
             // Trip → claim handoff
@@ -448,6 +465,16 @@ class TripApiController extends Controller
             'last_synced_human'       => $t->last_synced_at?->diffForHumans(),
             'next_poll_at'            => $t->next_poll_at?->toIso8601String(),
         ];
+    }
+
+    /** Airport metadata field (timezone, name, …) from FlightAware's forever-cached lookup. */
+    private function airportField(?string $code, string $field): ?string
+    {
+        try {
+            return $code ? ($this->flightAware->airportInfo($code)[$field] ?? null) : null;
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     /** All trip/itinerary files are written to the local disk; read from it too. */

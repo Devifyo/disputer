@@ -10,7 +10,7 @@ use App\Services\Eligibility\RegulationRule;
  * Shared logic for EU261 and its UK retained-law twin (UK261): both grant
  * compensation for cancellations (Articles 5 & 7) and for arrival delays
  * of 3+ hours (Article 7, per the Sturgeon ruling), with the same scope
- * rule — any departure from the territory, or an arrival into it on a
+ * rule - any departure from the territory, or an arrival into it on a
  * carrier of that territory.
  */
 abstract class EuStyleRule implements RegulationRule
@@ -24,7 +24,7 @@ abstract class EuStyleRule implements RegulationRule
     public function applies(EligibilityContext $context): bool
     {
         // Departures are always covered. Arrivals are only covered on a
-        // carrier of the territory — we can't verify carrier nationality
+        // carrier of the territory - we can't verify carrier nationality
         // yet, so inbound flights still apply but score lower confidence.
         return $context->originIn($this->countries()) || $context->destinationIn($this->countries());
     }
@@ -41,7 +41,7 @@ abstract class EuStyleRule implements RegulationRule
         }
 
         // The airline can avoid paying when the disruption was caused by
-        // extraordinary circumstances (weather, ATC…) — unknown at this stage.
+        // extraordinary circumstances (weather, ATC…) - unknown at this stage.
         $score -= 10;
         $factors[] = 'Disruption cause (extraordinary circumstances) not yet verified.';
 
@@ -86,7 +86,7 @@ abstract class EuStyleRule implements RegulationRule
             true,
             'Article 7(1)',
             $score,
-            sprintf('The flight arrived %s late — 3 hours or more entitles passengers to compensation.', $this->humanDelay($delay)),
+            sprintf('The flight arrived %s late - 3 hours or more entitles passengers to compensation.', $this->humanDelay($delay)),
             $factors,
         );
     }

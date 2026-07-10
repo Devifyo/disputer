@@ -120,7 +120,7 @@
                     </div>
 
                     <h2 class="font-bold text-slate-900 mb-1">Upload your itinerary</h2>
-                    <p class="text-sm text-slate-500 mb-5">Drop a booking confirmation PDF — or a photo of your itinerary — and we'll pull out the flights and passengers and create your claims.</p>
+                    <p class="text-sm text-slate-500 mb-5">Drop a booking confirmation PDF - or a photo of your itinerary - and we'll pull out the flights and passengers and create your claims.</p>
 
                     <label
                         class="group flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-xl px-6 py-10 text-center cursor-pointer transition-colors"

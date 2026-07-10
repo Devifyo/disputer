@@ -2,7 +2,7 @@
 
 namespace App\Services\Eligibility\Rules;
 
-/** UK261 — Regulation (EC) No 261/2004 as retained in UK law post-Brexit. */
+/** UK261 - Regulation (EC) No 261/2004 as retained in UK law post-Brexit. */
 class Uk261Rule extends EuStyleRule
 {
     public function code(): string

@@ -58,23 +58,23 @@
                             </span>
                             <div class="leading-tight min-w-0">
                                 <div class="font-bold text-slate-900 truncate">
-                                    {{ c.departure_city || c.departure_airport || '—' }}
+                                    {{ c.departure_city || c.departure_airport || '-' }}
                                     <span class="text-slate-300 font-medium mx-0.5">→</span>
-                                    {{ c.arrival_city || c.arrival_airport || '—' }}
+                                    {{ c.arrival_city || c.arrival_airport || '-' }}
                                 </div>
-                                <div class="text-sm text-slate-400 font-medium">{{ c.departure_airport || '—' }} – {{ c.arrival_airport || '—' }}</div>
+                                <div class="text-sm text-slate-400 font-medium">{{ c.departure_airport || '-' }} – {{ c.arrival_airport || '-' }}</div>
                             </div>
                         </div>
 
                         <!-- Flight -->
                         <div class="leading-tight min-w-0">
-                            <div class="font-bold text-slate-900 text-sm truncate">{{ c.airline || '—' }}</div>
-                            <div class="text-sm text-slate-400 font-medium">{{ c.flight_number || '—' }}</div>
+                            <div class="font-bold text-slate-900 text-sm truncate">{{ c.airline || '-' }}</div>
+                            <div class="text-sm text-slate-400 font-medium">{{ c.flight_number || '-' }}</div>
                         </div>
 
                         <!-- Flight date -->
                         <div class="leading-tight">
-                            <div class="font-bold text-slate-900 text-sm">{{ c.flight_date || '—' }}</div>
+                            <div class="font-bold text-slate-900 text-sm">{{ c.flight_date || '-' }}</div>
                             <div v-if="c.disruption_label" class="text-sm text-slate-400 font-medium truncate">{{ c.disruption_label }}</div>
                         </div>
 

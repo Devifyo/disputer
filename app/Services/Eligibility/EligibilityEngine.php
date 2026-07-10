@@ -77,7 +77,7 @@ class EligibilityEngine
             try {
                 return $this->reconcile($this->ai->evaluate($context), $ruleOutcomes, $context);
             } catch (Throwable $e) {
-                Log::warning('AI eligibility evaluation failed — falling back to rules', [
+                Log::warning('AI eligibility evaluation failed - falling back to rules', [
                     'trip'  => $context->trip->id,
                     'error' => $e->getMessage(),
                 ]);

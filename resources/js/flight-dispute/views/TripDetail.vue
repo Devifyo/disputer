@@ -25,7 +25,7 @@
                                         <span class="truncate text-right">{{ trip.arrival_city || trip.arrival_airport }}</span>
                                     </div>
                                     <div class="flex items-center gap-3">
-                                        <span class="text-3xl sm:text-4xl font-black tracking-tight">{{ trip.departure_airport || '—' }}</span>
+                                        <span class="text-3xl sm:text-4xl font-black tracking-tight">{{ trip.departure_airport || '-' }}</span>
                                         <span class="flex-1 flex items-center">
                                             <span class="h-px flex-1 bg-white/40"></span>
                                             <span class="w-9 h-9 rounded-full border border-white/50 flex items-center justify-center mx-1 shrink-0">
@@ -33,14 +33,14 @@
                                             </span>
                                             <span class="h-px flex-1 bg-white/40"></span>
                                         </span>
-                                        <span class="text-3xl sm:text-4xl font-black tracking-tight">{{ trip.arrival_airport || '—' }}</span>
+                                        <span class="text-3xl sm:text-4xl font-black tracking-tight">{{ trip.arrival_airport || '-' }}</span>
                                     </div>
                                     <div class="text-xs font-bold text-white/70 mt-2">{{ trip.airline || '' }} {{ trip.flight_number || '' }}</div>
                                 </div>
                                 <div class="flex gap-3 shrink-0 flex-wrap">
                                     <div class="rounded-xl bg-white/10 border border-white/15 px-4 py-3 min-w-[130px]">
                                         <div class="text-[10px] font-bold text-white/70 uppercase tracking-wide">Departure</div>
-                                        <div class="text-lg font-black">{{ trip.departure_date || '—' }}</div>
+                                        <div class="text-lg font-black">{{ trip.departure_date || '-' }}</div>
                                         <div v-if="trip.departure_time" class="text-xs font-bold text-white/70">{{ trip.departure_time }}</div>
                                     </div>
                                     <div class="rounded-xl bg-white/10 border border-white/15 px-4 py-3 min-w-[150px]">
@@ -59,7 +59,7 @@
                         <div v-if="verdict === 'eligible'" class="flex items-center gap-3 bg-emerald-50 border border-emerald-100 text-emerald-800 px-4 py-3 rounded-xl text-sm flex-wrap">
                             <svg class="w-5 h-5 shrink-0 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                             <p class="flex-1 min-w-[220px]">
-                                Good news — this trip is <strong>eligible for compensation</strong> under {{ trip.eligibility.regulation }} ({{ trip.eligibility.article }}).
+                                Good news - this trip is <strong>eligible for compensation</strong> under {{ trip.eligibility.regulation }} ({{ trip.eligibility.article }}).
                                 <template v-if="trip.claims?.length">Your claim{{ trip.claims.length > 1 ? 's are' : ' is' }} underway.</template>
                             </p>
                             <button
@@ -87,7 +87,7 @@
                         </div>
                         <div v-else-if="trip.potentially_eligible" class="flex items-start gap-3 bg-violet-50 border border-violet-100 text-violet-800 px-4 py-3 rounded-xl text-sm">
                             <svg class="w-5 h-5 shrink-0 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.3 4.3L2.8 18a2 2 0 001.7 3h15a2 2 0 001.7-3L13.7 4.3a2 2 0 00-3.4 0z"/></svg>
-                            <p>This trip was <strong>disrupted</strong> and may be eligible for compensation. <strong>We're reviewing your eligibility</strong> — no action is needed from you right now.</p>
+                            <p>This trip was <strong>disrupted</strong> and may be eligible for compensation. <strong>We're reviewing your eligibility</strong> - no action is needed from you right now.</p>
                         </div>
                         <div v-else class="flex items-start gap-3 bg-emerald-50 border border-emerald-100 text-emerald-800 px-4 py-3 rounded-xl text-sm">
                             <svg class="w-5 h-5 shrink-0 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3l7 3v5c0 4.5-3 8.5-7 10-4-1.5-7-5.5-7-10V6l7-3z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4"/></svg>
@@ -137,24 +137,50 @@
                                 </div>
 
                                 <template v-if="trip.fa_flight_id">
+                                    <!-- Where is the plane right now? -->
+                                    <div v-if="phaseInfo" class="rounded-xl px-4 py-3.5 mb-5" :class="phaseInfo.box">
+                                        <div class="flex items-center gap-3">
+                                            <span class="text-xl leading-none">{{ phaseInfo.icon }}</span>
+                                            <div class="min-w-0">
+                                                <div class="font-bold text-sm">{{ phaseInfo.headline }}</div>
+                                                <div v-if="phaseInfo.sub" class="text-xs opacity-80 mt-0.5">{{ phaseInfo.sub }}</div>
+                                                <div v-if="phaseInfo.detail" class="text-xs opacity-80 mt-0.5">{{ phaseInfo.detail }}</div>
+                                            </div>
+                                        </div>
+                                        <!-- In-flight progress: origin → destination -->
+                                        <div v-if="phaseInfo.progress !== null" class="mt-3">
+                                            <div class="flex items-center gap-3">
+                                                <span class="text-[11px] font-black">{{ trip.departure_airport }}</span>
+                                                <div class="flex-1 h-1.5 rounded-full bg-black/10 overflow-hidden">
+                                                    <div class="h-full rounded-full bg-current transition-all" :style="{ width: phaseInfo.progress + '%' }"></div>
+                                                </div>
+                                                <span class="text-[11px] font-black">{{ trip.arrival_airport }}</span>
+                                            </div>
+                                            <div v-if="phaseInfo.miles" class="flex justify-between text-[11px] font-medium opacity-70 mt-1">
+                                                <span>{{ phaseInfo.miles.flown.toLocaleString() }} mi flown</span>
+                                                <span>{{ phaseInfo.miles.togo.toLocaleString() }} mi to go</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     <div class="grid sm:grid-cols-2 gap-5">
                                         <div v-for="side in ['departure', 'arrival']" :key="side" class="rounded-xl border border-slate-200 p-4">
                                             <div class="text-[11px] uppercase tracking-wider font-bold text-slate-400 mb-2">
                                                 {{ side === 'departure' ? 'Departure' : 'Arrival' }}
-                                                <span class="text-slate-300 normal-case font-medium">— {{ side === 'departure' ? (trip.departure_airport || '') : (trip.arrival_airport || '') }}</span>
+                                                <span class="text-slate-300 normal-case font-medium">- {{ airportLabel(side) }}{{ tzFor(side) ? ' · local time' : '' }}</span>
                                             </div>
                                             <dl class="space-y-1.5 text-sm">
                                                 <div class="flex justify-between gap-3">
                                                     <dt class="text-slate-400 font-medium">Scheduled</dt>
-                                                    <dd class="font-bold text-slate-800">{{ fmt(trip[`scheduled_${side}`]) || '—' }}</dd>
+                                                    <dd class="font-bold text-slate-800">{{ fmtSide(trip[`scheduled_${side}`], side) || '-' }}</dd>
                                                 </div>
                                                 <div class="flex justify-between gap-3">
                                                     <dt class="text-slate-400 font-medium">Estimated</dt>
-                                                    <dd class="font-bold" :class="delayFor(side) > 0 ? 'text-amber-600' : 'text-slate-800'">{{ fmt(trip[`estimated_${side}`]) || '—' }}</dd>
+                                                    <dd class="font-bold" :class="delayFor(side) > 0 ? 'text-amber-600' : 'text-slate-800'">{{ fmtSide(trip[`estimated_${side}`], side) || '-' }}</dd>
                                                 </div>
                                                 <div class="flex justify-between gap-3">
                                                     <dt class="text-slate-400 font-medium">Actual</dt>
-                                                    <dd class="font-bold text-slate-800">{{ fmt(trip[`actual_${side}`]) || '—' }}</dd>
+                                                    <dd class="font-bold text-slate-800">{{ fmtSide(trip[`actual_${side}`], side) || '-' }}</dd>
                                                 </div>
                                                 <div class="flex justify-between gap-3">
                                                     <dt class="text-slate-400 font-medium">Delay</dt>
@@ -164,7 +190,11 @@
                                                 </div>
                                                 <div class="flex justify-between gap-3">
                                                     <dt class="text-slate-400 font-medium">Gate</dt>
-                                                    <dd class="font-bold text-slate-800">{{ side === 'departure' ? (trip.origin_gate || '—') : (trip.destination_gate || '—') }}</dd>
+                                                    <dd class="font-bold text-slate-800">{{ side === 'departure' ? (trip.origin_gate || '-') : (trip.destination_gate || '-') }}</dd>
+                                                </div>
+                                                <div class="flex justify-between gap-3">
+                                                    <dt class="text-slate-400 font-medium">Terminal</dt>
+                                                    <dd class="font-bold text-slate-800">{{ side === 'departure' ? (trip.origin_terminal || '-') : (trip.destination_terminal || '-') }}</dd>
                                                 </div>
                                             </dl>
                                         </div>
@@ -221,7 +251,7 @@
                                     </li>
                                 </ul>
                                 <p v-else class="text-sm text-slate-400">
-                                    Nothing to report — no delays, cancellations or gate changes so far.
+                                    Nothing to report - no delays, cancellations or gate changes so far.
                                     If anything happens to this flight, we'll record it here and let you know.
                                 </p>
                             </div>
@@ -242,7 +272,7 @@
                                     </div>
                                     <div class="rounded-xl bg-slate-50 p-4">
                                         <div class="text-[11px] uppercase tracking-wider font-bold text-slate-400 mb-1">Legal basis</div>
-                                        <div class="font-black text-slate-900">{{ trip.eligibility.article || '—' }}</div>
+                                        <div class="font-black text-slate-900">{{ trip.eligibility.article || '-' }}</div>
                                     </div>
                                     <div class="rounded-xl bg-slate-50 p-4">
                                         <div class="flex items-center gap-1 text-[11px] uppercase tracking-wider font-bold text-slate-400 mb-1">
@@ -261,7 +291,7 @@
 
                                 <div v-if="trip.can_claim" class="mt-5 pt-5 border-t border-slate-100 flex items-center justify-between gap-3 flex-wrap">
                                     <p class="text-sm text-slate-500">
-                                        {{ (trip.passengers || []).length > 1 ? `We'll create one claim per passenger (${trip.passengers.length}).` : 'Create your claim in one click — everything is pre-filled from this trip.' }}
+                                        {{ (trip.passengers || []).length > 1 ? `We'll create one claim per passenger (${trip.passengers.length}).` : 'Create your claim in one click - everything is pre-filled from this trip.' }}
                                     </p>
                                     <button
                                         @click="startClaim"
@@ -286,7 +316,7 @@
                                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                                     </span>
                                     <span class="min-w-0">
-                                        <span class="block text-sm font-bold text-slate-800">Claim #{{ c.number }} — {{ c.passenger_name }}</span>
+                                        <span class="block text-sm font-bold text-slate-800">Claim #{{ c.number }} - {{ c.passenger_name }}</span>
                                         <span class="block text-xs text-slate-400 font-medium">{{ c.status_label }}</span>
                                     </span>
                                     <svg class="w-4 h-4 text-slate-300 ml-auto shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
@@ -302,7 +332,7 @@
                                 <dl class="grid sm:grid-cols-2 gap-y-4 gap-x-8">
                                     <div v-for="row in detailRows" :key="row.label">
                                         <dt class="text-[11px] uppercase tracking-wider font-bold text-slate-400">{{ row.label }}</dt>
-                                        <dd class="mt-1 font-medium text-slate-900">{{ row.value || '—' }}</dd>
+                                        <dd class="mt-1 font-medium text-slate-900">{{ row.value || '-' }}</dd>
                                     </div>
                                 </dl>
                             </div>
@@ -354,11 +384,11 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import api from '../api';
 import { confirmAction, confirmRemove } from '../confirm';
-import { formatDateTime } from '../datetime';
+import { formatDateTime, formatDuration, formatTime } from '../datetime';
 import HelpPanel from '../components/HelpPanel.vue';
 import InfoTip from '../components/InfoTip.vue';
 import TripStatusBadge from '../components/TripStatusBadge.vue';
@@ -373,7 +403,7 @@ const monitoring = ref({ events: [] });
 const refreshing = ref(false);
 
 // The Compensation tab appears once the Eligibility Engine has ruled,
-// and leads when the trip is eligible — that's what the user came for.
+// and leads when the trip is eligible - that's what the user came for.
 const tabs = computed(() => {
     const compensation = trip.value?.eligibility ? [{ key: 'compensation', label: 'Compensation' }] : [];
     const status = [{ key: 'status', label: 'Flight status' }];
@@ -386,6 +416,107 @@ const tabs = computed(() => {
 const tab = ref('status');
 
 const fmt = formatDateTime;
+
+function tzFor(side) {
+    return side === 'departure' ? trip.value?.origin_timezone : trip.value?.destination_timezone;
+}
+
+// Airport-local time - what's printed on tickets and departure boards.
+function fmtSide(iso, side) {
+    return formatDateTime(iso, tzFor(side) || undefined);
+}
+
+// "Dubai Int'l (DXB)" - full airport name with its code.
+function airportLabel(side) {
+    const t = trip.value || {};
+    const code = side === 'departure' ? t.departure_airport : t.arrival_airport;
+    const name = side === 'departure'
+        ? (t.origin_airport_name || t.departure_city)
+        : (t.destination_airport_name || t.arrival_city);
+
+    return name ? `${name} (${code})` : code || '';
+}
+
+// Ticks every 30s so the "arriving in…" countdown and progress bar stay live.
+const now = ref(Date.now());
+const clock = setInterval(() => (now.value = Date.now()), 30_000);
+onUnmounted(() => clearInterval(clock));
+
+// One glance answer to "where is the plane right now?"
+function joinFacts(parts) {
+    const line = parts.filter(Boolean).join(' · ');
+    return line || null;
+}
+
+const phaseInfo = computed(() => {
+    const t = trip.value;
+    if (!t?.flight_phase) return null;
+
+    const arrival = t.estimated_arrival || t.scheduled_arrival;
+
+    switch (t.flight_phase) {
+        case 'cancelled':
+            return {
+                icon: '⚠️', box: 'bg-rose-50 text-rose-700', progress: null,
+                headline: 'This flight was cancelled',
+                sub: 'See your compensation eligibility below.',
+            };
+        case 'landed':
+            return {
+                icon: '🛬', box: 'bg-slate-100 text-slate-700', progress: null,
+                headline: `Landed at ${airportLabel('arrival')}`,
+                sub: `Arrived ${fmtSide(t.actual_arrival, 'arrival')} local time`
+                    + (t.arrival_delay_minutes > 15 ? ` - ${formatDuration(t.arrival_delay_minutes * 60000)} late` : ' - on time'),
+                detail: joinFacts([
+                    t.destination_terminal && `Terminal ${t.destination_terminal}`,
+                    t.destination_gate && `Gate ${t.destination_gate}`,
+                ]),
+            };
+        case 'enroute': {
+            const dep = new Date(t.actual_departure).getTime();
+            const arr = arrival ? new Date(arrival).getTime() : null;
+            const landsInMs = arr ? arr - now.value : null;
+
+            // FlightAware's own progress figure when it has one; otherwise
+            // interpolate between departure and estimated arrival.
+            const timeBased = arr && arr > dep ? Math.round(((now.value - dep) / (arr - dep)) * 100) : null;
+            const pct = Number.isFinite(t.progress_percent) ? t.progress_percent : timeBased;
+            const progress = pct === null ? null : Math.min(98, Math.max(2, pct));
+
+            const dist = t.route_distance_miles;
+            const flown = dist && progress !== null ? Math.round((dist * progress) / 100) : null;
+
+            return {
+                icon: '✈️', box: 'bg-sky-50 text-sky-800', progress,
+                headline: landsInMs !== null && landsInMs > 0
+                    ? `In the air - arriving in ${formatDuration(landsInMs)}`
+                    : 'In the air - landing shortly',
+                sub: arr ? `Estimated arrival ${formatTime(arrival, tzFor('arrival') || undefined)} local time at ${airportLabel('arrival')}` : null,
+                detail: joinFacts([
+                    t.origin_gate && `Left gate ${t.origin_gate}`,
+                    t.destination_terminal && `Arriving at Terminal ${t.destination_terminal}`,
+                ]),
+                miles: flown !== null ? { flown, togo: dist - flown } : null,
+            };
+        }
+        default: {
+            const dep = t.estimated_departure || t.scheduled_departure;
+            const depMs = dep ? new Date(dep).getTime() - now.value : null;
+
+            return {
+                icon: '🛫', box: 'bg-emerald-50 text-emerald-800', progress: null,
+                headline: `On the ground at ${airportLabel('departure')}`,
+                sub: dep
+                    ? `Departs ${fmtSide(dep, 'departure')} local time` + (depMs > 0 ? ` - in ${formatDuration(depMs)}` : '')
+                    : 'Departure time not confirmed yet.',
+                detail: joinFacts([
+                    t.origin_terminal && `Terminal ${t.origin_terminal}`,
+                    t.origin_gate && `Gate ${t.origin_gate}`,
+                ]),
+            };
+        }
+    }
+});
 
 function delayFor(side) {
     const min = side === 'departure' ? trip.value?.departure_delay_minutes : trip.value?.arrival_delay_minutes;
@@ -409,7 +540,7 @@ const REGULATIONS = {
 };
 
 function regulationLabel(code) {
-    return REGULATIONS[code] || code || '—';
+    return REGULATIONS[code] || code || '-';
 }
 
 const confidenceColor = computed(() => {
@@ -471,7 +602,7 @@ async function startClaim() {
     const ok = await confirmAction(
         'Start your claim?',
         count > 1
-            ? `We'll file ${count} compensation claims — one per passenger — using this trip's verified flight data. Check that the passenger names are correct before continuing, as the claims will be submitted for review.`
+            ? `We'll file ${count} compensation claims - one per passenger - using this trip's verified flight data. Check that the passenger names are correct before continuing, as the claims will be submitted for review.`
             : "We'll file a compensation claim using this trip's verified flight data. Check that the passenger name is correct before continuing, as the claim will be submitted for review.",
         count > 1 ? `Yes, file ${count} claims` : 'Yes, file my claim'
     );
@@ -506,7 +637,7 @@ async function refresh() {
 }
 
 const detailRows = computed(() => trip.value ? [
-    { label: 'Route', value: `${trip.value.departure_airport || '—'} → ${trip.value.arrival_airport || '—'}` },
+    { label: 'Route', value: `${trip.value.departure_airport || '-'} → ${trip.value.arrival_airport || '-'}` },
     { label: 'Airline', value: trip.value.airline },
     { label: 'Flight number', value: trip.value.flight_number },
     { label: 'Departure date', value: trip.value.departure_date },
@@ -541,7 +672,7 @@ async function load() {
     error.value = '';
     try {
         trip.value = await api.trips.get(props.id);
-        // Eligible trips open on Compensation — the claim is the headline.
+        // Eligible trips open on Compensation - the claim is the headline.
         tab.value = trip.value.eligibility?.status === 'eligible' ? 'compensation' : 'status';
         await loadMonitoring();
     } catch (e) {

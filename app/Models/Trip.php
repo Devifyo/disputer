@@ -45,7 +45,8 @@ class Trip extends Model
         'fa_flight_id', 'fa_ident', 'flight_status', 'monitoring_status', 'flight_status_text',
         'scheduled_departure', 'scheduled_arrival', 'estimated_departure', 'estimated_arrival',
         'actual_departure', 'actual_arrival', 'departure_delay_minutes', 'arrival_delay_minutes',
-        'origin_gate', 'destination_gate', 'potentially_eligible', 'disruption_notified_at',
+        'origin_gate', 'destination_gate', 'origin_terminal', 'destination_terminal',
+        'route_distance_miles', 'progress_percent', 'potentially_eligible', 'disruption_notified_at',
         'route_stats', 'last_synced_at', 'next_poll_at',
         'eligibility_status', 'eligibility_regulation', 'eligibility_article',
         'eligibility_confidence', 'eligibility_reason', 'eligibility_details', 'eligibility_evaluated_at',
@@ -124,6 +125,22 @@ class Trip extends Model
         return $this->departure_date->copy()->setTimeFromTimeString($time);
     }
 
+    /** Where the aircraft is right now: scheduled | enroute | landed | cancelled. */
+    public function flightPhase(): string
+    {
+        if ($this->flight_status === self::FLIGHT_CANCELLED) {
+            return 'cancelled';
+        }
+        if ($this->actual_arrival) {
+            return 'landed';
+        }
+        if ($this->actual_departure) {
+            return 'enroute';
+        }
+
+        return 'scheduled';
+    }
+
     /**
      * Status shown on the Trip Protection dashboard:
      * scheduled | monitoring | on_time | delayed | cancelled | completed |
@@ -132,9 +149,12 @@ class Trip extends Model
     public function displayStatus(): string
     {
         // The Eligibility Engine's verdict is final — it outranks the
-        // interim "potentially eligible / review pending" states.
+        // interim "potentially eligible / review pending" states. Once the
+        // claim is filed, the trip needs no further attention.
         if ($this->eligibility_status === 'eligible') {
-            return 'eligible';
+            $hasClaims = $this->claims_exists ?? $this->claims()->exists();
+
+            return $hasClaims ? 'claim_filed' : 'eligible';
         }
         if ($this->eligibility_status === 'rejected') {
             return 'not_eligible';

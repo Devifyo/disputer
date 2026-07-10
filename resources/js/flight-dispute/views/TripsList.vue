@@ -74,13 +74,13 @@
                                 </span>
                                 <div class="leading-tight min-w-0">
                                     <div class="font-bold text-slate-900 truncate">
-                                        {{ t.departure_city || t.departure_airport || '—' }}
+                                        {{ t.departure_city || t.departure_airport || '-' }}
                                         <span class="text-slate-300 font-medium mx-0.5">→</span>
-                                        {{ t.arrival_city || t.arrival_airport || '—' }}
+                                        {{ t.arrival_city || t.arrival_airport || '-' }}
                                     </div>
-                                    <div class="text-sm text-slate-400 font-medium">{{ t.departure_airport || '—' }} – {{ t.arrival_airport || '—' }}</div>
+                                    <div class="text-sm text-slate-400 font-medium">{{ t.departure_airport || '-' }} – {{ t.arrival_airport || '-' }}</div>
                                 </div>
-                                <!-- Delete (mobile position — top right of the card) -->
+                                <!-- Delete (mobile position - top right of the card) -->
                                 <button
                                     @click.stop.prevent="remove(t)"
                                     class="md:hidden ml-auto w-9 h-9 rounded-full flex items-center justify-center shrink-0 text-slate-400 bg-slate-50 ring-1 ring-slate-200/70 hover:text-rose-600 hover:bg-rose-50 hover:ring-rose-200 active:scale-95 transition-all"
@@ -95,20 +95,20 @@
 
                             <!-- Flight -->
                             <div class="leading-tight min-w-0">
-                                <div class="font-bold text-slate-900 text-sm truncate">{{ t.airline || '—' }}</div>
-                                <div class="text-sm text-slate-400 font-medium">{{ t.flight_number || '—' }}</div>
+                                <div class="font-bold text-slate-900 text-sm truncate">{{ t.airline || '-' }}</div>
+                                <div class="text-sm text-slate-400 font-medium">{{ t.flight_number || '-' }}</div>
                             </div>
 
                             <!-- Departure -->
                             <div class="leading-tight">
-                                <div class="font-bold text-slate-900 text-sm">{{ t.departure_date || '—' }}</div>
-                                <div class="text-sm text-slate-400 font-medium">{{ t.departure_time || '—' }}</div>
+                                <div class="font-bold text-slate-900 text-sm">{{ t.departure_date || '-' }}</div>
+                                <div class="text-sm text-slate-400 font-medium">{{ t.departure_time || '-' }}</div>
                             </div>
 
                             <!-- Travellers -->
                             <div class="leading-tight" :title="(t.passengers || []).join(', ')">
                                 <div class="font-bold text-slate-900 text-sm">{{ t.passengers_count || 0 }}</div>
-                                <div class="text-sm text-slate-400 font-medium truncate">{{ (t.passengers || [])[0] || '—' }}</div>
+                                <div class="text-sm text-slate-400 font-medium truncate">{{ (t.passengers || [])[0] || '-' }}</div>
                             </div>
 
                             <!-- Status -->
@@ -179,7 +179,7 @@ const error = ref('');
 const q = ref('');
 const filter = ref('all');
 
-// Statuses that mean "something happened — look at this trip".
+// Statuses that mean "something happened - look at this trip".
 const ATTENTION = ['delayed', 'cancelled', 'potentially_eligible', 'eligibility_review_pending'];
 
 const chips = computed(() => [

@@ -7,10 +7,10 @@ use App\Services\Eligibility\EligibilityResult;
 use App\Services\Eligibility\RegulationRule;
 
 /**
- * Canada's Air Passenger Protection Regulations (SOR/2019-150) — flights
+ * Canada's Air Passenger Protection Regulations (SOR/2019-150) - flights
  * to, from and within Canada. Compensation for delays of 3+ hours and
  * short-notice cancellations, but only when the disruption is within the
- * carrier's control — a condition we can't verify yet, so APPR verdicts
+ * carrier's control - a condition we can't verify yet, so APPR verdicts
  * carry a larger confidence penalty than EU-style ones.
  */
 class ApprRule implements RegulationRule
