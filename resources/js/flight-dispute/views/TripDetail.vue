@@ -7,7 +7,7 @@
             <h1 class="font-black text-slate-900 text-lg tracking-tight">Your Trip</h1>
         </header>
 
-        <div class="flex-1 overflow-y-auto bg-slate-100/70">
+        <div class="flex-1 overflow-y-auto overflow-x-hidden bg-slate-100/70">
             <div class="max-w-[1400px] mx-auto px-4 sm:px-8 py-8">
 
                 <div v-if="loading" class="text-sm text-slate-400 py-10 text-center">Loading…</div>
@@ -15,10 +15,10 @@
 
                 <div v-else-if="trip" class="grid lg:grid-cols-3 gap-6 items-start">
                     <!-- LEFT -->
-                    <div class="lg:col-span-2 space-y-5">
+                    <div class="lg:col-span-2 min-w-0 space-y-5">
                         <!-- Hero -->
                         <div class="relative overflow-hidden rounded-2xl p-6 sm:p-7 text-white" style="background:linear-gradient(105deg,#064e3b 0%,#059669 55%,#10b981 78%,#2563eb 130%);">
-                            <div class="flex flex-col lg:flex-row lg:items-center gap-5">
+                            <div class="flex flex-col xl:flex-row xl:items-center gap-5">
                                 <div class="flex-1 min-w-0">
                                     <div class="flex items-center justify-between text-[11px] font-semibold text-white/70 uppercase tracking-wide mb-1">
                                         <span class="truncate">{{ trip.departure_city || trip.departure_airport }}</span>
@@ -94,13 +94,13 @@
                             <p>This trip is <strong>Protected by Unjamm</strong>. We're watching this flight, and if it's delayed, cancelled, or overbooked, your claim will be ready before you land.</p>
                         </div>
 
-                        <!-- Tabs -->
-                        <div class="flex items-center gap-1 bg-white rounded-2xl ring-1 ring-slate-900/5 p-1.5">
+                        <!-- Tabs (scrolls within itself on narrow screens) -->
+                        <div class="flex items-center gap-1 bg-white rounded-2xl ring-1 ring-slate-900/5 p-1.5 overflow-x-auto">
                             <button
                                 v-for="t in tabs"
                                 :key="t.key"
                                 @click="tab = t.key"
-                                class="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-colors"
+                                class="flex-1 shrink-0 inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-colors"
                                 :class="tab === t.key ? 'bg-slate-900 text-white shadow-lg shadow-slate-900/10' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'"
                             >
                                 <!-- Flight status: live-activity pulse · Compensation: banknote · Trip details: ticket -->

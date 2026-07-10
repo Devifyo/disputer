@@ -8,7 +8,7 @@
             <h1 class="font-black text-slate-900 text-lg tracking-tight">Protect a trip</h1>
         </header>
 
-        <div class="flex-1 overflow-y-auto bg-slate-100/70">
+        <div class="flex-1 overflow-y-auto overflow-x-hidden bg-slate-100/70">
             <div class="max-w-[820px] mx-auto px-4 sm:px-8 py-8">
 
                 <!-- Mode toggle -->
