@@ -29,6 +29,8 @@ Route::middleware(['auth', 'verified', 'role_access:user'])->name('user.')->grou
         Route::post('api/trips/upload', [\App\Http\Controllers\User\Api\TripApiController::class, 'upload'])->name('api.trips.upload');
         Route::get('api/trips/{trip}', [\App\Http\Controllers\User\Api\TripApiController::class, 'show'])->whereNumber('trip')->name('api.trips.show');
         Route::get('api/trips/{trip}/ticket', [\App\Http\Controllers\User\Api\TripApiController::class, 'ticket'])->whereNumber('trip')->name('api.trips.ticket');
+        Route::get('api/trips/{trip}/monitoring', [\App\Http\Controllers\User\Api\TripApiController::class, 'monitoring'])->whereNumber('trip')->name('api.trips.monitoring');
+        Route::post('api/trips/{trip}/sync', [\App\Http\Controllers\User\Api\TripApiController::class, 'sync'])->whereNumber('trip')->name('api.trips.sync');
         Route::delete('api/trips/{trip}', [\App\Http\Controllers\User\Api\TripApiController::class, 'destroy'])->whereNumber('trip')->name('api.trips.destroy');
 
         // Itinerary API (declared before the SPA catch-all)

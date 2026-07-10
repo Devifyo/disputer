@@ -11,3 +11,6 @@ Artisan::command('inspire', function () {
 // Schedule::command('imap:check --sync')->everyMinute()->withoutOverlapping();
 
 Schedule::command('cases:alert-escalations')->everyMinute()->withoutOverlapping();
+
+// Trip Protection — poll FlightAware for trips that hit a monitoring checkpoint.
+Schedule::command('trips:monitor')->everyFiveMinutes()->withoutOverlapping();

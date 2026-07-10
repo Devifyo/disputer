@@ -3,9 +3,12 @@
 namespace App\Http\Controllers\User\Api;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\SyncTripFlight;
 use App\Models\Itinerary;
 use App\Models\Trip;
 use App\Services\ItineraryParserService;
+use App\Services\TripMonitoringService;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -78,6 +81,8 @@ class TripApiController extends Controller
             'passengers'        => $passengers,
             'ticket_file_path'  => $request->file('ticket')->store('trips/' . Auth::id(), 'local'),
         ]);
+
+        $this->startMonitoring($trip);
 
         return response()->json([
             'data'    => $this->summary($trip),
@@ -171,6 +176,8 @@ class TripApiController extends Controller
             'ticket_file_path'  => $itinerary->file_path,
         ]))->values();
 
+        $trips->each(fn (Trip $t) => $this->startMonitoring($t));
+
         return response()->json([
             'data'    => $trips->map(fn ($t) => $this->summary($t)),
             'success' => true,
@@ -185,6 +192,44 @@ class TripApiController extends Controller
         abort_unless($trip->user_id === Auth::id(), 403);
 
         return response()->json(['data' => $this->summary($trip)]);
+    }
+
+    /**
+     * Monitoring history shown to the customer: detected flight events only.
+     * Raw poll logs (trip_monitor_logs) are an internal audit trail — HTTP
+     * codes and provider error strings don't belong in the customer UI.
+     */
+    public function monitoring(Trip $trip)
+    {
+        abort_unless($trip->user_id === Auth::id(), 403);
+
+        return response()->json([
+            'data' => [
+                'events' => $trip->events->map(fn ($e) => [
+                    'id'             => $e->id,
+                    'type'           => $e->type,
+                    'description'    => $e->description,
+                    'qualifying'     => $e->qualifying,
+                    'detected_at'    => $e->detected_at->toIso8601String(),
+                    'detected_human' => $e->detected_at->diffForHumans(),
+                ]),
+            ],
+        ]);
+    }
+
+    /** Manual "refresh now" — one synchronous FlightAware sync, lightly throttled. */
+    public function sync(Trip $trip, TripMonitoringService $monitor)
+    {
+        abort_unless($trip->user_id === Auth::id(), 403);
+
+        $recentlySynced = $trip->last_synced_at && $trip->last_synced_at->gt(now()->subMinute());
+
+        if (!$recentlySynced && $trip->monitoring_status !== Trip::MONITORING_COMPLETED) {
+            $monitor->sync($trip, 'manual');
+            $trip->refresh();
+        }
+
+        return response()->json(['data' => $this->summary($trip), 'success' => true]);
     }
 
     /** Stream the ticket / itinerary file attached to this trip. */
@@ -220,6 +265,30 @@ class TripApiController extends Controller
 
     // ── Helpers ─────────────────────────────────────────────
 
+    /** Register a freshly created trip with FlightAware and start monitoring. */
+    private function startMonitoring(Trip $trip): void
+    {
+        // next_poll_at lets trips:monitor pick the trip up even if this
+        // queued registration job is lost.
+        $trip->forceFill([
+            'monitoring_status' => Trip::MONITORING_PENDING,
+            'next_poll_at'      => now(),
+        ])->save();
+
+        SyncTripFlight::dispatch($trip);
+    }
+
+    private const STATUS_LABELS = [
+        'scheduled'                   => 'Scheduled',
+        'monitoring'                  => 'Monitoring',
+        'on_time'                     => 'On Time',
+        'delayed'                     => 'Delayed',
+        'cancelled'                   => 'Cancelled',
+        'completed'                   => 'Completed',
+        'potentially_eligible'        => 'Potentially Eligible',
+        'eligibility_review_pending'  => 'Eligibility Review Pending',
+    ];
+
     private function summary(Trip $t): array
     {
         return [
@@ -244,13 +313,38 @@ class TripApiController extends Controller
             'ticket_url'        => $t->ticket_file_path ? route('user.itineraries.api.trips.ticket', $t) : null,
             'ticket_price'      => $t->ticket_price,
             'ticket_currency'   => $t->ticket_currency,
-            'delay_score'       => $t->delay_score, // reserved for the future route-delay feature
+            'delay_score'       => $t->delay_score,
             'created_at_human'  => $t->created_at->diffForHumans(),
+
+            // FlightAware live monitoring
+            'display_status'          => $status = $t->displayStatus(),
+            'display_status_label'    => self::STATUS_LABELS[$status] ?? ucfirst($status),
+            'flight_status'           => $t->flight_status,
+            'flight_status_text'      => $t->flight_status_text,
+            'monitoring_status'       => $t->monitoring_status,
+            'monitoring'              => $t->monitoring_status === Trip::MONITORING_ACTIVE,
+            'potentially_eligible'    => $t->potentially_eligible,
+            'fa_flight_id'            => $t->fa_flight_id,
+            'fa_ident'                => $t->fa_ident,
+            'scheduled_departure'     => $t->scheduled_departure?->toIso8601String(),
+            'scheduled_arrival'       => $t->scheduled_arrival?->toIso8601String(),
+            'estimated_departure'     => $t->estimated_departure?->toIso8601String(),
+            'estimated_arrival'       => $t->estimated_arrival?->toIso8601String(),
+            'actual_departure'        => $t->actual_departure?->toIso8601String(),
+            'actual_arrival'          => $t->actual_arrival?->toIso8601String(),
+            'departure_delay_minutes' => $t->departure_delay_minutes,
+            'arrival_delay_minutes'   => $t->arrival_delay_minutes,
+            'origin_gate'             => $t->origin_gate,
+            'destination_gate'        => $t->destination_gate,
+            'route_stats'             => $t->route_stats,
+            'last_synced_at'          => $t->last_synced_at?->toIso8601String(),
+            'last_synced_human'       => $t->last_synced_at?->diffForHumans(),
+            'next_poll_at'            => $t->next_poll_at?->toIso8601String(),
         ];
     }
 
     /** All trip/itinerary files are written to the local disk; read from it too. */
-    private function disk(): \Illuminate\Filesystem\FilesystemAdapter
+    private function disk(): FilesystemAdapter
     {
         return Storage::disk('local');
     }

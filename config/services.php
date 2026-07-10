@@ -47,6 +47,11 @@ return [
     'gemini' => [
         'api_key' => env('GEMINI_API_KEY'),
     ],
+
+    'flightaware' => [
+        'api_key'  => env('FLIGHTAWARE_API_KEY'),
+        'base_url' => env('FLIGHTAWARE_BASE_URL', 'https://aeroapi.flightaware.com/aeroapi'),
+    ],
     'stripe' => [
         'key' => env('STRIPE_KEY'),
         'secret' => env('STRIPE_SECRET'),

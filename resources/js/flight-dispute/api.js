@@ -54,5 +54,13 @@ export default {
         remove(id) {
             return http.delete(`/trips/${id}`).then((r) => r.data);
         },
+        // FlightAware monitoring history (detected events + poll log).
+        monitoring(id) {
+            return http.get(`/trips/${id}/monitoring`).then((r) => r.data.data);
+        },
+        // Manual "refresh now" — returns the updated trip.
+        sync(id) {
+            return http.post(`/trips/${id}/sync`).then((r) => r.data.data);
+        },
     },
 };

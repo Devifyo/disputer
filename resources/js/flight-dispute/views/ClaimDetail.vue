@@ -17,7 +17,7 @@
                     <!-- LEFT -->
                     <div class="lg:col-span-2 space-y-5">
                         <!-- Hero -->
-                        <div class="relative overflow-hidden rounded-2xl p-6 sm:p-7 text-white" style="background:linear-gradient(105deg,#1e3a8a 0%,#2563eb 55%,#3b82f6 78%,#ef4444 130%);">
+                        <div class="relative overflow-hidden rounded-2xl p-6 sm:p-7 text-white" style="background:linear-gradient(105deg,#064e3b 0%,#059669 55%,#10b981 78%,#2563eb 130%);">
                             <div class="flex flex-col sm:flex-row sm:items-center gap-5">
                                 <div class="flex-1 min-w-0">
                                     <div class="flex items-center justify-between text-[11px] font-semibold text-white/70 uppercase tracking-wide mb-1">
@@ -54,7 +54,7 @@
                             <button
                                 v-for="t in tabs" :key="t.key" @click="activeTab = t.key"
                                 class="px-4 py-2 rounded-lg text-sm font-bold transition-colors"
-                                :class="activeTab === t.key ? 'bg-primary-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'"
+                                :class="activeTab === t.key ? 'bg-slate-900 text-white shadow-lg shadow-slate-900/10' : 'text-slate-500 hover:text-slate-700'"
                             >{{ t.label }}</button>
                         </div>
 

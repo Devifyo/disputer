@@ -17,7 +17,7 @@
                         v-for="m in modes" :key="m.key"
                         @click="mode = m.key"
                         class="px-4 py-2 rounded-lg text-sm font-bold transition-colors"
-                        :class="mode === m.key ? 'bg-primary-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'"
+                        :class="mode === m.key ? 'bg-slate-900 text-white shadow-lg shadow-slate-900/10' : 'text-slate-500 hover:text-slate-700'"
                     >{{ m.label }}</button>
                 </div>
 
@@ -174,7 +174,7 @@
                             v-if="step < steps.length"
                             type="button"
                             @click="next"
-                            class="inline-flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-6 py-3 rounded-xl text-sm font-bold shadow-md shadow-primary-600/25 transition-all active:scale-95"
+                            class="inline-flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white px-6 py-3 rounded-xl text-sm font-bold shadow-lg shadow-slate-900/10 transition-all active:scale-95"
                         >
                             Continue
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
@@ -184,7 +184,7 @@
                             type="button"
                             @click="submit"
                             :disabled="saving"
-                            class="inline-flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-6 py-3 rounded-xl text-sm font-bold shadow-md shadow-primary-600/25 transition-all disabled:opacity-60"
+                            class="inline-flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white px-6 py-3 rounded-xl text-sm font-bold shadow-lg shadow-slate-900/10 transition-all disabled:opacity-60"
                         >
                             <svg v-if="saving" class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.4 0 0 5.4 0 12h4z"/></svg>
                             <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3l7 3v5c0 4.5-3 8.5-7 10-4-1.5-7-5.5-7-10V6l7-3z"/></svg>
@@ -226,7 +226,7 @@
                         <span class="text-sm font-medium text-slate-700 truncate">{{ selectedFile.name }}</span>
                         <div class="flex items-center gap-2">
                             <button type="button" @click="selectedFile = null" class="text-xs font-semibold text-slate-500 hover:text-slate-700 px-3 py-2 rounded-lg hover:bg-slate-100">Remove</button>
-                            <button type="button" @click="upload" :disabled="uploading" class="inline-flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg text-xs font-bold disabled:opacity-60">Process &amp; protect trip</button>
+                            <button type="button" @click="upload" :disabled="uploading" class="inline-flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-lg text-xs font-bold disabled:opacity-60">Process &amp; protect trip</button>
                         </div>
                     </div>
                     <p v-if="uploadError" class="mt-3 text-xs font-semibold text-rose-600">{{ uploadError }}</p>
