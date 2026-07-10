@@ -16,6 +16,9 @@ class Itinerary extends Model
     public const STATUS_PARSED     = 'parsed';
     public const STATUS_FAILED     = 'failed';
 
+    public const PURPOSE_CLAIM = 'claim';
+    public const PURPOSE_TRIP  = 'trip';
+
     protected $fillable = [
         'user_id',
         'original_filename',
@@ -24,6 +27,7 @@ class Itinerary extends Model
         'mime_type',
         'file_hash',
         'status',
+        'purpose',
         'parse_error',
         'parsed_at',
         'booking_reference',

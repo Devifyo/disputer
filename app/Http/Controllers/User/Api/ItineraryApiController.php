@@ -15,6 +15,7 @@ class ItineraryApiController extends Controller
     public function index()
     {
         $itineraries = Itinerary::where('user_id', Auth::id())
+            ->where('purpose', Itinerary::PURPOSE_CLAIM)
             ->with('flights')
             ->withCount(['flights', 'passengers'])
             ->latest()
@@ -38,9 +39,15 @@ class ItineraryApiController extends Controller
 
         // Duplicate guard: if this exact file was already uploaded, reuse it
         // instead of re-parsing (saves an AI call and avoids duplicate claims).
+        // Scoped to claim-purpose rows: the same file uploaded via Protect Your
+        // Trip must not block a later dispute claim.
         $hash = @hash_file('sha256', $upload->getRealPath()) ?: null;
         if ($hash) {
-            $existing = Itinerary::where('user_id', Auth::id())->where('file_hash', $hash)->latest()->first();
+            $existing = Itinerary::where('user_id', Auth::id())
+                ->where('purpose', Itinerary::PURPOSE_CLAIM)
+                ->where('file_hash', $hash)
+                ->latest()
+                ->first();
             if ($existing) {
                 return response()->json([
                     'data'      => $this->detail($existing),
@@ -113,6 +120,9 @@ class ItineraryApiController extends Controller
     private function authorizeOwner(Itinerary $itinerary): void
     {
         abort_unless($itinerary->user_id === Auth::id(), 403);
+        // Trip-purpose itineraries belong to Protect Your Trip: their files back
+        // the trips' tickets, so the disputes API must never show or delete them.
+        abort_unless($itinerary->purpose === Itinerary::PURPOSE_CLAIM, 404);
     }
 
     private function summary(Itinerary $i): array

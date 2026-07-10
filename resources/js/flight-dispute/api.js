@@ -35,4 +35,24 @@ export default {
         form.append('file', file);
         return http.post('/upload', form, { onUploadProgress: onProgress });
     },
+    // "Protect Your Trip" — future trips monitored by Unjamm.
+    trips: {
+        list() {
+            return http.get('/trips').then((r) => r.data.data);
+        },
+        get(id) {
+            return http.get(`/trips/${id}`).then((r) => r.data.data);
+        },
+        create(payload) {
+            return http.post('/trips', payload).then((r) => r.data);
+        },
+        upload(file, onProgress) {
+            const form = new FormData();
+            form.append('file', file);
+            return http.post('/trips/upload', form, { onUploadProgress: onProgress }).then((r) => r.data);
+        },
+        remove(id) {
+            return http.delete(`/trips/${id}`).then((r) => r.data);
+        },
+    },
 };

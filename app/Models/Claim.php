@@ -102,6 +102,11 @@ class Claim extends Model
      */
     public static function ensureForItinerary(Itinerary $itinerary): void
     {
+        // Itineraries registered to protect a future trip are not disputes.
+        if ($itinerary->purpose === Itinerary::PURPOSE_TRIP) {
+            return;
+        }
+
         $itinerary->load('passengers.claim', 'flights');
 
         $first = $itinerary->flights->first();

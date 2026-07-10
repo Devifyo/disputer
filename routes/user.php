@@ -23,6 +23,14 @@ Route::middleware(['auth', 'verified', 'role_access:user'])->name('user.')->grou
         Route::post('api/claims', [\App\Http\Controllers\User\Api\ClaimApiController::class, 'store'])->name('api.claims.store');
         Route::get('api/claims/{claim}', [\App\Http\Controllers\User\Api\ClaimApiController::class, 'show'])->name('api.claims.show');
 
+        // Trips API — "Protect Your Trip" (declared before the SPA catch-all)
+        Route::get('api/trips', [\App\Http\Controllers\User\Api\TripApiController::class, 'index'])->name('api.trips.index');
+        Route::post('api/trips', [\App\Http\Controllers\User\Api\TripApiController::class, 'store'])->name('api.trips.store');
+        Route::post('api/trips/upload', [\App\Http\Controllers\User\Api\TripApiController::class, 'upload'])->name('api.trips.upload');
+        Route::get('api/trips/{trip}', [\App\Http\Controllers\User\Api\TripApiController::class, 'show'])->whereNumber('trip')->name('api.trips.show');
+        Route::get('api/trips/{trip}/ticket', [\App\Http\Controllers\User\Api\TripApiController::class, 'ticket'])->whereNumber('trip')->name('api.trips.ticket');
+        Route::delete('api/trips/{trip}', [\App\Http\Controllers\User\Api\TripApiController::class, 'destroy'])->whereNumber('trip')->name('api.trips.destroy');
+
         // Itinerary API (declared before the SPA catch-all)
         Route::get('api/list', [\App\Http\Controllers\User\Api\ItineraryApiController::class, 'index'])->name('api.index');
         Route::post('api/upload', [\App\Http\Controllers\User\Api\ItineraryApiController::class, 'store'])->name('api.store');

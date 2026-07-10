@@ -9,10 +9,16 @@
                         Your submitted claims
                         <svg class="w-4 h-4 text-primary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
                     </h1>
+                    <div class="flex items-center gap-3">
+                    <router-link :to="{ name: 'trips' }" class="inline-flex items-center gap-2 bg-white hover:bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 px-5 py-3 rounded-xl text-sm font-bold transition-all active:scale-95">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3l7 3v5c0 4.5-3 8.5-7 10-4-1.5-7-5.5-7-10V6l7-3z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4"/></svg>
+                        Protect Your Trip
+                    </router-link>
                     <router-link :to="{ name: 'add-claim' }" class="inline-flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-5 py-3 rounded-xl text-sm font-bold shadow-md shadow-primary-600/25 transition-all active:scale-95">
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" d="M12 5v14M5 12h14"/></svg>
                         Add Claim
                     </router-link>
+                    </div>
                 </div>
 
                 <div v-if="loading" class="text-sm text-slate-400 py-10 text-center">Loading…</div>

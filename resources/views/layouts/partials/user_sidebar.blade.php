@@ -40,9 +40,24 @@
             Documents
         </a>
 
-        <a href="{{ route('user.itineraries.index') }}" class="{{ navClass('user.itineraries.*') }} group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all">
-            <i data-lucide="plane" class="w-5 h-5 transition-colors {{ request()->routeIs('user.itineraries.*') ? 'text-blue-400' : 'text-slate-500 group-hover:text-slate-300' }}"></i>
+        @php
+            // Both pages live inside the same SPA route — split the active
+            // state by path: /flight-disputes/trips* belongs to Protect Your Trip.
+            $onTrips = request()->is('flight-disputes/trips*');
+            $onDisputes = request()->routeIs('user.itineraries.*') && !$onTrips;
+            $activeCls = 'bg-blue-600/10 text-blue-400 shadow-[inset_3px_0_0_0_#2563eb]';
+            $idleCls = 'hover:bg-white/5 hover:text-slate-200 text-slate-400';
+        @endphp
+        {{-- data-spa-nav: the flight-dispute Vue app re-syncs these two links'
+             active state on client-side navigation (see its main.js). --}}
+        <a href="{{ route('user.itineraries.index') }}" data-spa-nav="disputes" class="{{ $onDisputes ? $activeCls : $idleCls }} group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all">
+            <i data-lucide="plane" class="w-5 h-5 transition-colors {{ $onDisputes ? 'text-blue-400' : 'text-slate-500 group-hover:text-slate-300' }}"></i>
             Flight Disputes
+        </a>
+
+        <a href="{{ route('user.itineraries.index') }}/trips" data-spa-nav="trips" class="{{ $onTrips ? $activeCls : $idleCls }} group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all">
+            <i data-lucide="shield-check" class="w-5 h-5 transition-colors {{ $onTrips ? 'text-blue-400' : 'text-slate-500 group-hover:text-slate-300' }}"></i>
+            Protect Your Trip
         </a>
 
         <a href="{{ route('user.cases.index') }}" class="{{ navClass('user.cases.*') }} group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all">
