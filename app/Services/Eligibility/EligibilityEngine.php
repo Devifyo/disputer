@@ -24,6 +24,7 @@ use Throwable;
 class EligibilityEngine
 {
     public const STATUS_ELIGIBLE = 'eligible';
+    public const STATUS_REVIEW   = 'review';   // eligible but below the confidence threshold - a human confirms
     public const STATUS_REJECTED = 'rejected';
 
     public const SETTING_THRESHOLD = 'eligibility.confidence_threshold';
@@ -55,6 +56,13 @@ class EligibilityEngine
 
         $best      = $this->pickVerdict($outcomes);
         $threshold = self::confidenceThreshold();
+
+        // Whatever the evaluator felt, a verdict resting on passenger-reported
+        // facts can never be near-certain - the airline's records may differ.
+        if ($best?->eligible && $context->reportedDisruption && $best->confidence > 75) {
+            $best->confidence = 75;
+            $best->factors[]  = 'Confidence capped: passenger-reported facts cannot be fully verified automatically.';
+        }
 
         $this->persist($trip, $best, $outcomes, $context, $threshold, $evaluatedBy);
 
@@ -141,6 +149,9 @@ class EligibilityEngine
             cancelled:           $trip->flight_status === Trip::FLIGHT_CANCELLED,
             arrivalDelayMinutes: max(0, (int) $trip->arrival_delay_minutes),
             delayIsActual:       $delayIsActual,
+            diverted:            (bool) $trip->diverted,
+            reportedDisruption:  $trip->reported_disruption,
+            reportAnswers:       $trip->report_details['questions'] ?? [],
         );
     }
 
@@ -194,11 +205,14 @@ class EligibilityEngine
 
         if (!$best) {
             $trip->forceFill([
-                'eligibility_status'       => self::STATUS_REJECTED,
-                'eligibility_confidence'   => 0,
-                'eligibility_reason'       => 'No air passenger rights regulation covers this route.',
-                'eligibility_details'      => $details,
-                'eligibility_evaluated_at' => now(),
+                'eligibility_status'          => self::STATUS_REJECTED,
+                'eligibility_confidence'      => 0,
+                'eligibility_reason'          => 'No air passenger rights regulation covers this route.',
+                'eligibility_details'         => $details,
+                'eligibility_evaluated_at'    => now(),
+                'eligibility_decision_source' => $details['evaluated_by'],
+                'eligibility_decided_by'      => null,
+                'eligibility_decided_at'      => null,
             ])->save();
 
             return;
@@ -206,29 +220,53 @@ class EligibilityEngine
 
         $accepted = $best->eligible && $best->confidence >= $threshold;
 
+        // Below-threshold eligible verdicts go to a human, never to a flat
+        // rejection - the customer may genuinely be owed money. The customer
+        // sees a friendly reason; the threshold detail stays in the audit trail.
+        $status = $accepted ? self::STATUS_ELIGIBLE
+            : ($best->eligible ? self::STATUS_REVIEW : self::STATUS_REJECTED);
+
+        // "Something else" reports can't be classified automatically - they
+        // always go to the team, as the customer was promised.
+        if ($status === self::STATUS_REJECTED && $context->reportedDisruption === 'other') {
+            $status = self::STATUS_REVIEW;
+        }
+
         $reason = $best->reason;
-        if ($best->eligible && !$accepted) {
-            $reason = sprintf(
-                'Automatically rejected: confidence %d%% is below the %d%% review threshold. %s',
-                $best->confidence, $threshold, $best->reason
-            );
+        if ($status === self::STATUS_REVIEW) {
+            // The engine's raw verdict stays in the audit trail; the customer
+            // gets review-appropriate copy, not internals stapled together.
+            $reason = $best->eligible
+                ? $best->reason . ' Our team is verifying the details before confirming your claim.'
+                : 'Our automated check couldn\'t match your report to a compensation rule, so our team will review what happened and confirm whether you have a claim.';
+            $details['auto_review'] = $best->eligible
+                ? sprintf('Confidence %d%% below the %d%% threshold.', $best->confidence, $threshold)
+                : 'Engine verdict was not-eligible; queued because unclassified reports always get a human decision.';
         }
 
         $trip->forceFill([
-            'eligibility_status'       => $accepted ? self::STATUS_ELIGIBLE : self::STATUS_REJECTED,
-            'eligibility_regulation'   => $best->regulation,
-            'eligibility_article'      => $best->article,
-            'eligibility_confidence'   => $best->confidence,
-            'eligibility_reason'       => $reason,
-            'eligibility_details'      => $details,
-            'eligibility_evaluated_at' => now(),
+            'eligibility_status'          => $status,
+            'eligibility_regulation'      => $best->regulation,
+            'eligibility_article'         => $best->article,
+            'eligibility_confidence'      => $best->confidence,
+            'eligibility_reason'          => $reason,
+            'eligibility_details'         => $details,
+            'eligibility_evaluated_at'    => now(),
+            // A fresh automated verdict supersedes any earlier manual decision.
+            'eligibility_decision_source' => $details['evaluated_by'],
+            'eligibility_decided_by'      => null,
+            'eligibility_decided_at'      => null,
         ])->save();
 
         $trip->events()->create([
             'type'        => TripEvent::TYPE_ELIGIBILITY,
-            'description' => $accepted
-                ? sprintf('Trip found eligible for compensation under %s (%s) with %d%% confidence.', $best->regulation, $best->article, $best->confidence)
-                : sprintf('Eligibility review outcome: %s', $reason),
+            'description' => match ($status) {
+                self::STATUS_ELIGIBLE => sprintf('Trip found eligible for compensation under %s (%s) with %d%% confidence.', $best->regulation, $best->article, $best->confidence),
+                self::STATUS_REVIEW   => $best->eligible
+                    ? sprintf('Likely eligible under %s (%s) - sent to our team for manual confirmation.', $best->regulation, $best->article)
+                    : 'Report sent to our team for manual review.',
+                default               => sprintf('Eligibility review outcome: %s', $reason),
+            },
             'data'        => $best->toArray(),
             'qualifying'  => $accepted,
             'detected_at' => now(),

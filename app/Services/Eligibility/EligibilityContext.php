@@ -18,6 +18,9 @@ class EligibilityContext
         public bool $cancelled,
         public int $arrivalDelayMinutes,     // best-known arrival delay
         public bool $delayIsActual,          // true when actual_arrival is known
+        public bool $diverted = false,
+        public ?string $reportedDisruption = null, // denied_boarding | downgrade | missed_connection | other
+        public array $reportAnswers = [],          // [{question, answer}] from the report funnel
     ) {
     }
 

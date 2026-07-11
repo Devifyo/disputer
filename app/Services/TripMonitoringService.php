@@ -161,9 +161,11 @@ class TripMonitoringService
             $trip->airline = $flight['operator_iata'];
         }
 
+        $trip->diverted      = (bool) ($flight['diverted'] ?? $trip->diverted);
         $trip->flight_status = $this->normalizeStatus($trip, $flight);
 
         $this->detectEvents($trip, $old, $flight);
+        $this->detectMissedConnection($trip);
 
         // A qualifying disruption flags the trip for eligibility review and
         // notifies the user - once. No compensation math here.
@@ -187,6 +189,11 @@ class TripMonitoringService
         // Cancellation
         if (!empty($flight['cancelled']) && $old['flight_status'] !== Trip::FLIGHT_CANCELLED) {
             $this->event($trip, TripEvent::TYPE_CANCELLATION, "Flight {$trip->flightIdent()} was cancelled.", [], qualifying: true);
+        }
+
+        // Diversion (landed somewhere other than the booked destination)
+        if ($trip->diverted && $old['flight_status'] !== Trip::FLIGHT_DIVERTED) {
+            $this->event($trip, TripEvent::TYPE_DIVERSION, "Flight {$trip->flightIdent()} was diverted away from {$trip->arrival_airport}.", [], qualifying: true);
         }
 
         // Delay (recorded whenever it grows past the notable threshold)
@@ -234,11 +241,55 @@ class TripMonitoringService
         }
     }
 
+    /**
+     * A missed connection can't be seen on a single flight: when this trip
+     * came from a multi-flight itinerary and landed after a sibling leg was
+     * due to depart, flag that sibling for eligibility review.
+     */
+    private function detectMissedConnection(Trip $trip): void
+    {
+        if (!$trip->itinerary_id || !$trip->actual_arrival) {
+            return;
+        }
+
+        $missed = Trip::where('itinerary_id', $trip->itinerary_id)
+            ->where('id', '!=', $trip->id)
+            ->whereNull('reported_disruption')
+            ->where('departure_airport', $trip->arrival_airport)
+            ->get()
+            ->filter(function (Trip $next) use ($trip) {
+                $departure = $next->departureMoment();
+
+                return $departure
+                    && $departure->between($trip->departureMoment() ?? $trip->actual_arrival, $trip->actual_arrival->copy()->addDay())
+                    && $trip->actual_arrival->greaterThan($departure);
+            });
+
+        foreach ($missed as $next) {
+            $next->forceFill([
+                'reported_disruption'  => 'missed_connection',
+                'reported_at'          => now(),
+                'potentially_eligible' => true,
+            ])->save();
+
+            $next->events()->create([
+                'type'        => TripEvent::TYPE_MISSED_CONNECTION,
+                'description' => "Connection at {$trip->arrival_airport} was likely missed: {$trip->flightIdent()} landed after {$next->flightIdent()} was due to depart.",
+                'qualifying'  => true,
+                'detected_at' => now(),
+            ]);
+        }
+    }
+
     /** Returns a short disruption descriptor when the trip qualifies for review. */
     private function qualifyingDisruption(Trip $trip, array $flight): ?array
     {
         if (!empty($flight['cancelled'])) {
             return ['type' => 'cancellation'];
+        }
+
+        if ($trip->diverted) {
+            return ['type' => 'diversion'];
         }
 
         $threshold = (int) config('trip_monitoring.qualifying_delay_minutes', 180);
@@ -251,6 +302,9 @@ class TripMonitoringService
     {
         if (!empty($flight['cancelled'])) {
             return Trip::FLIGHT_CANCELLED;
+        }
+        if ($trip->diverted && !$trip->actual_arrival) {
+            return Trip::FLIGHT_DIVERTED;
         }
         if ($trip->actual_arrival) {
             return Trip::FLIGHT_COMPLETED;

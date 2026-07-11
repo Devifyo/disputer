@@ -56,6 +56,21 @@ abstract class EuStyleRule implements RegulationRule
             );
         }
 
+        if ($result = $this->reportedOutcome($context, $score, $factors)) {
+            return $result;
+        }
+
+        if ($context->diverted) {
+            return new EligibilityResult(
+                $this->code(),
+                true,
+                'Articles 8 & 7',
+                $score - 5,
+                'The flight was diverted away from its booked destination, which entitles passengers to re-routing or a refund - and to compensation if final arrival is 3+ hours late.',
+                [...$factors, 'Final arrival delay at the booked destination is not verified yet.'],
+            );
+        }
+
         $delay = $context->arrivalDelayMinutes;
 
         if ($delay < $this->delayThreshold()) {
@@ -89,6 +104,48 @@ abstract class EuStyleRule implements RegulationRule
             sprintf('The flight arrived %s late - 3 hours or more entitles passengers to compensation.', $this->humanDelay($delay)),
             $factors,
         );
+    }
+
+    /** Verdicts for passenger-reported disruptions no flight-data API can observe. */
+    private function reportedOutcome(EligibilityContext $context, int $score, array $factors): ?EligibilityResult
+    {
+        $unverified = 'Reported by the passenger - not verifiable from flight data, so the airline\'s records will decide.';
+
+        return match ($context->reportedDisruption) {
+            'denied_boarding' => new EligibilityResult(
+                $this->code(),
+                true,
+                'Articles 4 & 7',
+                $score - 25,
+                'Being denied boarding against your will (e.g. overbooking) entitles passengers to immediate compensation.',
+                [...$factors, $unverified],
+            ),
+            'downgrade' => new EligibilityResult(
+                $this->code(),
+                true,
+                'Article 10',
+                $score - 25,
+                'Being seated in a lower class than booked entitles passengers to reimbursement of 30-75% of the ticket price.',
+                [...$factors, $unverified],
+            ),
+            'missed_connection' => new EligibilityResult(
+                $this->code(),
+                true,
+                'Article 7 (Folkerts ruling)',
+                $score - 30,
+                'A missed connection on a single booking entitles passengers to compensation when arrival at the final destination is 3+ hours late.',
+                [...$factors, 'Arrival time at the final destination is not verified yet.'],
+            ),
+            'other' => new EligibilityResult(
+                $this->code(),
+                false,
+                'Article 7',
+                40,
+                'The reported issue could not be matched to a compensable disruption automatically - our team will review it.',
+                $factors,
+            ),
+            default => null,
+        };
     }
 
     protected function humanDelay(int $minutes): string

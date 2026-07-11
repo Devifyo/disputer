@@ -13,6 +13,9 @@ class TripEvent extends Model
     public const TYPE_GATE_CHANGE     = 'gate_change';
     public const TYPE_SCHEDULE_CHANGE = 'schedule_change';
     public const TYPE_COMPLETED       = 'completed';
+    public const TYPE_DIVERSION       = 'diversion';
+    public const TYPE_MISSED_CONNECTION = 'missed_connection';
+    public const TYPE_REPORTED        = 'reported';
     public const TYPE_ELIGIBILITY     = 'eligibility';
 
     protected $fillable = [

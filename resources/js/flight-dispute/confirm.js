@@ -31,3 +31,26 @@ export function confirmRemove(title, text) {
 export function confirmAction(title, text, confirmText = 'Yes, continue') {
     return confirm({ title, text, confirmText });
 }
+
+/**
+ * Blocking "we're working on it" dialog with a spinner, for actions that
+ * take a few seconds (e.g. the live eligibility review). Returns a function
+ * that closes the dialog.
+ */
+export function showProcessing(title, text) {
+    if (!window.Swal) return () => {};
+
+    window.Swal.fire({
+        title,
+        text,
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: false,
+        heightAuto: false,
+        scrollbarPadding: false,
+        customClass: { popup: 'rounded-2xl' },
+        didOpen: () => window.Swal.showLoading(),
+    });
+
+    return () => window.Swal.close();
+}

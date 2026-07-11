@@ -181,10 +181,15 @@ class FlightAwareService
         ]];
     }
 
-    /** "AC845" → ["AC", "845"]; returns [null, null] when unparseable. */
+    /**
+     * "AC845" → ["AC", "845"]. IATA airline codes can be alphanumeric
+     * (F8, U2, 3M), so a 2-char code just needs at least one letter;
+     * 3-char ICAO codes are letters only. Returns [null, null] when
+     * unparseable.
+     */
     private function splitIdent(string $ident): array
     {
-        return preg_match('/^([A-Z]{2,3})\s*(\d{1,4}[A-Z]?)$/i', trim($ident), $m)
+        return preg_match('/^((?=[A-Z0-9]*[A-Z])[A-Z0-9]{2}|[A-Z]{3})\s*(\d{1,4}[A-Z]?)$/i', trim($ident), $m)
             ? [strtoupper($m[1]), $m[2]]
             : [null, null];
     }

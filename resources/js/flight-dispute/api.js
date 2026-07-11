@@ -66,5 +66,14 @@ export default {
         createClaim(id) {
             return http.post(`/trips/${id}/claim`).then((r) => r.data);
         },
+        // Next funnel question for a disruption report - adapts to the
+        // answers given so far.
+        reportQuestions(id, type, answers = []) {
+            return http.post(`/trips/${id}/report/questions`, { type, answers }).then((r) => r.data.data);
+        },
+        // Passenger-reported disruption: answers + supporting documents (FormData).
+        report(id, form) {
+            return http.post(`/trips/${id}/report`, form).then((r) => r.data);
+        },
     },
 };

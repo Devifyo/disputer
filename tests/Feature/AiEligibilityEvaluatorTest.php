@@ -168,6 +168,28 @@ class AiEligibilityEvaluatorTest extends TestCase
         $this->assertSame(90, $eu->first()['confidence']);
     }
 
+    public function test_reported_disruption_confidence_is_capped_at_75(): void
+    {
+        // The AI is overconfident about facts only the passenger attests to.
+        $this->fakeApis(geminiJson: json_encode(['outcomes' => [[
+            'regulation' => 'EU261',
+            'eligible'   => true,
+            'article'    => 'Articles 4 & 7',
+            'confidence' => 95,
+            'reason'     => 'Clear involuntary denied boarding.',
+        ]]]));
+
+        $trip = $this->disruptedTrip();
+        $trip->forceFill(['reported_disruption' => 'denied_boarding'])->save();
+
+        app(EligibilityEngine::class)->evaluate($trip);
+        $trip->refresh();
+
+        $this->assertSame(75, $trip->eligibility_confidence);
+        $outcome = collect($trip->eligibility_details['outcomes'])->firstWhere('regulation', 'EU261');
+        $this->assertContains('Confidence capped: passenger-reported facts cannot be fully verified automatically.', $outcome['factors']);
+    }
+
     public function test_rules_mode_never_calls_gemini(): void
     {
         config(['eligibility.evaluator' => 'rules']);

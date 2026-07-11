@@ -7,13 +7,17 @@ use App\Jobs\SyncTripFlight;
 use App\Models\Claim;
 use App\Models\Itinerary;
 use App\Models\Trip;
+use App\Models\TripEvent;
+use App\Services\Eligibility\EligibilityEngine;
 use App\Services\FlightAwareService;
 use App\Services\ItineraryParserService;
 use App\Services\TripMonitoringService;
+use App\Services\Trips\ReportQuestionnaireService;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
@@ -278,7 +282,9 @@ class TripApiController extends Controller
 
             $claim->recordEvent('Claim created from your protected trip', 'done', now());
             $claim->recordEvent(
-                sprintf('Found eligible under %s (%s) at %d%% confidence', $trip->eligibility_regulation, $trip->eligibility_article, $trip->eligibility_confidence),
+                $trip->eligibility_decision_source === 'admin'
+                    ? sprintf('Eligibility confirmed by our team under %s (%s)', $trip->eligibility_regulation, $trip->eligibility_article)
+                    : sprintf('Found eligible under %s (%s)', $trip->eligibility_regulation, $trip->eligibility_article),
                 'done',
                 now(),
                 1
@@ -301,6 +307,88 @@ class TripApiController extends Controller
                 ? 'Your claim has been created.'
                 : count($passengers) . ' claims have been created - one per passenger.',
         ], 201);
+    }
+
+    /**
+     * The next funnel question for a disruption report - AI picks it based
+     * on the answers so far, so the funnel adapts to the passenger's case.
+     */
+    public function reportQuestions(Request $request, Trip $trip, ReportQuestionnaireService $questionnaire)
+    {
+        abort_unless($trip->user_id === Auth::id(), 403);
+
+        $data = $request->validate([
+            'type'               => ['required', Rule::in(Trip::REPORTABLE_DISRUPTIONS)],
+            'answers'            => ['nullable', 'array', 'max:8'],
+            'answers.*.question' => ['required', 'string', 'max:220'],
+            'answers.*.answer'   => ['required', 'string', 'max:1000'],
+        ]);
+
+        return response()->json([
+            'data' => $questionnaire->nextQuestion($trip, $data['type'], $data['answers'] ?? []),
+        ]);
+    }
+
+    /**
+     * Passenger reports a disruption no flight-data API can see (denied
+     * boarding, downgrade, missed connection), with funnel answers and
+     * supporting documents. Flags the trip and runs the Eligibility Engine
+     * on it immediately.
+     */
+    public function reportDisruption(Request $request, Trip $trip, EligibilityEngine $engine)
+    {
+        abort_unless($trip->user_id === Auth::id(), 403);
+
+        $data = $request->validate([
+            'type'               => ['required', Rule::in(Trip::REPORTABLE_DISRUPTIONS)],
+            'answers'            => ['required', 'array', 'min:1', 'max:8'],
+            'answers.*.question' => ['required', 'string', 'max:220'],
+            'answers.*.answer'   => ['required', 'string', 'max:1000'],
+            'documents'          => ['nullable', 'array', 'max:5'],
+            'documents.*'        => ['file', 'mimes:pdf,jpg,jpeg,png,webp,heic,heif', 'max:8192'],
+        ], [
+            'answers.required' => 'Please answer the questions so our team can review your case.',
+            'documents.*.mimes' => 'Documents must be PDFs or images (JPG, PNG, WEBP, HEIC).',
+            'documents.*.max'   => 'Each document may not be larger than 8 MB.',
+        ]);
+
+        if ($trip->flightPhase() === 'scheduled') {
+            return response()->json(['success' => false, 'message' => 'You can report a problem once the flight has departed.'], 422);
+        }
+        if ($trip->claims()->exists()) {
+            return response()->json(['success' => false, 'message' => 'A claim already exists for this trip.'], 422);
+        }
+
+        $documents = collect($request->file('documents', []))->map(fn ($file) => [
+            'name' => $file->getClientOriginalName(),
+            'path' => $file->store('trip-reports/' . Auth::id(), 'local'),
+        ])->all();
+
+        $trip->forceFill([
+            'reported_disruption'      => $data['type'],
+            'reported_at'              => now(),
+            'report_details'           => ['questions' => $data['answers'], 'documents' => $documents],
+            'potentially_eligible'     => true,
+            // A new fact invalidates any earlier verdict - re-evaluate.
+            'eligibility_status'       => null,
+            'eligibility_evaluated_at' => null,
+        ])->save();
+
+        $trip->events()->create([
+            'type'        => TripEvent::TYPE_REPORTED,
+            'description' => 'You reported: ' . str_replace('_', ' ', $data['type']) . '. We\'re reviewing your eligibility for compensation.',
+            'qualifying'  => true,
+            'detected_at' => now(),
+        ]);
+
+        $engine->evaluate($trip);
+        $trip->refresh();
+
+        return response()->json([
+            'data'    => $this->summary($trip),
+            'success' => true,
+            'message' => 'Thanks - we\'ve reviewed your report.',
+        ]);
     }
 
     /** Manual "refresh now" - one synchronous FlightAware sync, lightly throttled. */
@@ -422,6 +510,9 @@ class TripApiController extends Controller
             'flight_status'           => $t->flight_status,
             'flight_status_text'      => $t->flight_status_text,
             'flight_phase'            => $t->flightPhase(),
+            'no_claim_reason'         => $t->noClaimExplanation(),
+            'diverted'                => (bool) $t->diverted,
+            'reported_disruption'     => $t->reported_disruption,
             'origin_timezone'         => $this->airportField($t->departure_airport, 'timezone'),
             'destination_timezone'    => $this->airportField($t->arrival_airport, 'timezone'),
             'origin_airport_name'      => $this->airportField($t->departure_airport, 'name'),
@@ -458,6 +549,8 @@ class TripApiController extends Controller
                 'article'      => $t->eligibility_article,
                 'confidence'   => $t->eligibility_confidence,
                 'reason'       => $t->eligibility_reason,
+                'decided_by'   => $t->eligibility_decision_source === 'admin' ? 'team' : 'engine',
+                'decision_source' => $t->eligibility_decision_source,
                 'evaluated_at' => $t->eligibility_evaluated_at->toIso8601String(),
             ] : null,
 

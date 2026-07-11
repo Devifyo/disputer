@@ -93,6 +93,15 @@
                 <i data-lucide="mail" class="w-4.5 h-4.5 transition-colors {{ $iconClass('admin.support.*') }}"></i>
                 Support Inbox
             </a>
+
+            @php $pendingReviews = \App\Models\Trip::where('eligibility_status', 'review')->count(); @endphp
+            <a href="{{ route('admin.trip-reviews.index') }}" wire:navigate class="{{ $navClass('admin.trip-reviews.*') }} group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200" @click="mobileSidebarOpen = false">
+                <i data-lucide="scale" class="w-4.5 h-4.5 transition-colors {{ $iconClass('admin.trip-reviews.*') }}"></i>
+                Trip Reviews
+                @if ($pendingReviews)
+                    <span class="ml-auto min-w-[20px] h-5 px-1.5 rounded-full bg-rose-500 text-white text-[11px] font-black flex items-center justify-center">{{ $pendingReviews }}</span>
+                @endif
+            </a>
             <div class="px-3 mt-6 mb-2 text-[10px] uppercase tracking-wider font-bold text-slate-600">Institutes</div>
 
             <a href="{{ route('admin.institutions.index') }}" wire:navigate class="{{ $navClass('admin.institutions.*') }} group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200" @click="mobileSidebarOpen = false">

@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\Trip;
+use App\Notifications\Concerns\SendsTemplatedMail;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -14,7 +15,7 @@ use Illuminate\Notifications\Notification;
  */
 class TripEligibleForCompensation extends Notification implements ShouldQueue
 {
-    use Queueable;
+    use Queueable, SendsTemplatedMail;
 
     public function __construct(public Trip $trip)
     {
@@ -25,19 +26,27 @@ class TripEligibleForCompensation extends Notification implements ShouldQueue
         return ['mail', 'database'];
     }
 
-    public function toMail(object $notifiable): MailMessage
+    public function toMail(object $notifiable): mixed
     {
         $ident = $this->trip->flightIdent() ?: 'your flight';
         $route = trim(($this->trip->departure_airport ?: '') . ' → ' . ($this->trip->arrival_airport ?: ''), ' →');
 
-        return (new MailMessage)
+        return $this->templatedMail($notifiable, 'trip-eligible-compensation', [
+            '[NAME]'       => $notifiable->name ?? 'there',
+            '[FLIGHT]'     => $ident,
+            '[ROUTE]'      => $route,
+            '[DATE]'       => $this->trip->departure_date?->format('d M Y') ?? '',
+            '[REGULATION]' => (string) $this->trip->eligibility_regulation,
+            '[ARTICLE]'    => (string) $this->trip->eligibility_article,
+            '[TRIP_URL]'   => url('/flight-disputes/trips/' . $this->trip->id),
+        ], (new MailMessage)
             ->subject("Good news - your trip {$ident} is eligible for compensation")
             ->greeting('You have a claim!')
             ->line($this->headline())
             ->line($route ? "Route: {$route}" . ($this->trip->departure_date ? ', ' . $this->trip->departure_date->format('d M Y') : '') : '')
             ->line("Legal basis: {$this->trip->eligibility_regulation} - {$this->trip->eligibility_article}.")
             ->action('View your trip', url('/flight-disputes/trips/' . $this->trip->id))
-            ->line('We\'ll guide you through the next steps to claim what you\'re owed.');
+            ->line('We\'ll guide you through the next steps to claim what you\'re owed.'));
     }
 
     public function toDatabase(object $notifiable): array

@@ -43,6 +43,63 @@ class ApprRule implements RegulationRule
             );
         }
 
+        $unverified = 'Reported by the passenger - not verifiable from flight data.';
+
+        if ($context->reportedDisruption === 'denied_boarding') {
+            return new EligibilityResult(
+                $this->code(),
+                true,
+                'Sections 20-22',
+                $score - 15,
+                'Being denied boarding (e.g. overbooking) entitles passengers to compensation of up to CAD 2,400 under APPR.',
+                [...$factors, $unverified],
+            );
+        }
+
+        if ($context->reportedDisruption === 'downgrade') {
+            return new EligibilityResult(
+                $this->code(),
+                false,
+                'Section 19',
+                85,
+                'APPR does not provide a fixed downgrade reimbursement - EU/UK rules may apply instead if the route is covered by them.',
+                $factors,
+            );
+        }
+
+        if ($context->reportedDisruption === 'missed_connection') {
+            return new EligibilityResult(
+                $this->code(),
+                true,
+                'Section 19(1)',
+                $score - 25,
+                'A missed connection caused by the carrier entitles passengers to compensation based on the delay at their final destination.',
+                [...$factors, 'Arrival time at the final destination is not verified yet.', $unverified],
+            );
+        }
+
+        if ($context->reportedDisruption === 'other') {
+            return new EligibilityResult(
+                $this->code(),
+                false,
+                'Section 19',
+                40,
+                'The reported issue could not be matched to a compensable disruption automatically - our team will review it.',
+                $factors,
+            );
+        }
+
+        if ($context->diverted) {
+            return new EligibilityResult(
+                $this->code(),
+                true,
+                'Sections 17 & 19',
+                $score - 10,
+                'The flight was diverted, which entitles passengers to compensation if the resulting delay at their destination is 3+ hours and within the carrier\'s control.',
+                [...$factors, 'Final arrival delay at the booked destination is not verified yet.'],
+            );
+        }
+
         $threshold = (int) config('eligibility.delay_thresholds.appr', 180);
         $delay     = $context->arrivalDelayMinutes;
 

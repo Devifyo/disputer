@@ -81,9 +81,32 @@
                                 <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
                             </router-link>
                         </div>
+                        <div v-else-if="verdict === 'review'" class="flex items-start gap-3 bg-violet-50 border border-violet-100 text-violet-800 px-4 py-3 rounded-xl text-sm">
+                            <svg class="w-5 h-5 shrink-0 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l2.5 2.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            <p>Good news - you may be <strong>eligible for compensation</strong> under {{ trip.eligibility.regulation }}. <strong>Our team is verifying the details</strong> and will confirm your claim shortly - no action is needed from you.</p>
+                        </div>
                         <div v-else-if="verdict === 'rejected'" class="flex items-start gap-3 bg-slate-50 border border-slate-200 text-slate-600 px-4 py-3 rounded-xl text-sm">
                             <svg class="w-5 h-5 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path stroke-linecap="round" d="M12 8v4m0 4h.01"/></svg>
                             <p>{{ trip.eligibility.reason }}</p>
+                        </div>
+                        <div v-else-if="trip.no_claim_reason" class="bg-slate-50 border border-slate-200 text-slate-600 rounded-xl text-sm">
+                            <div class="flex items-start gap-3 px-4 py-3">
+                                <svg class="w-5 h-5 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path stroke-linecap="round" d="M12 8v4m0 4h.01"/></svg>
+                                <p>{{ trip.no_claim_reason }}</p>
+                            </div>
+                            <!-- The disruptions flight data can't see - right where the user is looking -->
+                            <div v-if="canReport" class="flex items-center gap-2 flex-wrap px-4 pb-3 sm:pl-12">
+                                <span class="text-xs font-bold text-slate-500">Something we couldn't see?</span>
+                                <button
+                                    v-for="option in reportOptions"
+                                    :key="option.type"
+                                    @click="reportProblem(option)"
+                                    :disabled="!!reportingOption"
+                                    class="inline-flex items-center bg-white text-slate-700 ring-1 ring-slate-200 hover:ring-slate-300 hover:bg-slate-100 px-3 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-95 disabled:opacity-50"
+                                >
+                                    {{ option.label }}
+                                </button>
+                            </div>
                         </div>
                         <div v-else-if="trip.potentially_eligible" class="flex items-start gap-3 bg-violet-50 border border-violet-100 text-violet-800 px-4 py-3 rounded-xl text-sm">
                             <svg class="w-5 h-5 shrink-0 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.3 4.3L2.8 18a2 2 0 001.7 3h15a2 2 0 001.7-3L13.7 4.3a2 2 0 00-3.4 0z"/></svg>
@@ -233,6 +256,24 @@
                                 </div>
                             </div>
 
+                            <!-- Passenger-reported disruptions (invisible to flight data);
+                                 completed no-claim trips get these buttons in the top banner instead -->
+                            <div v-if="canReport && !trip.no_claim_reason" class="bg-white rounded-2xl ring-1 ring-slate-900/5 p-6 sm:p-8">
+                                <h2 class="font-bold text-slate-900 mb-1">Something went wrong that we couldn't see?</h2>
+                                <p class="text-xs text-slate-400 mb-5">Denied boarding, downgrades and missed connections don't show up in flight data. Report it and we'll review your eligibility right away.</p>
+                                <div class="flex gap-2 flex-wrap">
+                                    <button
+                                        v-for="option in reportOptions"
+                                        :key="option.type"
+                                        @click="reportProblem(option)"
+                                        :disabled="!!reportingOption"
+                                        class="inline-flex items-center gap-2 bg-white text-slate-700 ring-1 ring-slate-200 hover:ring-slate-300 hover:bg-slate-50 px-4 py-2.5 rounded-xl text-sm font-bold transition-all active:scale-95 disabled:opacity-50"
+                                    >
+                                        {{ option.label }}
+                                    </button>
+                                </div>
+                            </div>
+
                             <!-- Flight events -->
                             <div class="bg-white rounded-2xl ring-1 ring-slate-900/5 p-6 sm:p-8">
                                 <h2 class="font-bold text-slate-900 mb-5">Flight events</h2>
@@ -263,7 +304,7 @@
                             <div v-if="trip.eligibility" class="bg-white rounded-2xl ring-1 ring-slate-900/5 p-6 sm:p-8">
                                 <div class="flex items-center justify-between gap-3 mb-5 flex-wrap">
                                     <h2 class="font-bold text-slate-900">Compensation eligibility</h2>
-                                    <TripStatusBadge :status="verdict === 'eligible' ? 'eligible' : 'not_eligible'" />
+                                    <TripStatusBadge :status="verdict === 'eligible' ? 'eligible' : verdict === 'review' ? 'eligibility_review_pending' : 'not_eligible'" />
                                 </div>
                                 <div class="grid sm:grid-cols-3 gap-4 mb-5">
                                     <div class="rounded-xl bg-slate-50 p-4">
@@ -274,7 +315,20 @@
                                         <div class="text-[11px] uppercase tracking-wider font-bold text-slate-400 mb-1">Legal basis</div>
                                         <div class="font-black text-slate-900">{{ trip.eligibility.article || '-' }}</div>
                                     </div>
-                                    <div class="rounded-xl bg-slate-50 p-4">
+                                    <!-- Confidence only makes sense on the engine's own final
+                                         verdicts; human decisions and pending reviews say so instead. -->
+                                    <div v-if="verdict === 'review'" class="rounded-xl bg-violet-50 p-4">
+                                        <div class="text-[11px] uppercase tracking-wider font-bold text-violet-400 mb-1">What happens next</div>
+                                        <div class="font-black text-violet-700">Our team is on it</div>
+                                    </div>
+                                    <div v-else-if="trip.eligibility.decided_by === 'team'" class="rounded-xl bg-emerald-50 p-4">
+                                        <div class="text-[11px] uppercase tracking-wider font-bold text-emerald-500 mb-1">Decision</div>
+                                        <div class="flex items-center gap-1.5 font-black text-emerald-700">
+                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4"/></svg>
+                                            Verified by our team
+                                        </div>
+                                    </div>
+                                    <div v-else class="rounded-xl bg-slate-50 p-4">
                                         <div class="flex items-center gap-1 text-[11px] uppercase tracking-wider font-bold text-slate-400 mb-1">
                                             Confidence
                                             <InfoTip text="How certain our automated check is about this verdict, based on data quality, jurisdiction and how clearly the disruption crosses the legal threshold." />
@@ -377,6 +431,15 @@
 
                     <!-- RIGHT: help -->
                     <HelpPanel />
+
+                    <!-- Disruption report funnel -->
+                    <ReportWizard
+                        v-if="reportingOption"
+                        :trip-id="props.id"
+                        :option="reportingOption"
+                        @close="reportingOption = null"
+                        @submitted="onReportSubmitted"
+                    />
                 </div>
             </div>
         </div>
@@ -387,9 +450,10 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import api from '../api';
-import { confirmAction, confirmRemove } from '../confirm';
+import { confirmAction, confirmRemove, showProcessing } from '../confirm';
 import { formatDateTime, formatDuration, formatTime } from '../datetime';
 import HelpPanel from '../components/HelpPanel.vue';
+import ReportWizard from '../components/ReportWizard.vue';
 import InfoTip from '../components/InfoTip.vue';
 import TripStatusBadge from '../components/TripStatusBadge.vue';
 
@@ -604,6 +668,31 @@ async function loadMonitoring() {
 }
 
 const claiming = ref(false);
+const reportOptions = [
+    { type: 'denied_boarding',   label: 'I was denied boarding' },
+    { type: 'downgrade',         label: 'I was downgraded' },
+    { type: 'missed_connection', label: 'I missed my connection' },
+    { type: 'other',             label: 'Something else' },
+];
+
+// Reportable once the flight has departed, until a report or claim exists.
+const canReport = computed(() => {
+    const t = trip.value;
+    return t && t.flight_phase !== 'scheduled' && !t.reported_disruption && !(t.claims || []).length;
+});
+
+const reportingOption = ref(null); // opens the funnel wizard
+
+function reportProblem(option) {
+    reportingOption.value = option;
+}
+
+async function onReportSubmitted(updatedTrip) {
+    reportingOption.value = null;
+    trip.value = updatedTrip;
+    await loadMonitoring();
+    if (trip.value.eligibility) tab.value = 'compensation';
+}
 
 async function startClaim() {
     const count = (trip.value?.passengers || []).length || 1;
@@ -617,6 +706,7 @@ async function startClaim() {
     if (!ok) return;
 
     claiming.value = true;
+    const done = showProcessing('Creating your claim…', 'We\'re preparing your claim from this trip\'s verified flight data.');
     try {
         const res = await api.trips.createClaim(props.id);
         const first = res.data?.[0];
@@ -628,6 +718,7 @@ async function startClaim() {
     } catch (e) {
         window.alert(e.response?.data?.message || 'Could not create the claim. Please try again.');
     } finally {
+        done();
         claiming.value = false;
     }
 }

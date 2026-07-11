@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Jobs\SyncTripFlight;
+use App\Models\Itinerary;
 use App\Models\Trip;
 use App\Models\TripEvent;
 use App\Models\TripMonitorLog;
@@ -263,6 +264,56 @@ class TripMonitoringTest extends TestCase
         $this->assertSame('completed', $trip->displayStatus());
         $this->assertNull($trip->next_poll_at);
         $this->assertTrue($trip->events()->where('type', TripEvent::TYPE_COMPLETED)->exists());
+    }
+
+    public function test_diversion_is_detected_flagged_and_notified(): void
+    {
+        $this->fakeLiveFlight();
+
+        $trip = $this->protectedTrip();
+        $this->sync($trip); // register normally
+
+        $this->flight['diverted'] = true;
+        $this->sync($trip);
+
+        $this->assertTrue($trip->diverted);
+        $this->assertSame(Trip::FLIGHT_DIVERTED, $trip->flight_status);
+        $this->assertTrue($trip->potentially_eligible);
+        $this->assertTrue($trip->events()->where('type', TripEvent::TYPE_DIVERSION)->exists());
+        Notification::assertSentToTimes($this->user, TripDisruptionDetected::class, 1);
+    }
+
+    public function test_missed_connection_flags_the_next_leg_of_the_itinerary(): void
+    {
+        $this->fakeLiveFlight();
+
+        $itinerary = Itinerary::create([
+            'user_id'           => $this->user->id,
+            'original_filename' => 'trip.pdf',
+            'file_path'         => 'x/trip.pdf',
+            'status'            => 'parsed',
+            'purpose'           => 'trip',
+        ]);
+
+        // Leg 2 departs YUL 17:00; leg 1 (this trip) lands YUL 17:40 - missed.
+        $leg2 = $this->protectedTrip([
+            'itinerary_id'      => $itinerary->id,
+            'flight_number'     => 'AC301',
+            'departure_airport' => 'YUL',
+            'arrival_airport'   => 'YVR',
+            'departure_time'    => '17:00',
+        ]);
+        $leg1 = $this->protectedTrip(['itinerary_id' => $itinerary->id]);
+
+        $this->flight['actual_out'] = '2026-07-11T12:00:00Z';
+        $this->flight['actual_in']  = '2026-07-11T17:40:00Z';
+        $this->flight['arrival_delay'] = 100 * 60;
+        $this->sync($leg1);
+
+        $leg2->refresh();
+        $this->assertSame('missed_connection', $leg2->reported_disruption);
+        $this->assertTrue($leg2->potentially_eligible);
+        $this->assertTrue($leg2->events()->where('type', TripEvent::TYPE_MISSED_CONNECTION)->exists());
     }
 
     // ── Poll scheduling ─────────────────────────────────────

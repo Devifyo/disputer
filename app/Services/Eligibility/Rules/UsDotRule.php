@@ -28,6 +28,29 @@ class UsDotRule implements RegulationRule
 
     public function evaluate(EligibilityContext $context): EligibilityResult
     {
+        // Denied boarding is the one case where US DOT mandates cash
+        // compensation (up to 400% of the one-way fare).
+        if ($context->reportedDisruption === 'denied_boarding') {
+            return new EligibilityResult(
+                $this->code(),
+                true,
+                '14 CFR Part 250',
+                65,
+                'Involuntary denied boarding entitles passengers to cash compensation of up to 400% of the one-way fare under US DOT rules.',
+                ['Reported by the passenger - not verifiable from flight data.'],
+            );
+        }
+
+        if (in_array($context->reportedDisruption, ['downgrade', 'missed_connection', 'other'], true)) {
+            return new EligibilityResult(
+                $this->code(),
+                false,
+                '14 CFR Part 260',
+                85,
+                'US DOT rules do not mandate cash compensation for this kind of disruption - a fare-difference refund may still apply.',
+            );
+        }
+
         if ($context->cancelled) {
             return new EligibilityResult(
                 $this->code(),

@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\Trip;
+use App\Notifications\Concerns\SendsTemplatedMail;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -15,7 +16,7 @@ use Illuminate\Notifications\Notification;
  */
 class TripDisruptionDetected extends Notification implements ShouldQueue
 {
-    use Queueable;
+    use Queueable, SendsTemplatedMail;
 
     /** @param array{type: string, delay_minutes?: int} $disruption */
     public function __construct(public Trip $trip, public array $disruption)
@@ -27,19 +28,33 @@ class TripDisruptionDetected extends Notification implements ShouldQueue
         return ['mail', 'database'];
     }
 
-    public function toMail(object $notifiable): MailMessage
+    public function toMail(object $notifiable): mixed
     {
         $ident = $this->trip->flightIdent() ?: 'your flight';
         $route = trim(($this->trip->departure_airport ?: '') . ' → ' . ($this->trip->arrival_airport ?: ''), ' →');
 
-        return (new MailMessage)
-            ->subject("Your monitored trip {$ident} was " . ($this->disruption['type'] === 'cancellation' ? 'cancelled' : 'delayed'))
+        $verb = match ($this->disruption['type']) {
+            'cancellation' => 'cancelled',
+            'diversion'    => 'diverted',
+            default        => 'delayed',
+        };
+
+        return $this->templatedMail($notifiable, 'trip-disruption-detected', [
+            '[NAME]'       => $notifiable->name ?? 'there',
+            '[FLIGHT]'     => $ident,
+            '[DISRUPTION]' => $verb,
+            '[HEADLINE]'   => $this->headline(),
+            '[ROUTE]'      => $route,
+            '[DATE]'       => $this->trip->departure_date?->format('d M Y') ?? '',
+            '[TRIP_URL]'   => url('/flight-disputes/trips/' . $this->trip->id),
+        ], (new MailMessage)
+            ->subject("Your monitored trip {$ident} was {$verb}")
             ->greeting('Trip Protection alert')
             ->line($this->headline())
             ->line($route ? "Route: {$route}" . ($this->trip->departure_date ? ', ' . $this->trip->departure_date->format('d M Y') : '') : '')
             ->line("We're reviewing your eligibility for compensation - no action is needed from you right now.")
             ->action('View your trip', url('/flight-disputes/trips/' . $this->trip->id))
-            ->line('Thank you for protecting your trip with Unjamm.');
+            ->line('Thank you for protecting your trip with Unjamm.'));
     }
 
     public function toDatabase(object $notifiable): array
@@ -59,6 +74,10 @@ class TripDisruptionDetected extends Notification implements ShouldQueue
 
         if ($this->disruption['type'] === 'cancellation') {
             return "Your monitored trip {$ident} was cancelled. We're reviewing your eligibility for compensation.";
+        }
+
+        if ($this->disruption['type'] === 'diversion') {
+            return "Your monitored trip {$ident} was diverted to a different airport. We're reviewing your eligibility for compensation.";
         }
 
         $minutes = (int) ($this->disruption['delay_minutes'] ?? 0);

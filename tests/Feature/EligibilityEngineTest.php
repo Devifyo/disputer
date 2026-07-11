@@ -151,6 +151,79 @@ class EligibilityEngineTest extends TestCase
         $this->assertStringContainsString('No air passenger rights regulation', $trip->eligibility_reason);
     }
 
+    // ── Diversions & passenger-reported disruptions ─────────
+
+    public function test_diverted_flight_is_eligible_under_eu261_articles_8_and_7(): void
+    {
+        $trip = $this->disruptedTrip('FRA', 'YUL', delay: 0);
+        $trip->forceFill(['diverted' => true, 'flight_status' => Trip::FLIGHT_DIVERTED])->save();
+
+        $result = $this->evaluate($trip);
+
+        $this->assertSame('EU261', $result->regulation);
+        $this->assertTrue($result->eligible);
+        $this->assertSame('Articles 8 & 7', $result->article);
+    }
+
+    public function test_denied_boarding_cites_article_4_on_eu_routes(): void
+    {
+        $trip = $this->disruptedTrip('FRA', 'YUL', delay: 0);
+        $trip->forceFill(['reported_disruption' => 'denied_boarding'])->save();
+
+        $result = $this->evaluate($trip);
+
+        $this->assertSame('EU261', $result->regulation);
+        $this->assertTrue($result->eligible);
+        $this->assertSame('Articles 4 & 7', $result->article);
+        $this->assertStringContainsString('denied boarding', strtolower($result->reason));
+    }
+
+    public function test_denied_boarding_on_us_route_is_compensable_under_part_250(): void
+    {
+        $trip = $this->disruptedTrip('JFK', 'LAX', delay: 0);
+        $trip->forceFill(['reported_disruption' => 'denied_boarding'])->save();
+
+        $result = $this->evaluate($trip);
+
+        $this->assertSame('US_DOT', $result->regulation);
+        $this->assertTrue($result->eligible);
+        $this->assertSame('14 CFR Part 250', $result->article);
+    }
+
+    public function test_downgrade_cites_article_10(): void
+    {
+        $trip = $this->disruptedTrip('FRA', 'YUL', delay: 0);
+        $trip->forceFill(['reported_disruption' => 'downgrade'])->save();
+
+        $result = $this->evaluate($trip);
+
+        $this->assertSame('EU261', $result->regulation);
+        $this->assertSame('Article 10', $result->article);
+        $this->assertStringContainsString('30-75%', $result->reason);
+    }
+
+    public function test_missed_connection_cites_the_folkerts_doctrine(): void
+    {
+        $trip = $this->disruptedTrip('FRA', 'YUL', delay: 0);
+        $trip->forceFill(['reported_disruption' => 'missed_connection'])->save();
+
+        $result = $this->evaluate($trip);
+
+        $this->assertTrue($result->eligible);
+        $this->assertStringContainsString('Folkerts', $result->article);
+    }
+
+    public function test_other_reports_always_reach_the_review_queue(): void
+    {
+        $trip = $this->disruptedTrip('FRA', 'YUL', delay: 0);
+        $trip->forceFill(['reported_disruption' => 'other'])->save();
+
+        $this->evaluate($trip);
+
+        $this->assertSame(EligibilityEngine::STATUS_REVIEW, $trip->eligibility_status);
+        $this->assertSame('eligibility_review_pending', $trip->displayStatus());
+    }
+
     // ── Confidence scoring & threshold ──────────────────────
 
     public function test_estimated_delay_scores_lower_confidence_than_actual(): void
@@ -161,7 +234,7 @@ class EligibilityEngineTest extends TestCase
         $this->assertGreaterThan($estimated->confidence, $actual->confidence);
     }
 
-    public function test_eligible_verdict_below_admin_threshold_is_automatically_rejected(): void
+    public function test_eligible_verdict_below_admin_threshold_goes_to_manual_review(): void
     {
         Setting::set(EligibilityEngine::SETTING_THRESHOLD, 95);
 
@@ -170,10 +243,15 @@ class EligibilityEngineTest extends TestCase
         $result = $this->evaluate($trip);
 
         $this->assertTrue($result->eligible); // the rule says eligible…
-        $this->assertSame(EligibilityEngine::STATUS_REJECTED, $trip->eligibility_status); // …but confidence gates it
-        $this->assertStringContainsString('Automatically rejected: confidence', $trip->eligibility_reason);
-        $this->assertStringContainsString('below the 95% review threshold', $trip->eligibility_reason);
-        Notification::assertNothingSent();
+        $this->assertSame(EligibilityEngine::STATUS_REVIEW, $trip->eligibility_status); // …confidence routes it to a human
+        $this->assertSame('eligibility_review_pending', $trip->displayStatus());
+
+        // The customer sees a friendly explanation; thresholds stay internal.
+        $this->assertStringContainsString('Our team is verifying the details', $trip->eligibility_reason);
+        $this->assertStringNotContainsString('threshold', $trip->eligibility_reason);
+        $this->assertStringContainsString('below the 95% threshold', $trip->eligibility_details['auto_review']);
+
+        Notification::assertNothingSent(); // "eligible" mail only goes out once confirmed
     }
 
     public function test_admin_threshold_is_read_from_settings(): void

@@ -33,7 +33,12 @@ class Trip extends Model
     public const FLIGHT_ON_TIME   = 'on_time';
     public const FLIGHT_DELAYED   = 'delayed';
     public const FLIGHT_CANCELLED = 'cancelled';
+    public const FLIGHT_DIVERTED  = 'diverted';
     public const FLIGHT_COMPLETED = 'completed';
+
+    // Disruptions the passenger reports (or we infer) because no flight-data
+    // API can observe them.
+    public const REPORTABLE_DISRUPTIONS = ['denied_boarding', 'downgrade', 'missed_connection', 'other'];
 
     protected $fillable = [
         'user_id', 'itinerary_id', 'source', 'status',
@@ -46,10 +51,12 @@ class Trip extends Model
         'scheduled_departure', 'scheduled_arrival', 'estimated_departure', 'estimated_arrival',
         'actual_departure', 'actual_arrival', 'departure_delay_minutes', 'arrival_delay_minutes',
         'origin_gate', 'destination_gate', 'origin_terminal', 'destination_terminal',
-        'route_distance_miles', 'progress_percent', 'potentially_eligible', 'disruption_notified_at',
+        'route_distance_miles', 'progress_percent', 'diverted', 'reported_disruption', 'report_details', 'reported_at',
+        'potentially_eligible', 'disruption_notified_at',
         'route_stats', 'last_synced_at', 'next_poll_at',
         'eligibility_status', 'eligibility_regulation', 'eligibility_article',
         'eligibility_confidence', 'eligibility_reason', 'eligibility_details', 'eligibility_evaluated_at',
+        'eligibility_decision_source', 'eligibility_decided_by', 'eligibility_decided_at',
     ];
 
     protected $casts = [
@@ -62,6 +69,9 @@ class Trip extends Model
         'estimated_arrival'       => 'datetime',
         'actual_departure'        => 'datetime',
         'actual_arrival'          => 'datetime',
+        'diverted'                => 'boolean',
+        'report_details'          => 'array',
+        'reported_at'             => 'datetime',
         'potentially_eligible'    => 'boolean',
         'disruption_notified_at'  => 'datetime',
         'route_stats'             => 'array',
@@ -69,6 +79,7 @@ class Trip extends Model
         'next_poll_at'            => 'datetime',
         'eligibility_details'      => 'array',
         'eligibility_evaluated_at' => 'datetime',
+        'eligibility_decided_at'   => 'datetime',
     ];
 
     public function user(): BelongsTo
@@ -84,6 +95,12 @@ class Trip extends Model
     public function claims(): HasMany
     {
         return $this->hasMany(Claim::class);
+    }
+
+    /** Admin who manually approved/rejected the eligibility verdict. */
+    public function eligibilityDecider(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'eligibility_decided_by');
     }
 
     public function monitorLogs(): HasMany
@@ -125,6 +142,37 @@ class Trip extends Model
         return $this->departure_date->copy()->setTimeFromTimeString($time);
     }
 
+    /**
+     * Plain-language reason why a finished, undisrupted trip has no claim -
+     * null while the flight is still live or when a disruption was flagged
+     * (those trips get an eligibility verdict instead).
+     */
+    public function noClaimExplanation(): ?string
+    {
+        $finished = $this->monitoring_status === self::MONITORING_COMPLETED
+            && $this->flight_status === self::FLIGHT_COMPLETED
+            && !$this->potentially_eligible;
+
+        if (!$finished) {
+            return null;
+        }
+
+        $delay = max(0, (int) $this->arrival_delay_minutes);
+
+        if ($delay <= 15) {
+            return 'This flight arrived on time, so there is nothing to claim - that\'s the good kind of trip.';
+        }
+
+        $threshold = (int) config('trip_monitoring.qualifying_delay_minutes', 180);
+        $h         = intdiv($threshold, 60);
+
+        return sprintf(
+            'This flight arrived %d minutes late. Compensation rules (EU261, UK261, APPR) only apply from %d hours of arrival delay, so this trip does not qualify for a claim.',
+            $delay,
+            $h
+        );
+    }
+
     /** Where the aircraft is right now: scheduled | enroute | landed | cancelled. */
     public function flightPhase(): string
     {
@@ -155,6 +203,9 @@ class Trip extends Model
             $hasClaims = $this->claims_exists ?? $this->claims()->exists();
 
             return $hasClaims ? 'claim_filed' : 'eligible';
+        }
+        if ($this->eligibility_status === 'review') {
+            return 'eligibility_review_pending';
         }
         if ($this->eligibility_status === 'rejected') {
             return 'not_eligible';

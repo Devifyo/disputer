@@ -126,8 +126,9 @@
                                class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:border-primary-500 outline-none">
                         @error('eligibility_confidence_threshold') <span class="text-rose-500 text-[10px] font-bold mt-1 block">{{ $message }}</span> @enderror
                         <p class="text-xs text-slate-500 mt-2">
-                            Eligible verdicts with a confidence score below this threshold are <strong>automatically rejected</strong>.
-                            Lower it to accept more borderline claims; raise it to only accept high-certainty ones.
+                            Eligible verdicts at or above this confidence are <strong>auto-approved</strong>;
+                            below it they are <strong>sent for manual review</strong> instead.
+                            Lower it to auto-approve more borderline claims; raise it to keep humans in the loop more often.
                         </p>
                     </div>
                 </div>

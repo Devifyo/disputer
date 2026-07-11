@@ -158,6 +158,92 @@ class TripMonitoringApiTest extends TestCase
             ->assertJsonPath('data.last_synced_human', '2 minutes ago');
     }
 
+    public function test_reporting_denied_boarding_runs_eligibility_review(): void
+    {
+        config(['eligibility.evaluator' => 'rules']);
+        Http::fake(function ($request) {
+            if (preg_match('#/airports/([A-Z0-9]+)#', $request->url(), $m)) {
+                $country = ['FRA' => 'DE', 'YUL' => 'CA'][$m[1]] ?? null;
+
+                return Http::response(['code_iata' => $m[1], 'country_code' => $country], $country ? 200 : 404);
+            }
+
+            return Http::response([], 200);
+        });
+
+        $trip = $this->trip([
+            'departure_airport' => 'FRA',
+            'arrival_airport'   => 'YUL',
+            'flight_status'     => Trip::FLIGHT_COMPLETED,
+            'monitoring_status' => Trip::MONITORING_COMPLETED,
+            'actual_arrival'    => now()->subHours(3),
+        ]);
+
+        Storage::fake('local');
+
+        $this->actingAs($this->user)
+            ->postJson(route('user.itineraries.api.trips.report', $trip), [
+                'type'    => 'denied_boarding',
+                'answers' => [
+                    ['question' => 'Did you volunteer to give up your seat?', 'answer' => 'No - I was denied against my will'],
+                    ['question' => 'What reason did the airline give?', 'answer' => 'Overbooking'],
+                ],
+                'documents' => [UploadedFile::fake()->create('boarding-pass.pdf', 120, 'application/pdf')],
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.reported_disruption', 'denied_boarding')
+            ->assertJsonPath('data.eligibility.regulation', 'EU261')
+            ->assertJsonPath('data.eligibility.article', 'Articles 4 & 7');
+
+        $trip->refresh();
+        $this->assertTrue($trip->potentially_eligible);
+        $this->assertCount(2, $trip->report_details['questions']);
+        $this->assertSame('boarding-pass.pdf', $trip->report_details['documents'][0]['name']);
+        Storage::disk('local')->assertExists($trip->report_details['documents'][0]['path']);
+    }
+
+    public function test_report_funnel_serves_adaptive_steps_with_curated_fallback(): void
+    {
+        Http::fake(); // no Gemini -> curated questions, served one at a time
+
+        $trip    = $this->trip();
+        $answers = [];
+
+        // Walk the funnel answer by answer until it signals done.
+        for ($i = 0; $i < 6; $i++) {
+            $step = $this->actingAs($this->user)
+                ->postJson(route('user.itineraries.api.trips.report.questions', $trip), [
+                    'type' => 'denied_boarding', 'answers' => $answers,
+                ])
+                ->assertOk()
+                ->json('data');
+
+            if ($step['done']) {
+                break;
+            }
+            $answers[] = ['question' => $step['question']['question'], 'answer' => $step['question']['options'][0] ?? 'test'];
+        }
+
+        $this->assertTrue($step['done']);
+        $this->assertCount(4, $answers); // the curated denied-boarding set
+        $this->assertSame('Did you check in and arrive at the gate before boarding closed?', $answers[0]['question']);
+        $this->assertNotEmpty($step['documents']['examples']); // upload step arrives with done
+    }
+
+    public function test_reporting_is_rejected_before_departure_and_for_bad_types(): void
+    {
+        $trip    = $this->trip(); // future flight, phase "scheduled"
+        $answers = [['question' => 'q', 'answer' => 'a']];
+
+        $this->actingAs($this->user)
+            ->postJson(route('user.itineraries.api.trips.report', $trip), ['type' => 'denied_boarding', 'answers' => $answers])
+            ->assertStatus(422);
+
+        $this->actingAs($this->user)
+            ->postJson(route('user.itineraries.api.trips.report', $trip), ['type' => 'alien_abduction', 'answers' => $answers])
+            ->assertStatus(422);
+    }
+
     // ── Trip → claim handoff ────────────────────────────────
 
     public function test_eligible_trip_creates_one_claim_per_passenger(): void

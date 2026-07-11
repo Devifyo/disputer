@@ -10,6 +10,7 @@ use App\Livewire\Admin\Templates\Index as AdminTemplates;
 use App\Livewire\Admin\SuccessStories\Index as SuccessStoriesIndex;
 use App\Livewire\Admin\Plans\Index as AdminPlans;
 use App\Livewire\Admin\Support\Index as SupportIndex;
+use App\Livewire\Admin\TripReviews\Index as TripReviewsIndex;
 use App\Livewire\Admin\CmsPages\Index as CmsPagesIndex;
 
 Route::prefix('admin')->name('admin.')->middleware(['auth', 'role_access:admin'])->group(function () {
@@ -23,6 +24,13 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role_access:admin']
     Route::get('/plans', AdminPlans::class)->name('plans.index');
     Route::get('/impersonate-case/{case}', [DashboardController::class, 'impersonateAndViewCase'])->name('impersonate.case');
     Route::get('/support', SupportIndex::class)->name('support.index');
+    Route::get('/trip-reviews', TripReviewsIndex::class)->name('trip-reviews.index');
+    Route::get('/trip-reviews/{trip}/document/{index}', function (\App\Models\Trip $trip, int $index) {
+        $doc = $trip->report_details['documents'][$index] ?? null;
+        abort_unless($doc && \Illuminate\Support\Facades\Storage::disk('local')->exists($doc['path']), 404);
+
+        return \Illuminate\Support\Facades\Storage::disk('local')->response($doc['path'], $doc['name'] ?? null);
+    })->whereNumber('trip')->whereNumber('index')->name('trip-reviews.document');
     Route::get('/cms-pages', CmsPagesIndex::class)->name('cms-pages.index');
 });
 
