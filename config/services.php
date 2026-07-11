@@ -25,6 +25,10 @@ return [
     // so that just that address is processed and other mail is ignored.
     'inbound' => [
         'claims_address' => env('CLAIMS_INBOUND_ADDRESS'),
+        // The claims address shown to customers (site, emails). The
+        // claims.unjamm.com subdomain routes to SendGrid Inbound Parse via
+        // its own MX record, independent of the root domain's mailboxes.
+        'claims_display' => env('CLAIMS_DISPLAY_ADDRESS', 'claims@claims.unjamm.com'),
     ],
 
     'ses' => [

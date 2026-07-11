@@ -8,7 +8,7 @@
         ? (auth()->user()->role === 'admin' ? route('admin.dashboard') : route('user.dashboard'))
         : route('register');
 
-    $claimsEmail = 'claims@unjamm.com';
+    $claimsEmail = config('services.inbound.claims_display');
 
     $mk = function ($id, $extra = '') {
         return 'https://images.unsplash.com/photo-' . $id . '?q=80&w=640&h=430&fit=crop&auto=format' . $extra;

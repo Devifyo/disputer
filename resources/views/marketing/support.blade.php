@@ -219,7 +219,7 @@
 
             <div class="faq-card">
                 <h3 class="faq-question">How do I start a claim?</h3>
-                <p class="faq-answer">Forward your flight confirmation to <a href="mailto:claims@unjamm.com" style="color:var(--accent);font-weight:600;text-decoration:none;">claims@unjamm.com</a> from any email provider, then sign a one-time Power of Attorney. We monitor the flight and file the moment a disruption qualifies.</p>
+                <p class="faq-answer">Forward your flight confirmation to <a href="mailto:{{ config('services.inbound.claims_display') }}" style="color:var(--accent);font-weight:600;text-decoration:none;">{{ config('services.inbound.claims_display') }}</a> from any email provider, then sign a one-time Power of Attorney. We monitor the flight and file the moment a disruption qualifies.</p>
             </div>
 
             <div class="faq-card">

@@ -108,7 +108,7 @@ class InboundItineraryImporter
         try {
             $token = Password::broker()->createToken($user);
             $link  = route('password.reset', ['token' => $token, 'email' => $user->email]);
-            $inbound = config('services.inbound.claims_address') ?: 'claims@unjamm.com';
+            $inbound = config('services.inbound.claims_display');
 
             $subject = 'Set your Unjamm password';
             $body = '<p>Hi ' . e($user->name) . ',</p>'
