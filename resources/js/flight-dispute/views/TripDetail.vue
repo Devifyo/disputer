@@ -426,6 +426,14 @@ function fmtSide(iso, side) {
     return formatDateTime(iso, tzFor(side) || undefined);
 }
 
+// "Frankfurt" / "JFK" - city if known, else the airport code.
+function placeName(side) {
+    const t = trip.value || {};
+    return side === 'departure'
+        ? (t.departure_city || t.departure_airport || 'local')
+        : (t.arrival_city || t.arrival_airport || 'local');
+}
+
 // "Dubai Int'l (DXB)" - full airport name with its code.
 function airportLabel(side) {
     const t = trip.value || {};
@@ -641,9 +649,9 @@ const detailRows = computed(() => trip.value ? [
     { label: 'Airline', value: trip.value.airline },
     { label: 'Flight number', value: trip.value.flight_number },
     { label: 'Departure date', value: trip.value.departure_date },
-    { label: 'Departure time', value: trip.value.departure_time },
-    { label: 'Departure (live)', value: fmt(trip.value.actual_departure || trip.value.estimated_departure || trip.value.scheduled_departure) },
-    { label: 'Arrival (live)', value: fmt(trip.value.actual_arrival || trip.value.estimated_arrival || trip.value.scheduled_arrival) },
+    { label: `Departure time (${placeName('departure')} time)`, value: trip.value.departure_time },
+    { label: `Departure (live, ${placeName('departure')} time)`, value: fmtSide(trip.value.actual_departure || trip.value.estimated_departure || trip.value.scheduled_departure, 'departure') },
+    { label: `Arrival (live, ${placeName('arrival')} time)`, value: fmtSide(trip.value.actual_arrival || trip.value.estimated_arrival || trip.value.scheduled_arrival, 'arrival') },
     { label: 'Booking reference', value: trip.value.booking_reference },
     { label: 'Added', value: trip.value.created_at_human },
     { label: 'Source', value: trip.value.source === 'upload' ? 'Uploaded itinerary' : 'Entered manually' },

@@ -468,7 +468,7 @@ class TripApiController extends Controller
     }
 
     /** Airport metadata field (timezone, name, …) from FlightAware's forever-cached lookup. */
-    private function airportField(?string $code, string $field): ?string
+    private function airportField(?string $code, string $field): mixed
     {
         try {
             return $code ? ($this->flightAware->airportInfo($code)[$field] ?? null) : null;
