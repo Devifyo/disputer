@@ -41,7 +41,18 @@ class UsDotRule implements RegulationRule
             );
         }
 
-        if (in_array($context->reportedDisruption, ['downgrade', 'missed_connection', 'other'], true)) {
+        if ($context->reportedDisruption === 'cancelled') {
+            return new EligibilityResult(
+                $this->code(),
+                true,
+                '14 CFR Part 260',
+                60,
+                'A cancelled flight entitles passengers to a full refund of the unused ticket under US DOT rules, subject to verification.',
+                ['Reported by the passenger - not verifiable from flight data.'],
+            );
+        }
+
+        if (in_array($context->reportedDisruption, ['downgrade', 'missed_connection', 'delayed', 'other'], true)) {
             return new EligibilityResult(
                 $this->code(),
                 false,

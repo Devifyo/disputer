@@ -28,6 +28,14 @@ export default {
         create(payload) {
             return http.post('/claims', payload).then((r) => r.data.data);
         },
+        // Supply missing facts (fare, rebooking arrival) - re-prices the claim.
+        updateInfo(id, payload) {
+            return http.post(`/claims/${id}/info`, payload).then((r) => r.data.data);
+        },
+        // Append supporting documents (FormData).
+        addDocuments(id, form) {
+            return http.post(`/claims/${id}/documents`, form).then((r) => r.data.data);
+        },
     },
     // PDF / photo itinerary upload - creates an itinerary + one claim per passenger.
     uploadItinerary(file, onProgress) {

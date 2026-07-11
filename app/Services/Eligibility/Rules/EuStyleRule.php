@@ -112,6 +112,22 @@ abstract class EuStyleRule implements RegulationRule
         $unverified = 'Reported by the passenger - not verifiable from flight data, so the airline\'s records will decide.';
 
         return match ($context->reportedDisruption) {
+            'delayed' => new EligibilityResult(
+                $this->code(),
+                true,
+                'Article 7(1)',
+                $score - 30,
+                'A declared arrival delay of 3+ hours entitles passengers to compensation, subject to verification against the airline\'s records.',
+                [...$factors, $unverified],
+            ),
+            'cancelled' => new EligibilityResult(
+                $this->code(),
+                true,
+                'Articles 5 & 7',
+                $score - 25,
+                'A declared short-notice cancellation entitles passengers to compensation, subject to verification against the airline\'s records.',
+                [...$factors, $unverified],
+            ),
             'denied_boarding' => new EligibilityResult(
                 $this->code(),
                 true,

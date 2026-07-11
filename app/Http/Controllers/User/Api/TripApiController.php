@@ -8,6 +8,7 @@ use App\Models\Claim;
 use App\Models\Itinerary;
 use App\Models\Trip;
 use App\Models\TripEvent;
+use App\Services\Eligibility\ClaimEligibilityService;
 use App\Services\Eligibility\EligibilityEngine;
 use App\Services\FlightAwareService;
 use App\Services\ItineraryParserService;
@@ -259,14 +260,32 @@ class TripApiController extends Controller
             return response()->json(['success' => false, 'message' => 'This trip has no passengers to claim for.'], 422);
         }
 
-        $disruption = $trip->flight_status === Trip::FLIGHT_CANCELLED ? 'cancelled' : 'delayed';
+        $disruption = $trip->reported_disruption && isset(Claim::DISRUPTIONS[$trip->reported_disruption])
+            ? $trip->reported_disruption
+            : ($trip->flight_status === Trip::FLIGHT_CANCELLED ? 'cancelled' : 'delayed');
+        $pricer = app(ClaimEligibilityService::class);
 
         foreach ($passengers as $passenger) {
             $claim = Claim::create([
                 'user_id'           => $trip->user_id,
                 'trip_id'           => $trip->id,
                 'itinerary_id'      => $trip->itinerary_id,
-                'status'            => Claim::STATUS_PENDING_ELIGIBILITY,
+                'status'            => Claim::STATUS_ELIGIBLE,
+                // The trip's verdict carries over - the flight was already
+                // verified and judged during monitoring.
+                'fa_flight_id'                 => $trip->fa_flight_id,
+                'flight_arrival_delay_minutes' => $trip->arrival_delay_minutes,
+                'flight_cancelled'             => $trip->flight_status === Trip::FLIGHT_CANCELLED,
+                'flight_diverted'              => (bool) $trip->diverted,
+                'flight_verified_at'           => $trip->fa_flight_id ? now() : null,
+                'eligibility_status'           => $trip->eligibility_status,
+                'eligibility_regulation'       => $trip->eligibility_regulation,
+                'eligibility_article'          => $trip->eligibility_article,
+                'eligibility_confidence'       => $trip->eligibility_confidence,
+                'eligibility_reason'           => $trip->eligibility_reason,
+                'eligibility_details'          => ($trip->eligibility_details ?? []) + ['inherited_from_trip' => $trip->id],
+                'eligibility_evaluated_at'     => $trip->eligibility_evaluated_at,
+                'eligibility_decision_source'  => $trip->eligibility_decision_source,
                 'departure_city'    => $trip->departure_city,
                 'departure_airport' => $trip->departure_airport,
                 'arrival_city'      => $trip->arrival_city,
@@ -290,6 +309,8 @@ class TripApiController extends Controller
                 1
             );
             $claim->recordEvent('Claim under review', 'pending', now(), 2);
+
+            $pricer->priceCompensation($claim);
         }
 
         $trip->events()->create([

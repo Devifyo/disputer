@@ -60,17 +60,19 @@ class AiEligibilityEvaluator implements EligibilityEvaluator
 
     private function prompt(EligibilityContext $context): string
     {
-        $trip  = $context->trip;
         $facts = json_encode([
-            'airline'                 => $this->fact($trip->airline),
-            'flight_number'           => $this->fact($trip->flightIdent()),
-            'flight_date'             => $trip->departure_date?->toDateString(),
-            'origin_airport'          => $this->fact($trip->departure_airport),
+            'airline'                 => $this->fact($context->airline),
+            'flight_number'           => $this->fact($context->flightNumber),
+            'flight_date'             => $context->flightDate?->toDateString(),
+            'origin_airport'          => $this->fact($context->departureAirport),
             'origin_country'          => $context->originCountry,
-            'destination_airport'     => $this->fact($trip->arrival_airport),
+            'destination_airport'     => $this->fact($context->arrivalAirport),
             'destination_country'     => $context->destinationCountry,
+            'flight_data_verified'    => $context->factsVerified
+                ? 'yes - confirmed via live flight tracking'
+                : 'no - flight could not be verified (too old or unknown); disruption facts are passenger-declared',
             'cancelled'               => $context->cancelled,
-            'cancellation_notice'     => $context->cancelled ? 'under 14 days (detected while actively monitoring the flight)' : null,
+            'cancellation_notice'     => $context->cancelled && $context->factsVerified ? 'under 14 days (detected while actively monitoring the flight)' : null,
             'diverted'                => $context->diverted ?: null,
             'passenger_reported'      => $context->reportedDisruption
                 ? str_replace('_', ' ', $context->reportedDisruption) . ' (reported by the passenger, not verified from flight data)'

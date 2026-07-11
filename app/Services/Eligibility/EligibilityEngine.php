@@ -13,13 +13,14 @@ use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
- * Automatic eligibility evaluation for disrupted, monitored trips.
+ * Automatic eligibility evaluation for disrupted flights.
  *
  * Detects which air passenger rights regime covers the route (APPR, EU261,
  * UK261, US DOT), evaluates the disruption against each applicable one,
- * picks the strongest verdict with its legal article and a 0–100 confidence
- * score, and either marks the trip Eligible (notifying the user) or
- * auto-rejects it when confidence falls below the admin-managed threshold.
+ * picks the strongest verdict with its legal article and a 0-100 confidence
+ * score, and resolves a status: eligible (auto-approved), review (a human
+ * confirms), or rejected. decide() is model-agnostic - trips and claims
+ * both run through it.
  */
 class EligibilityEngine
 {
@@ -45,28 +46,165 @@ class EligibilityEngine
     }
 
     /**
-     * Evaluate a trip whose disruption is final and persist the outcome.
-     * Returns the winning result, or null when no regulation covers the route.
+     * The full decision pipeline for any disrupted flight: evaluate, pick
+     * the winning verdict, apply the confidence cap and threshold, resolve
+     * the status and customer-facing reason.
+     *
+     * @return array{best: ?EligibilityResult, status: string, reason: string, details: array}
      */
-    public function evaluate(Trip $trip): ?EligibilityResult
+    public function decide(EligibilityContext $context): array
     {
-        $context = $this->buildContext($trip);
-
         [$outcomes, $evaluatedBy] = $this->runEvaluators($context);
 
         $best      = $this->pickVerdict($outcomes);
         $threshold = self::confidenceThreshold();
 
-        // Whatever the evaluator felt, a verdict resting on passenger-reported
-        // facts can never be near-certain - the airline's records may differ.
-        if ($best?->eligible && $context->reportedDisruption && $best->confidence > 75) {
+        // Whatever the evaluator felt, a verdict resting on unverified or
+        // passenger-reported facts can never be near-certain - the airline's
+        // records may differ.
+        if ($best?->eligible && ($context->reportedDisruption || !$context->factsVerified) && $best->confidence > 75) {
             $best->confidence = 75;
-            $best->factors[]  = 'Confidence capped: passenger-reported facts cannot be fully verified automatically.';
+            $best->factors[]  = 'Confidence capped: the decisive facts cannot be fully verified automatically.';
         }
 
-        $this->persist($trip, $best, $outcomes, $context, $threshold, $evaluatedBy);
+        $details = [
+            'evaluated_by'        => $evaluatedBy,
+            'origin_country'      => $context->originCountry,
+            'destination_country' => $context->destinationCountry,
+            'facts_verified'      => $context->factsVerified,
+            'threshold'           => $threshold,
+            'outcomes'            => array_map(fn (EligibilityResult $r) => $r->toArray(), $outcomes),
+        ];
+
+        if (!$best) {
+            return [
+                'best'    => null,
+                'status'  => self::STATUS_REJECTED,
+                'reason'  => 'No air passenger rights regulation covers this route.',
+                'details' => $details,
+            ];
+        }
+
+        $accepted = $best->eligible && $best->confidence >= $threshold;
+
+        // Below-threshold eligible verdicts go to a human, never to a flat
+        // rejection - the customer may genuinely be owed money.
+        $status = $accepted ? self::STATUS_ELIGIBLE
+            : ($best->eligible ? self::STATUS_REVIEW : self::STATUS_REJECTED);
+
+        // "Something else" reports can't be classified automatically - they
+        // always go to the team, as the customer was promised.
+        if ($status === self::STATUS_REJECTED && $context->reportedDisruption === 'other') {
+            $status = self::STATUS_REVIEW;
+        }
+
+        $reason = $best->reason;
+        if ($status === self::STATUS_REVIEW) {
+            // The engine's raw verdict stays in the audit trail; the customer
+            // gets review-appropriate copy, not internals stapled together.
+            $reason = $best->eligible
+                ? $best->reason . ' Our team is verifying the details before confirming your claim.'
+                : 'Our automated check couldn\'t match your report to a compensation rule, so our team will review what happened and confirm whether you have a claim.';
+            $details['auto_review'] = $best->eligible
+                ? sprintf('Confidence %d%% below the %d%% threshold.', $best->confidence, $threshold)
+                : 'Engine verdict was not-eligible; queued because unclassified reports always get a human decision.';
+        }
+
+        return ['best' => $best, 'status' => $status, 'reason' => $reason, 'details' => $details];
+    }
+
+    /**
+     * Evaluate a trip whose disruption is final and persist the outcome.
+     * Returns the winning result, or null when no regulation covers the route.
+     */
+    public function evaluate(Trip $trip): ?EligibilityResult
+    {
+        $context  = $this->contextFromTrip($trip);
+        $decision = $this->decide($context);
+        $best     = $decision['best'];
+
+        $trip->forceFill([
+            'eligibility_status'          => $decision['status'],
+            'eligibility_regulation'      => $best?->regulation,
+            'eligibility_article'         => $best?->article,
+            'eligibility_confidence'      => $best?->confidence ?? 0,
+            'eligibility_reason'          => $decision['reason'],
+            'eligibility_details'         => $decision['details'],
+            'eligibility_evaluated_at'    => now(),
+            // A fresh automated verdict supersedes any earlier manual decision.
+            'eligibility_decision_source' => $decision['details']['evaluated_by'],
+            'eligibility_decided_by'      => null,
+            'eligibility_decided_at'      => null,
+        ])->save();
+
+        if (!$best) {
+            return null;
+        }
+
+        $accepted = $decision['status'] === self::STATUS_ELIGIBLE;
+
+        $trip->events()->create([
+            'type'        => TripEvent::TYPE_ELIGIBILITY,
+            'description' => match ($decision['status']) {
+                self::STATUS_ELIGIBLE => sprintf('Trip found eligible for compensation under %s (%s) with %d%% confidence.', $best->regulation, $best->article, $best->confidence),
+                self::STATUS_REVIEW   => $best->eligible
+                    ? sprintf('Likely eligible under %s (%s) - sent to our team for manual confirmation.', $best->regulation, $best->article)
+                    : 'Report sent to our team for manual review.',
+                default               => sprintf('Eligibility review outcome: %s', $decision['reason']),
+            },
+            'data'        => $best->toArray(),
+            'qualifying'  => $accepted,
+            'detected_at' => now(),
+        ]);
+
+        if ($accepted && $trip->user) {
+            try {
+                $trip->user->notify(new TripEligibleForCompensation($trip));
+            } catch (Throwable $e) {
+                Log::error('Eligibility notification failed', ['trip' => $trip->id, 'error' => $e->getMessage()]);
+            }
+        }
 
         return $best;
+    }
+
+    /** Resolve an airport's country from FlightAware's forever-cached metadata. */
+    public function countryOf(?string $airportCode): ?string
+    {
+        if (!$airportCode) {
+            return null;
+        }
+
+        try {
+            return $this->flightAware->airportInfo($airportCode)['country_code'] ?? null;
+        } catch (Throwable $e) {
+            Log::warning('Airport country lookup failed', ['airport' => $airportCode, 'error' => $e->getMessage()]);
+
+            return null;
+        }
+    }
+
+    // ── Internals ───────────────────────────────────────────
+
+    private function contextFromTrip(Trip $trip): EligibilityContext
+    {
+        return new EligibilityContext(
+            ref:                 "trip:{$trip->id}",
+            airline:             $trip->airline,
+            flightNumber:        $trip->flightIdent(),
+            flightDate:          $trip->departure_date,
+            departureAirport:    $trip->departure_airport,
+            arrivalAirport:      $trip->arrival_airport,
+            originCountry:       $this->countryOf($trip->departure_airport),
+            destinationCountry:  $this->countryOf($trip->arrival_airport),
+            cancelled:           $trip->flight_status === Trip::FLIGHT_CANCELLED,
+            arrivalDelayMinutes: max(0, (int) $trip->arrival_delay_minutes),
+            delayIsActual:       $trip->actual_arrival !== null,
+            factsVerified:       $trip->fa_flight_id !== null,
+            diverted:            (bool) $trip->diverted,
+            reportedDisruption:  $trip->reported_disruption,
+            reportAnswers:       $trip->report_details['questions'] ?? [],
+        );
     }
 
     /**
@@ -86,7 +224,7 @@ class EligibilityEngine
                 return $this->reconcile($this->ai->evaluate($context), $ruleOutcomes, $context);
             } catch (Throwable $e) {
                 Log::warning('AI eligibility evaluation failed - falling back to rules', [
-                    'trip'  => $context->trip->id,
+                    'ref'   => $context->ref,
                     'error' => $e->getMessage(),
                 ]);
             }
@@ -115,7 +253,7 @@ class EligibilityEngine
         foreach ($aiOutcomes as $outcome) {
             if ($jurisdictionKnown && !in_array($outcome->regulation, $applicable, true)) {
                 Log::warning('Dropped AI eligibility outcome for non-applicable regulation', [
-                    'trip' => $context->trip->id, 'regulation' => $outcome->regulation,
+                    'ref' => $context->ref, 'regulation' => $outcome->regulation,
                 ]);
                 continue;
             }
@@ -134,40 +272,6 @@ class EligibilityEngine
         }
 
         return [array_values($byRegulation), $backfilled ? 'ai+rules' : $this->ai->name()];
-    }
-
-    // ── Internals ───────────────────────────────────────────
-
-    private function buildContext(Trip $trip): EligibilityContext
-    {
-        $delayIsActual = $trip->actual_arrival !== null;
-
-        return new EligibilityContext(
-            trip:                $trip,
-            originCountry:       $this->countryOf($trip->departure_airport),
-            destinationCountry:  $this->countryOf($trip->arrival_airport),
-            cancelled:           $trip->flight_status === Trip::FLIGHT_CANCELLED,
-            arrivalDelayMinutes: max(0, (int) $trip->arrival_delay_minutes),
-            delayIsActual:       $delayIsActual,
-            diverted:            (bool) $trip->diverted,
-            reportedDisruption:  $trip->reported_disruption,
-            reportAnswers:       $trip->report_details['questions'] ?? [],
-        );
-    }
-
-    private function countryOf(?string $airportCode): ?string
-    {
-        if (!$airportCode) {
-            return null;
-        }
-
-        try {
-            return $this->flightAware->airportInfo($airportCode)['country_code'] ?? null;
-        } catch (Throwable $e) {
-            Log::warning('Airport country lookup failed', ['airport' => $airportCode, 'error' => $e->getMessage()]);
-
-            return null;
-        }
     }
 
     /**
@@ -191,93 +295,5 @@ class EligibilityEngine
             <=> [self::REGULATION_WEIGHT[$a->regulation] ?? 0, $a->confidence]);
 
         return $pool[0];
-    }
-
-    private function persist(Trip $trip, ?EligibilityResult $best, array $outcomes, EligibilityContext $context, int $threshold, string $evaluatedBy): void
-    {
-        $details = [
-            'evaluated_by'        => $evaluatedBy,
-            'origin_country'      => $context->originCountry,
-            'destination_country' => $context->destinationCountry,
-            'threshold'           => $threshold,
-            'outcomes'            => array_map(fn (EligibilityResult $r) => $r->toArray(), $outcomes),
-        ];
-
-        if (!$best) {
-            $trip->forceFill([
-                'eligibility_status'          => self::STATUS_REJECTED,
-                'eligibility_confidence'      => 0,
-                'eligibility_reason'          => 'No air passenger rights regulation covers this route.',
-                'eligibility_details'         => $details,
-                'eligibility_evaluated_at'    => now(),
-                'eligibility_decision_source' => $details['evaluated_by'],
-                'eligibility_decided_by'      => null,
-                'eligibility_decided_at'      => null,
-            ])->save();
-
-            return;
-        }
-
-        $accepted = $best->eligible && $best->confidence >= $threshold;
-
-        // Below-threshold eligible verdicts go to a human, never to a flat
-        // rejection - the customer may genuinely be owed money. The customer
-        // sees a friendly reason; the threshold detail stays in the audit trail.
-        $status = $accepted ? self::STATUS_ELIGIBLE
-            : ($best->eligible ? self::STATUS_REVIEW : self::STATUS_REJECTED);
-
-        // "Something else" reports can't be classified automatically - they
-        // always go to the team, as the customer was promised.
-        if ($status === self::STATUS_REJECTED && $context->reportedDisruption === 'other') {
-            $status = self::STATUS_REVIEW;
-        }
-
-        $reason = $best->reason;
-        if ($status === self::STATUS_REVIEW) {
-            // The engine's raw verdict stays in the audit trail; the customer
-            // gets review-appropriate copy, not internals stapled together.
-            $reason = $best->eligible
-                ? $best->reason . ' Our team is verifying the details before confirming your claim.'
-                : 'Our automated check couldn\'t match your report to a compensation rule, so our team will review what happened and confirm whether you have a claim.';
-            $details['auto_review'] = $best->eligible
-                ? sprintf('Confidence %d%% below the %d%% threshold.', $best->confidence, $threshold)
-                : 'Engine verdict was not-eligible; queued because unclassified reports always get a human decision.';
-        }
-
-        $trip->forceFill([
-            'eligibility_status'          => $status,
-            'eligibility_regulation'      => $best->regulation,
-            'eligibility_article'         => $best->article,
-            'eligibility_confidence'      => $best->confidence,
-            'eligibility_reason'          => $reason,
-            'eligibility_details'         => $details,
-            'eligibility_evaluated_at'    => now(),
-            // A fresh automated verdict supersedes any earlier manual decision.
-            'eligibility_decision_source' => $details['evaluated_by'],
-            'eligibility_decided_by'      => null,
-            'eligibility_decided_at'      => null,
-        ])->save();
-
-        $trip->events()->create([
-            'type'        => TripEvent::TYPE_ELIGIBILITY,
-            'description' => match ($status) {
-                self::STATUS_ELIGIBLE => sprintf('Trip found eligible for compensation under %s (%s) with %d%% confidence.', $best->regulation, $best->article, $best->confidence),
-                self::STATUS_REVIEW   => $best->eligible
-                    ? sprintf('Likely eligible under %s (%s) - sent to our team for manual confirmation.', $best->regulation, $best->article)
-                    : 'Report sent to our team for manual review.',
-                default               => sprintf('Eligibility review outcome: %s', $reason),
-            },
-            'data'        => $best->toArray(),
-            'qualifying'  => $accepted,
-            'detected_at' => now(),
-        ]);
-
-        if ($accepted && $trip->user) {
-            try {
-                $trip->user->notify(new TripEligibleForCompensation($trip));
-            } catch (Throwable $e) {
-                Log::error('Eligibility notification failed', ['trip' => $trip->id, 'error' => $e->getMessage()]);
-            }
-        }
     }
 }

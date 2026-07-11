@@ -187,7 +187,7 @@ class AiEligibilityEvaluatorTest extends TestCase
 
         $this->assertSame(75, $trip->eligibility_confidence);
         $outcome = collect($trip->eligibility_details['outcomes'])->firstWhere('regulation', 'EU261');
-        $this->assertContains('Confidence capped: passenger-reported facts cannot be fully verified automatically.', $outcome['factors']);
+        $this->assertContains('Confidence capped: the decisive facts cannot be fully verified automatically.', $outcome['factors']);
     }
 
     public function test_rules_mode_never_calls_gemini(): void
@@ -232,6 +232,7 @@ class AiEligibilityEvaluatorTest extends TestCase
             'departure_airport'     => $from,
             'arrival_airport'       => $to,
             'departure_date'        => now()->subDay()->toDateString(),
+            'fa_flight_id'          => 'ACA845-1700000000-airline-0001',
             'flight_status'         => Trip::FLIGHT_COMPLETED,
             'monitoring_status'     => Trip::MONITORING_COMPLETED,
             'potentially_eligible'  => true,

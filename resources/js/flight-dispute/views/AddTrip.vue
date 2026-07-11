@@ -11,14 +11,27 @@
         <div class="flex-1 overflow-y-auto overflow-x-hidden bg-slate-100/70">
             <div class="max-w-[820px] mx-auto px-4 sm:px-8 py-8">
 
-                <!-- Mode toggle -->
-                <div class="inline-flex p-1 bg-white rounded-xl ring-1 ring-slate-900/5 mb-6">
+                <!-- Method choice: one OR the other -->
+                <p class="text-sm font-bold text-slate-600 mb-3">How would you like to start? <span class="font-medium text-slate-400">Pick one - you don't need both.</span></p>
+                <div class="grid sm:grid-cols-2 gap-3 mb-6">
                     <button
                         v-for="m in modes" :key="m.key"
+                        type="button"
                         @click="mode = m.key"
-                        class="px-4 py-2 rounded-lg text-sm font-bold transition-colors"
-                        :class="mode === m.key ? 'bg-slate-900 text-white shadow-lg shadow-slate-900/10' : 'text-slate-500 hover:text-slate-700'"
-                    >{{ m.label }}</button>
+                        class="text-left p-4 rounded-2xl ring-1 transition-all active:scale-[0.99]"
+                        :class="mode === m.key ? 'bg-slate-900 ring-slate-900 shadow-lg shadow-slate-900/15' : 'bg-white ring-slate-200 hover:ring-slate-300'"
+                    >
+                        <span class="flex items-center gap-2">
+                            <span class="w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0"
+                                  :class="mode === m.key ? 'border-white' : 'border-slate-300'">
+                                <span v-if="mode === m.key" class="w-2 h-2 rounded-full bg-white"></span>
+                            </span>
+                            <span class="text-sm font-bold" :class="mode === m.key ? 'text-white' : 'text-slate-800'">{{ m.label }}</span>
+                            <span v-if="m.badge" class="ml-auto text-[10px] font-black uppercase tracking-wide px-2 py-0.5 rounded-full"
+                                  :class="mode === m.key ? 'bg-white/20 text-white' : 'bg-emerald-50 text-emerald-600'">{{ m.badge }}</span>
+                        </span>
+                        <span class="block text-xs mt-1.5 pl-6" :class="mode === m.key ? 'text-white/70' : 'text-slate-400'">{{ m.hint }}</span>
+                    </button>
                 </div>
 
                 <!-- ── Manual funnel ── -->
@@ -245,8 +258,8 @@ import api from '../api';
 const router = useRouter();
 
 const modes = [
-    { key: 'upload', label: 'Upload itinerary' },
-    { key: 'manual', label: 'Enter details' },
+    { key: 'upload', label: 'Upload itinerary', badge: 'Fastest', hint: "Drop your booking PDF or a photo - we protect every upcoming flight on it automatically." },
+    { key: 'manual', label: 'Enter details', hint: "Type in your flight yourself in a few quick steps." },
 ];
 const mode = ref('upload');
 

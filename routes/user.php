@@ -22,6 +22,9 @@ Route::middleware(['auth', 'verified', 'role_access:user'])->name('user.')->grou
         Route::get('api/claims', [\App\Http\Controllers\User\Api\ClaimApiController::class, 'index'])->name('api.claims.index');
         Route::post('api/claims', [\App\Http\Controllers\User\Api\ClaimApiController::class, 'store'])->name('api.claims.store');
         Route::get('api/claims/{claim}', [\App\Http\Controllers\User\Api\ClaimApiController::class, 'show'])->name('api.claims.show');
+        Route::get('api/claims/{claim}/document/{index}', [\App\Http\Controllers\User\Api\ClaimApiController::class, 'document'])->whereNumber('index')->name('api.claims.document');
+        Route::post('api/claims/{claim}/info', [\App\Http\Controllers\User\Api\ClaimApiController::class, 'updateInfo'])->name('api.claims.info');
+        Route::post('api/claims/{claim}/documents', [\App\Http\Controllers\User\Api\ClaimApiController::class, 'addDocuments'])->name('api.claims.documents');
 
         // Trips API — "Protect Your Trip" (declared before the SPA catch-all)
         Route::get('api/trips', [\App\Http\Controllers\User\Api\TripApiController::class, 'index'])->name('api.trips.index');

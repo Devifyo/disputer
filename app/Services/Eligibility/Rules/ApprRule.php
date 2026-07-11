@@ -45,6 +45,17 @@ class ApprRule implements RegulationRule
 
         $unverified = 'Reported by the passenger - not verifiable from flight data.';
 
+        if (in_array($context->reportedDisruption, ['delayed', 'cancelled'], true)) {
+            return new EligibilityResult(
+                $this->code(),
+                true,
+                'Sections 12 & 19',
+                $score - 25,
+                'The declared disruption entitles passengers to compensation if within the carrier\'s control, subject to verification against the airline\'s records.',
+                [...$factors, $unverified],
+            );
+        }
+
         if ($context->reportedDisruption === 'denied_boarding') {
             return new EligibilityResult(
                 $this->code(),

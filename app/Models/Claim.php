@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Jobs\EvaluateClaim;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -14,11 +15,14 @@ class Claim extends Model
 
     public const STATUS_DRAFT               = 'draft';
     public const STATUS_PENDING_ELIGIBILITY = 'pending_eligibility_review';
+    public const STATUS_ELIGIBLE            = 'eligible';
+    public const STATUS_REJECTED            = 'rejected';
 
     public const DISRUPTIONS = [
         'delayed'           => 'Delayed 3h+',
         'cancelled'         => 'Cancelled',
         'denied_boarding'   => 'Denied boarding',
+        'downgrade'         => 'Downgraded',
         'missed_connection' => 'Missed connection',
         'other'             => 'Other',
     ];
@@ -26,15 +30,29 @@ class Claim extends Model
     protected $fillable = [
         'reference', 'number', 'user_id', 'itinerary_id', 'trip_id', 'itinerary_passenger_id', 'status',
         'departure_city', 'departure_airport', 'arrival_city', 'arrival_airport',
-        'airline', 'flight_number', 'flight_date', 'disruption_type',
+        'airline', 'flight_number', 'flight_date', 'disruption_type', 'disruption_note',
         'passenger_name', 'booking_reference', 'contact_email',
-        'compensation_currency', 'compensation_amount', 'submitted_at',
+        'compensation_currency', 'compensation_amount', 'compensation_basis', 'submitted_at',
+        'ticket_price', 'ticket_currency', 'documents', 'compensation_explanation',
+        'fa_flight_id', 'flight_arrival_delay_minutes', 'reported_arrival_delay_minutes', 'did_not_travel', 'flight_cancelled', 'flight_diverted', 'flight_verified_at', 'flight_snapshot',
+        'eligibility_status', 'eligibility_regulation', 'eligibility_article', 'eligibility_confidence',
+        'eligibility_reason', 'eligibility_details', 'eligibility_evaluated_at', 'eligibility_decision_source',
     ];
 
     protected $casts = [
-        'flight_date'         => 'date',
-        'submitted_at'        => 'datetime',
-        'compensation_amount' => 'decimal:2',
+        'flight_date'              => 'date',
+        'submitted_at'             => 'datetime',
+        'compensation_amount'      => 'decimal:2',
+        'flight_cancelled'         => 'boolean',
+        'did_not_travel'           => 'boolean',
+        'flight_diverted'          => 'boolean',
+        'flight_verified_at'       => 'datetime',
+        'flight_snapshot'          => 'array',
+        'ticket_price'             => 'decimal:2',
+        'documents'                => 'array',
+        'compensation_explanation' => 'array',
+        'eligibility_details'      => 'array',
+        'eligibility_evaluated_at' => 'datetime',
     ];
 
     protected static function booted(): void
@@ -82,6 +100,8 @@ class Claim extends Model
         return match ($this->status) {
             self::STATUS_DRAFT               => 'Draft',
             self::STATUS_PENDING_ELIGIBILITY => 'Pending Eligibility Review',
+            self::STATUS_ELIGIBLE            => 'Eligible for Compensation',
+            self::STATUS_REJECTED            => 'Not Eligible',
             default                          => ucwords(str_replace('_', ' ', (string) $this->status)),
         };
     }
@@ -151,6 +171,10 @@ class Claim extends Model
 
             $claim->recordEvent('Your claim case has been received', 'done', $claim->created_at);
             $claim->recordEvent('Claim under review', 'pending', $claim->created_at, 1);
+
+            // Verify the flight + evaluate eligibility + estimate compensation
+            // (covers both the upload funnel and inbound claims@ emails).
+            EvaluateClaim::dispatch($claim);
         }
     }
 
