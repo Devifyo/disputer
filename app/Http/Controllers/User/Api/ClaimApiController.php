@@ -217,7 +217,7 @@ class ClaimApiController extends Controller
                 'hint' => 'Compensation rises if rebooking got you to your destination 6h/9h+ late.'];
         }
 
-        if (empty($c->documents)) {
+        if (empty($c->documents) && !$c->itinerary?->file_path) {
             $missing[] = ['key' => 'documents', 'tab' => 'documents', 'label' => 'Supporting documents',
                 'hint' => 'Your ticket, boarding pass or airline emails strengthen the case.'];
         }

@@ -92,7 +92,11 @@ class Claim extends Model
 
     public function events(): HasMany
     {
-        return $this->hasMany(ClaimEvent::class)->orderBy('sort')->orderBy('happened_at');
+        // Open (pending) steps always render last - they are the current state.
+        return $this->hasMany(ClaimEvent::class)
+            ->orderByRaw("status = 'pending'")
+            ->orderBy('sort')
+            ->orderBy('happened_at');
     }
 
     public function getStatusLabelAttribute(): string

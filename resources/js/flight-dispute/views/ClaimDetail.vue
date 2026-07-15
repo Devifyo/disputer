@@ -90,6 +90,7 @@
                                         <span class="w-6 h-6 rounded-full flex items-center justify-center shrink-0 z-10" :class="dotCls(ev.status)">
                                             <svg v-if="ev.status === 'done'" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
                                             <svg v-else-if="ev.status === 'failed'" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M6 6l12 12M18 6L6 18"/></svg>
+                                            <svg v-else class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 7v5l3 2"/></svg>
                                         </span>
                                         <span v-if="i < claim.events.length - 1" class="w-px flex-1 bg-slate-200 my-1"></span>
                                     </div>
@@ -433,7 +434,7 @@ const detailRows = computed(() => claim.value ? [
 function dotCls(status) {
     if (status === 'done') return 'bg-emerald-500 text-white';
     if (status === 'failed') return 'bg-rose-100 text-rose-500 border border-rose-300';
-    return 'bg-slate-200 text-slate-400';
+    return 'bg-amber-100 text-amber-600 border border-amber-300';
 }
 
 async function load() {
