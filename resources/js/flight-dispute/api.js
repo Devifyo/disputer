@@ -36,8 +36,30 @@ export default {
         addDocuments(id, form) {
             return http.post(`/claims/${id}/documents`, form).then((r) => r.data.data);
         },
+        // Claim confirmation + e-signature stage.
+        confirmation(id) {
+            return http.get(`/claims/${id}/confirmation`).then((r) => r.data.data);
+        },
+        updatePassengers(id, passengers) {
+            return http.post(`/claims/${id}/passengers`, { passengers }).then((r) => r.data.data);
+        },
+        confirm(id, payload) {
+            return http.post(`/claims/${id}/confirm`, payload).then((r) => r.data.data);
+        },
+        signers(id) {
+            return http.get(`/claims/${id}/signers`).then((r) => r.data.data);
+        },
+        signUrl(id, signerId) {
+            return http.get(`/claims/${id}/signers/${signerId}/url`).then((r) => r.data.data);
+        },
+        sign(id, signerId, signature) {
+            return http.post(`/claims/${id}/signers/${signerId}/sign`, { signature }).then((r) => r.data.data);
+        },
+        inviteSigner(id, signerId, email) {
+            return http.post(`/claims/${id}/signers/${signerId}/invite`, { email }).then((r) => r.data.data);
+        },
     },
-    // PDF / photo itinerary upload - creates an itinerary + one claim per passenger.
+    // PDF / photo itinerary upload - creates an itinerary + one master claim per booking.
     uploadItinerary(file, onProgress) {
         const form = new FormData();
         form.append('file', file);

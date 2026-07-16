@@ -17,10 +17,20 @@ return [
     // "eligibility.confidence_threshold"); this is only the default.
     'default_confidence_threshold' => 70,
 
-    // "ai" evaluates with Gemini (rules as automatic fallback); "rules"
-    // skips AI entirely.
+    // Which provider judges eligibility. "ai" evaluates with Gemini (rules
+    // as automatic fallback and jurisdiction guard); "rules" skips AI
+    // entirely. When the official APPR/EU261/UK261 rules engine arrives,
+    // register its EligibilityEvaluator class here and switch the env -
+    // nothing else in the application changes.
     'evaluator' => env('ELIGIBILITY_EVALUATOR', 'ai'),
+    'providers' => [
+        'ai'    => App\Services\Eligibility\Evaluators\AiEligibilityEvaluator::class,
+        'rules' => App\Services\Eligibility\Evaluators\RuleBasedEligibilityEvaluator::class,
+    ],
     'ai_model'  => env('ELIGIBILITY_AI_MODEL', 'gemini-2.5-flash'),
+
+    // Future scope: baggage delay/loss/damage (Montreal Convention) is not
+    // evaluated yet - it needs a liability regime of its own.
 
     // EU261 applies to departures from these countries (EU-27 + EEA + CH,
     // where Regulation (EC) No 261/2004 is applied).

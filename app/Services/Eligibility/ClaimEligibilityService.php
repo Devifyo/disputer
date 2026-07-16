@@ -24,6 +24,8 @@ class ClaimEligibilityService
 
     public function evaluate(Claim $claim): void
     {
+        $wasEligible = $claim->status === Claim::STATUS_ELIGIBLE;
+
         $this->verifyFlight($claim);
 
         $context  = $this->buildContext($claim);
@@ -51,6 +53,32 @@ class ClaimEligibilityService
         ])->save();
 
         $this->recordOutcome($claim, $decision, $compensation);
+
+        if (!$wasEligible && $decision['status'] === EligibilityEngine::STATUS_ELIGIBLE) {
+            $this->notifyEligible($claim, $compensation);
+        }
+    }
+
+    /** "You're owed X - claim it now" email, sent once when a claim turns eligible. */
+    private function notifyEligible(Claim $claim, ?array $compensation): void
+    {
+        $email = $claim->contact_email ?: $claim->user?->email;
+        if (!$email) {
+            return;
+        }
+
+        $count  = max(1, count($claim->passengerNames()));
+        $amount = $compensation['amount'] ?? null;
+
+        send_dynamic_email($email, 'claim-eligible-compensation', [
+            '[NAME]'      => $claim->passenger_name ?: 'traveller',
+            '[AMOUNT]'    => $amount
+                ? trim(($compensation['currency'] ?? '') . ' ' . number_format($amount * $count, 2))
+                : 'compensation',
+            '[FLIGHT]'    => trim(($claim->airline ?? '') . ' ' . ($claim->flight_number ?? '')),
+            '[ROUTE]'     => "{$claim->departure_airport} - {$claim->arrival_airport}",
+            '[CLAIM_URL]' => url('/flight-disputes/claims/' . encrypt_id($claim->id)),
+        ]);
     }
 
     /**
@@ -144,15 +172,16 @@ class ClaimEligibilityService
         // verified ones on FlightAware's facts (with the declared type kept
         // for disruptions flight data can't see, like denied boarding).
         $reported = $verified
-            ? (in_array($claim->disruption_type, ['denied_boarding', 'downgrade', 'missed_connection', 'other'], true) ? $claim->disruption_type : null)
+            ? (in_array($claim->disruption_type, ['denied_boarding', 'downgrade', 'missed_connection', 'schedule_change', 'returned_to_origin', 'other'], true) ? $claim->disruption_type : null)
             // Unverifiable and no declared type either: route to the team
             // ('other') instead of rejecting on zero facts.
             : ($claim->disruption_type ?? 'other');
 
-        // On a cancelled flight the tracking "arrival delay" is meaningless -
-        // the passenger never arrived on it. Their reported rebooking arrival
-        // is the real number.
-        $cancelled = $claim->flight_cancelled || $claim->disruption_type === 'cancelled';
+        // On a cancelled flight (or one that never delivered the journey -
+        // schedule change, returned to origin) the tracking "arrival delay"
+        // is meaningless. The reported rebooking arrival is the real number.
+        $cancelled = $claim->flight_cancelled
+            || in_array($claim->disruption_type, ['cancelled', 'schedule_change', 'returned_to_origin'], true);
         $delay     = $cancelled
             ? $claim->reported_arrival_delay_minutes
             : ($verified ? ($claim->flight_arrival_delay_minutes ?? $claim->reported_arrival_delay_minutes) : $claim->reported_arrival_delay_minutes);

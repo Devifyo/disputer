@@ -699,19 +699,21 @@ async function startClaim() {
     const ok = await confirmAction(
         'Start your claim?',
         count > 1
-            ? `We'll file ${count} compensation claims - one per passenger - using this trip's verified flight data. Check that the passenger names are correct before continuing, as the claims will be submitted for review.`
-            : "We'll file a compensation claim using this trip's verified flight data. Check that the passenger name is correct before continuing, as the claim will be submitted for review.",
-        count > 1 ? `Yes, file ${count} claims` : 'Yes, file my claim'
+            ? `We'll prepare one claim covering all ${count} passengers, using this trip's verified flight data. Check that the passenger names are correct before continuing - you'll review everything on the next screen.`
+            : "We'll prepare your claim using this trip's verified flight data. You'll review everything on the next screen before it's filed.",
+        'Yes, start my claim'
     );
     if (!ok) return;
 
     claiming.value = true;
-    const done = showProcessing('Creating your claim…', 'We\'re preparing your claim from this trip\'s verified flight data.');
+    const done = showProcessing('Preparing your claim…', 'Loading your verified eligibility result - no re-checking needed.');
     try {
         const res = await api.trips.createClaim(props.id);
         const first = res.data?.[0];
         if (first) {
-            router.push({ name: 'claim', params: { id: first.id } });
+            // The trip's stored verdict carried over - go straight to the
+            // Claim Confirmation screen.
+            router.push({ name: 'claim-confirm', params: { id: first.id } });
         } else {
             trip.value = await api.trips.get(props.id);
         }

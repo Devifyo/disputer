@@ -26,6 +26,16 @@ Route::middleware(['auth', 'verified', 'role_access:user'])->name('user.')->grou
         Route::post('api/claims/{claim}/info', [\App\Http\Controllers\User\Api\ClaimApiController::class, 'updateInfo'])->name('api.claims.info');
         Route::post('api/claims/{claim}/documents', [\App\Http\Controllers\User\Api\ClaimApiController::class, 'addDocuments'])->name('api.claims.documents');
 
+        // Claim confirmation + e-signatures
+        Route::get('api/claims/{claim}/confirmation', [\App\Http\Controllers\User\Api\ClaimApiController::class, 'confirmation'])->name('api.claims.confirmation');
+        Route::post('api/claims/{claim}/passengers', [\App\Http\Controllers\User\Api\ClaimApiController::class, 'updatePassengers'])->name('api.claims.passengers');
+        Route::post('api/claims/{claim}/confirm', [\App\Http\Controllers\User\Api\ClaimApiController::class, 'confirm'])->name('api.claims.confirm');
+        Route::get('api/claims/{claim}/signers', [\App\Http\Controllers\User\Api\ClaimApiController::class, 'signers'])->name('api.claims.signers');
+        Route::get('api/claims/{claim}/signers/{signer}/url', [\App\Http\Controllers\User\Api\ClaimApiController::class, 'signUrl'])->whereNumber('signer')->name('api.claims.sign-url');
+        Route::post('api/claims/{claim}/signers/{signer}/sign', [\App\Http\Controllers\User\Api\ClaimApiController::class, 'sign'])->whereNumber('signer')->name('api.claims.sign');
+        Route::post('api/claims/{claim}/signers/{signer}/invite', [\App\Http\Controllers\User\Api\ClaimApiController::class, 'inviteSigner'])->whereNumber('signer')->name('api.claims.invite');
+        Route::get('api/claims/{claim}/legal/{doc}', [\App\Http\Controllers\User\Api\ClaimApiController::class, 'legalDocument'])->name('api.claims.legal');
+
         // Trips API — "Protect Your Trip" (declared before the SPA catch-all)
         Route::get('api/trips', [\App\Http\Controllers\User\Api\TripApiController::class, 'index'])->name('api.trips.index');
         Route::post('api/trips', [\App\Http\Controllers\User\Api\TripApiController::class, 'store'])->name('api.trips.store');

@@ -56,6 +56,15 @@ return [
         'api_key'  => env('FLIGHTAWARE_API_KEY'),
         'base_url' => env('FLIGHTAWARE_BASE_URL', 'https://aeroapi.flightaware.com/aeroapi'),
     ],
+
+    // Dropbox Sign (Essentials) - embedded e-signatures for claim
+    // authorisation documents. Without an API key the built-in signature
+    // pad is used instead.
+    'dropbox_sign' => [
+        'api_key'   => env('DROPBOX_SIGN_API_KEY'),
+        'client_id' => env('DROPBOX_SIGN_CLIENT_ID'),
+        'test_mode' => (bool) env('DROPBOX_SIGN_TEST_MODE', true),
+    ],
     'stripe' => [
         'key' => env('STRIPE_KEY'),
         'secret' => env('STRIPE_SECRET'),

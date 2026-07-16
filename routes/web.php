@@ -46,6 +46,10 @@ Route::get('/terms', function () {
 // Stripe Webhook Endpoint (Must be POST, must be outside auth middleware)
 Route::post('/stripe/webhook', [StripeWebhookController::class, 'handle']);
 
+// Tokenised public signing page for claim co-passengers without an account.
+Route::get('/claim-signature/{token}', [App\Http\Controllers\ClaimSignatureController::class, 'show'])->name('claim-signature.show');
+Route::post('/claim-signature/{token}', [App\Http\Controllers\ClaimSignatureController::class, 'store'])->name('claim-signature.store');
+
 Route::impersonate();
 require __DIR__.'/auth.php';
 require __DIR__.'/user.php';

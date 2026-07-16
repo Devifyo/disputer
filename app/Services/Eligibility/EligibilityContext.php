@@ -27,7 +27,7 @@ class EligibilityContext
         public bool $factsVerified = true,   // false when FlightAware couldn't confirm the flight
         public bool $diverted = false,
         public bool $didNotTravel = false,  // cancelled + passenger chose a refund over rebooking
-        public ?string $reportedDisruption = null, // denied_boarding | downgrade | missed_connection | delayed | cancelled | other
+        public ?string $reportedDisruption = null, // denied_boarding | downgrade | missed_connection | delayed | cancelled | schedule_change | returned_to_origin | other
         public array $reportAnswers = [],          // [{question, answer}] from the report funnel
     ) {
     }

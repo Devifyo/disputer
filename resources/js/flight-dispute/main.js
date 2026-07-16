@@ -4,6 +4,8 @@ import App from './App.vue';
 import ClaimsList from './views/ClaimsList.vue';
 import AddClaim from './views/AddClaim.vue';
 import ClaimDetail from './views/ClaimDetail.vue';
+import ClaimConfirm from './views/ClaimConfirm.vue';
+import SignClaim from './views/SignClaim.vue';
 import TripsList from './views/TripsList.vue';
 import AddTrip from './views/AddTrip.vue';
 import TripDetail from './views/TripDetail.vue';
@@ -21,6 +23,8 @@ if (el) {
             { path: '/', name: 'claims', component: ClaimsList },
             { path: '/claims/new', name: 'add-claim', component: AddClaim },
             { path: '/claims/:id', name: 'claim', component: ClaimDetail, props: true },
+            { path: '/claims/:id/confirm', name: 'claim-confirm', component: ClaimConfirm, props: true },
+            { path: '/claims/:id/sign', name: 'claim-sign', component: SignClaim, props: true },
             { path: '/trips', name: 'trips', component: TripsList },
             { path: '/trips/new', name: 'add-trip', component: AddTrip },
             { path: '/trips/:id', name: 'trip', component: TripDetail, props: true },

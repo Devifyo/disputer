@@ -265,68 +265,69 @@ class TripApiController extends Controller
             : ($trip->flight_status === Trip::FLIGHT_CANCELLED ? 'cancelled' : 'delayed');
         $pricer = app(ClaimEligibilityService::class);
 
-        foreach ($passengers as $passenger) {
-            $claim = Claim::create([
-                'user_id'           => $trip->user_id,
-                'trip_id'           => $trip->id,
-                'itinerary_id'      => $trip->itinerary_id,
-                'status'            => Claim::STATUS_ELIGIBLE,
-                // The trip's verdict carries over - the flight was already
-                // verified and judged during monitoring.
-                'fa_flight_id'                 => $trip->fa_flight_id,
-                'flight_arrival_delay_minutes' => $trip->arrival_delay_minutes,
-                'flight_cancelled'             => $trip->flight_status === Trip::FLIGHT_CANCELLED,
-                'flight_diverted'              => (bool) $trip->diverted,
-                'flight_verified_at'           => $trip->fa_flight_id ? now() : null,
-                'eligibility_status'           => $trip->eligibility_status,
-                'eligibility_regulation'       => $trip->eligibility_regulation,
-                'eligibility_article'          => $trip->eligibility_article,
-                'eligibility_confidence'       => $trip->eligibility_confidence,
-                'eligibility_reason'           => $trip->eligibility_reason,
-                'eligibility_details'          => ($trip->eligibility_details ?? []) + ['inherited_from_trip' => $trip->id],
-                'eligibility_evaluated_at'     => $trip->eligibility_evaluated_at,
-                'eligibility_decision_source'  => $trip->eligibility_decision_source,
-                'departure_city'    => $trip->departure_city,
-                'departure_airport' => $trip->departure_airport,
-                'arrival_city'      => $trip->arrival_city,
-                'arrival_airport'   => $trip->arrival_airport,
-                'airline'           => $trip->airline,
-                'flight_number'     => $trip->flight_number,
-                'flight_date'       => $trip->departure_date?->toDateString(),
-                'disruption_type'   => $disruption,
-                'passenger_name'    => $passenger,
-                'booking_reference' => $trip->booking_reference,
-                'contact_email'     => $trip->user?->email,
-            ]);
+        // One master claim covers the whole booking; per-passenger amounts
+        // and booking totals are presented on top of it. The trip's stored
+        // verdict carries over untouched - the Eligibility Engine is NOT
+        // executed again.
+        $passenger = reset($passengers);
+        $claim = Claim::create([
+            'user_id'           => $trip->user_id,
+            'trip_id'           => $trip->id,
+            'itinerary_id'      => $trip->itinerary_id,
+            'status'            => Claim::STATUS_ELIGIBLE,
+            // The trip's verdict carries over - the flight was already
+            // verified and judged during monitoring.
+            'fa_flight_id'                 => $trip->fa_flight_id,
+            'flight_arrival_delay_minutes' => $trip->arrival_delay_minutes,
+            'flight_cancelled'             => $trip->flight_status === Trip::FLIGHT_CANCELLED,
+            'flight_diverted'              => (bool) $trip->diverted,
+            'flight_verified_at'           => $trip->fa_flight_id ? now() : null,
+            'eligibility_status'           => $trip->eligibility_status,
+            'eligibility_regulation'       => $trip->eligibility_regulation,
+            'eligibility_article'          => $trip->eligibility_article,
+            'eligibility_confidence'       => $trip->eligibility_confidence,
+            'eligibility_reason'           => $trip->eligibility_reason,
+            'eligibility_details'          => ($trip->eligibility_details ?? []) + ['inherited_from_trip' => $trip->id],
+            'eligibility_evaluated_at'     => $trip->eligibility_evaluated_at,
+            'eligibility_decision_source'  => $trip->eligibility_decision_source,
+            'departure_city'    => $trip->departure_city,
+            'departure_airport' => $trip->departure_airport,
+            'arrival_city'      => $trip->arrival_city,
+            'arrival_airport'   => $trip->arrival_airport,
+            'airline'           => $trip->airline,
+            'flight_number'     => $trip->flight_number,
+            'flight_date'       => $trip->departure_date?->toDateString(),
+            'disruption_type'   => $disruption,
+            'passenger_name'    => $passenger,
+            'booking_reference' => $trip->booking_reference,
+            'contact_email'     => $trip->user?->email,
+        ]);
 
-            $claim->recordEvent('Claim created from your protected trip', 'done', now());
-            $claim->recordEvent(
-                $trip->eligibility_decision_source === 'admin'
-                    ? sprintf('Eligibility confirmed by our team under %s (%s)', $trip->eligibility_regulation, $trip->eligibility_article)
-                    : sprintf('Found eligible under %s (%s)', $trip->eligibility_regulation, $trip->eligibility_article),
-                'done',
-                now(),
-                1
-            );
-            $claim->recordEvent('Claim under review', 'pending', now(), 2);
+        $claim->recordEvent('Claim created from your protected trip', 'done', now());
+        $claim->recordEvent(
+            $trip->eligibility_decision_source === 'admin'
+                ? sprintf('Eligibility confirmed by our team under %s (%s)', $trip->eligibility_regulation, $trip->eligibility_article)
+                : sprintf('Found eligible under %s (%s)', $trip->eligibility_regulation, $trip->eligibility_article),
+            'done',
+            now(),
+            1
+        );
+        $claim->recordEvent('Claim under review', 'pending', now(), 2);
 
-            $pricer->priceCompensation($claim);
-        }
+        $pricer->priceCompensation($claim);
 
         $trip->events()->create([
             'type'        => 'claim_created',
             'description' => count($passengers) === 1
                 ? 'Compensation claim created from this trip.'
-                : count($passengers) . ' compensation claims created from this trip (one per passenger).',
+                : sprintf('Compensation claim created from this trip, covering all %d passengers.', count($passengers)),
             'detected_at' => now(),
         ]);
 
         return response()->json([
             'data'    => $this->claimRefs($trip),
             'success' => true,
-            'message' => count($passengers) === 1
-                ? 'Your claim has been created.'
-                : count($passengers) . ' claims have been created - one per passenger.',
+            'message' => 'Your claim has been created.',
         ], 201);
     }
 

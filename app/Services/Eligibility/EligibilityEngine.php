@@ -6,7 +6,6 @@ use App\Models\Setting;
 use App\Models\Trip;
 use App\Models\TripEvent;
 use App\Notifications\TripEligibleForCompensation;
-use App\Services\Eligibility\Evaluators\AiEligibilityEvaluator;
 use App\Services\Eligibility\Evaluators\RuleBasedEligibilityEvaluator;
 use App\Services\FlightAwareService;
 use Illuminate\Support\Facades\Log;
@@ -32,9 +31,21 @@ class EligibilityEngine
 
     public function __construct(
         private FlightAwareService $flightAware,
-        private AiEligibilityEvaluator $ai,
         private RuleBasedEligibilityEvaluator $rules,
     ) {
+    }
+
+    /**
+     * The provider that judges eligibility, resolved from config so the AI
+     * assistant can later be swapped for the official rules engine without
+     * touching the rest of the application.
+     */
+    private function primaryEvaluator(): EligibilityEvaluator
+    {
+        $key   = config('eligibility.evaluator', 'ai');
+        $class = config("eligibility.providers.{$key}") ?? RuleBasedEligibilityEvaluator::class;
+
+        return app($class);
     }
 
     public static function confidenceThreshold(): int
@@ -85,7 +96,9 @@ class EligibilityEngine
             ];
         }
 
-        $accepted = $best->eligible && $best->confidence >= $threshold;
+        // The evaluator may only escalate to a human, never bypass one.
+        $reviewAsked = $best->flagged('manual_review_recommended');
+        $accepted    = $best->eligible && $best->confidence >= $threshold && !$reviewAsked;
 
         // Below-threshold eligible verdicts go to a human, never to a flat
         // rejection - the customer may genuinely be owed money.
@@ -98,6 +111,12 @@ class EligibilityEngine
             $status = self::STATUS_REVIEW;
         }
 
+        // A rejection the engine itself isn't confident about is flagged for
+        // a human, never issued to the customer as final.
+        if ($status === self::STATUS_REJECTED && $best->confidence < $threshold) {
+            $status = self::STATUS_REVIEW;
+        }
+
         $reason = $best->reason;
         if ($status === self::STATUS_REVIEW) {
             // The engine's raw verdict stays in the audit trail; the customer
@@ -106,8 +125,10 @@ class EligibilityEngine
                 ? $best->reason . ' Our team is verifying the details before confirming your claim.'
                 : 'Our automated check couldn\'t match your report to a compensation rule, so our team will review what happened and confirm whether you have a claim.';
             $details['auto_review'] = $best->eligible
-                ? sprintf('Confidence %d%% below the %d%% threshold.', $best->confidence, $threshold)
-                : 'Engine verdict was not-eligible; queued because unclassified reports always get a human decision.';
+                ? ($reviewAsked && $best->confidence >= $threshold
+                    ? 'The evaluator recommended a manual check despite an eligible verdict.'
+                    : sprintf('Confidence %d%% below the %d%% threshold.', $best->confidence, $threshold))
+                : 'Engine verdict was not-eligible but not confident enough to be final - a human decides.';
         }
 
         return ['best' => $best, 'status' => $status, 'reason' => $reason, 'details' => $details];
@@ -208,24 +229,27 @@ class EligibilityEngine
     }
 
     /**
-     * AI evaluates first (broader regulation knowledge); any failure or
-     * invalid output falls back to the deterministic rules. Valid AI output
-     * is still reconciled against the rules so a hallucinated jurisdiction
-     * or an omitted regulation can never decide a claim alone.
+     * The configured provider evaluates first (broader regulation
+     * knowledge); any failure or invalid output falls back to the
+     * deterministic rules. Valid provider output is still reconciled
+     * against the rules so a hallucinated jurisdiction or an omitted
+     * regulation can never decide a claim alone.
      *
      * @return array{0: array<EligibilityResult>, 1: string}
      */
     private function runEvaluators(EligibilityContext $context): array
     {
         $ruleOutcomes = $this->rules->evaluate($context);
+        $primary      = $this->primaryEvaluator();
 
-        if (config('eligibility.evaluator', 'ai') === 'ai') {
+        if (!$primary instanceof RuleBasedEligibilityEvaluator) {
             try {
-                return $this->reconcile($this->ai->evaluate($context), $ruleOutcomes, $context);
+                return $this->reconcile($primary->evaluate($context), $ruleOutcomes, $context, $primary->name());
             } catch (Throwable $e) {
-                Log::warning('AI eligibility evaluation failed - falling back to rules', [
-                    'ref'   => $context->ref,
-                    'error' => $e->getMessage(),
+                Log::warning('Eligibility provider failed - falling back to rules', [
+                    'ref'      => $context->ref,
+                    'provider' => $primary->name(),
+                    'error'    => $e->getMessage(),
                 ]);
             }
         }
@@ -234,17 +258,17 @@ class EligibilityEngine
     }
 
     /**
-     * Guard rails around the AI verdicts:
-     * - when both airport countries are known, AI outcomes for regulations
+     * Guard rails around the provider's verdicts:
+     * - when both airport countries are known, outcomes for regulations
      *   the deterministic jurisdiction check says don't cover the route
      *   are dropped (anti-hallucination);
      * - duplicate outcomes per regulation collapse to the most confident;
-     * - regulations the rules deem applicable but the AI omitted are
-     *   backfilled from the rule verdicts, labelled "ai+rules".
+     * - regulations the rules deem applicable but the provider omitted are
+     *   backfilled from the rule verdicts, labelled "<provider>+rules".
      *
      * @return array{0: array<EligibilityResult>, 1: string}
      */
-    private function reconcile(array $aiOutcomes, array $ruleOutcomes, EligibilityContext $context): array
+    private function reconcile(array $aiOutcomes, array $ruleOutcomes, EligibilityContext $context, string $providerName): array
     {
         $applicable        = array_map(fn (EligibilityResult $r) => $r->regulation, $ruleOutcomes);
         $jurisdictionKnown = $context->originCountry !== null && $context->destinationCountry !== null;
@@ -271,7 +295,7 @@ class EligibilityEngine
             }
         }
 
-        return [array_values($byRegulation), $backfilled ? 'ai+rules' : $this->ai->name()];
+        return [array_values($byRegulation), $backfilled ? "{$providerName}+rules" : $providerName];
     }
 
     /**

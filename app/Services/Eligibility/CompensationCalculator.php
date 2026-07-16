@@ -35,19 +35,93 @@ class CompensationCalculator
         $disruption = $this->disruptionKind($context);
         $distanceKm = $this->routeDistanceKm($context);
 
-        return match ($verdict->regulation) {
+        $result = match ($verdict->regulation) {
             'EU261'  => $this->euStyle($disruption, $distanceKm, $context, 'EUR', [250, 400, 600], $ticketPrice, $ticketCurrency),
             'UK261'  => $this->euStyle($disruption, $distanceKm, $context, 'GBP', [220, 350, 520], $ticketPrice, $ticketCurrency),
             'APPR'   => $this->appr($disruption, $context),
             'US_DOT' => $this->usDot($disruption, $ticketPrice, $ticketCurrency),
             default  => null,
         };
+
+        if ($result) {
+            $result['breakdown']['entitlements'] = $this->entitlements(
+                $verdict->regulation, $disruption, $context, $result['amount'], $result['currency'], $ticketPrice, $ticketCurrency
+            );
+        }
+
+        return $result;
+    }
+
+    /**
+     * The passenger's separate entitlements under the winning regulation.
+     * Compensation, ticket refund, re-routing and expense reimbursement are
+     * independent rights - one never substitutes another, and compensation
+     * is never derived from the ticket price (only fare-based remedies the
+     * law defines that way are).
+     */
+    private function entitlements(string $regulation, string $disruption, EligibilityContext $context, ?float $amount, string $currency, ?float $ticketPrice, ?string $ticketCurrency): array
+    {
+        $fare = $ticketPrice ? sprintf('%s %s', $ticketCurrency ?: $currency, number_format($ticketPrice, 2)) : null;
+
+        if ($regulation === 'US_DOT' && $disruption !== 'denied_boarding') {
+            $compensation = ['state' => 'none', 'value' => 'Not mandated', 'detail' => 'US rules require a refund rather than fixed cash compensation for this disruption.'];
+        } elseif ($amount !== null) {
+            $compensation = ['state' => 'included', 'value' => sprintf('%s %s', $currency, number_format($amount, 2)),
+                'detail' => $disruption === 'downgrade' || ($regulation === 'US_DOT' && $disruption === 'denied_boarding')
+                    ? 'A fare-based remedy - this one the law defines as a share of what you paid.'
+                    : 'Fixed by the regulation - independent of your ticket price.'];
+        } else {
+            $compensation = ['state' => 'conditional', 'value' => 'Pending details', 'detail' => 'Computed once the missing facts (fare or final arrival time) are on file.'];
+        }
+
+        if ($disruption === 'cancelled') {
+            $refund = $context->didNotTravel
+                ? ['state' => 'included', 'value' => $fare ?: 'Your full ticket price', 'detail' => 'You chose not to travel, so the unused ticket is refunded in full - on top of any compensation.']
+                : ['state' => 'none', 'value' => 'Ticket used', 'detail' => 'You travelled on the rebooking, so the ticket was used - a refund applies only when you choose not to travel.'];
+        } elseif ($disruption === 'denied_boarding') {
+            $refund = ['state' => 'conditional', 'value' => 'If you choose not to travel', 'detail' => 'Declining the alternative flight entitles you to a full refund of the unused ticket instead.'];
+        } elseif ($disruption === 'delayed' && in_array($regulation, ['EU261', 'UK261'], true)) {
+            $refund = ['state' => 'conditional', 'value' => 'From a 5-hour delay', 'detail' => 'At 5+ hours you may abandon the journey and claim the unused ticket back (Article 8).'];
+        } else {
+            $refund = ['state' => 'none', 'value' => 'Not applicable', 'detail' => 'A ticket refund applies when a flight is cancelled or you choose not to travel.'];
+        }
+
+        if (in_array($disruption, ['cancelled', 'denied_boarding'], true)) {
+            $rerouting = $context->didNotTravel
+                ? ['state' => 'none', 'value' => 'Refund chosen', 'detail' => 'Re-routing and the refund are alternatives - you picked the refund.']
+                : ['state' => 'included', 'value' => 'Alternative flight', 'detail' => 'The airline must re-route you to your destination at the earliest opportunity, at no extra cost.'];
+        } elseif (in_array($disruption, ['diverted', 'missed_connection'], true)) {
+            $rerouting = ['state' => 'included', 'value' => 'Onward transport', 'detail' => 'The airline must get you to your booked destination at no extra cost.'];
+        } else {
+            $rerouting = ['state' => 'none', 'value' => 'Not applicable', 'detail' => 'Applies when a flight is cancelled, diverted or you are denied boarding.'];
+        }
+
+        if ($disruption === 'downgrade') {
+            $expenses = ['state' => 'none', 'value' => 'Not applicable', 'detail' => 'Expense reimbursement covers waits caused by delays and cancellations.'];
+        } else {
+            $expenses = match ($regulation) {
+                'EU261', 'UK261' => ['state' => 'included', 'value' => 'With receipts', 'detail' => 'Right to care (Article 9): meals and refreshments during the wait, hotel and transfers if an overnight stay was needed - keep receipts.'],
+                'APPR'           => ['state' => 'included', 'value' => 'With receipts', 'detail' => 'Standards of treatment (ss. 8-10): food, drink and, for overnight waits, hotel - when the disruption is within the airline\'s control. Keep receipts.'],
+                default          => ['state' => 'conditional', 'value' => 'Airline policy', 'detail' => 'US rules leave meals and hotels to each airline\'s customer service commitments - keep receipts and check the airline\'s plan.'],
+            };
+        }
+
+        return [
+            array_merge(['key' => 'compensation', 'label' => 'Compensation'], $compensation),
+            array_merge(['key' => 'refund', 'label' => 'Ticket refund'], $refund),
+            array_merge(['key' => 'rerouting', 'label' => 'Re-routing'], $rerouting),
+            array_merge(['key' => 'expenses', 'label' => 'Expenses'], $expenses),
+        ];
     }
 
     private function disruptionKind(EligibilityContext $context): string
     {
+        // Schedule changes and flights returned to their origin never
+        // delivered the booked journey - the law treats both as cancellations.
+        $cancelledLike = ['cancelled', 'schedule_change', 'returned_to_origin'];
+
         return match (true) {
-            $context->cancelled || $context->reportedDisruption === 'cancelled'  => 'cancelled',
+            $context->cancelled || in_array($context->reportedDisruption, $cancelledLike, true) => 'cancelled',
             $context->reportedDisruption === 'denied_boarding'                   => 'denied_boarding',
             $context->reportedDisruption === 'downgrade'                         => 'downgrade',
             $context->reportedDisruption === 'missed_connection'                 => 'missed_connection',

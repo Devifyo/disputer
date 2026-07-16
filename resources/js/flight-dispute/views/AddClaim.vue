@@ -260,6 +260,8 @@ const disruptions = [
     { value: 'denied_boarding', label: 'Denied boarding' },
     { value: 'downgrade', label: 'Downgraded to a lower class' },
     { value: 'missed_connection', label: 'Missed connection' },
+    { value: 'schedule_change', label: 'Schedule changed by the airline' },
+    { value: 'returned_to_origin', label: 'Flight returned to departure airport' },
     { value: 'other', label: 'Other' },
 ];
 

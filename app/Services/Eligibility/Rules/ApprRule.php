@@ -45,7 +45,7 @@ class ApprRule implements RegulationRule
 
         $unverified = 'Reported by the passenger - not verifiable from flight data.';
 
-        if (in_array($context->reportedDisruption, ['delayed', 'cancelled'], true)) {
+        if (in_array($context->reportedDisruption, ['delayed', 'cancelled', 'schedule_change', 'returned_to_origin'], true)) {
             return new EligibilityResult(
                 $this->code(),
                 true,

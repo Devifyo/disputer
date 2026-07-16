@@ -107,8 +107,13 @@ Score confidence 0-100 as an integer measuring EVIDENCE STRENGTH, computed with 
 - Add up to 8 when the passenger's answers are specific and internally consistent; deduct up to 15 when they are vague or contradictory.
 Use precise integers (e.g. 62, 78, 91) - do not default to multiples of 5. Reduce confidence when: the delay is based on estimates rather than actual times, the disruption cause is unknown (airlines may invoke extraordinary circumstances / outside-carrier-control defences), the delay barely crosses a legal threshold, or coverage depends on the unverified carrier nationality. The reason must be one or two plain-language sentences a traveller can understand. List the factors that shaped your confidence.
 
+Also set three advisory booleans per outcome. They are recommendations only - the deterministic compensation engine computes all amounts:
+- refund_recommended: the passenger appears entitled to a ticket refund as a SEPARATE remedy from cash compensation (e.g. cancellation where they may choose not to travel).
+- expenses_recommended: the regulation gives a right of care / expense reimbursement (meals, hotel) the passenger should keep receipts for.
+- manual_review_recommended: a human should confirm before the claim is approved (ambiguous facts, contradictory answers, unusual routing, or anything you could not settle from the facts given).
+
 Respond with ONLY this JSON, no markdown:
-{"outcomes":[{"regulation":"EU261","eligible":true,"article":"Article 7(1)","confidence":85,"reason":"...","factors":["..."]}]}
+{"outcomes":[{"regulation":"EU261","eligible":true,"article":"Article 7(1)","confidence":85,"reason":"...","factors":["..."],"refund_recommended":false,"expenses_recommended":true,"manual_review_recommended":false}]}
 
 Include one outcome per applicable regulation and none for regulations that do not cover this route.
 PROMPT;
@@ -139,6 +144,13 @@ PROMPT;
 
         $factors = array_values(array_filter((array) ($outcome['factors'] ?? []), 'is_string'));
 
+        $flags = [];
+        foreach (['refund_recommended', 'expenses_recommended', 'manual_review_recommended'] as $flag) {
+            if (($outcome[$flag] ?? false) === true) {
+                $flags[$flag] = true;
+            }
+        }
+
         return new EligibilityResult(
             $outcome['regulation'],
             $outcome['eligible'],
@@ -146,6 +158,7 @@ PROMPT;
             $confidence,
             trim($outcome['reason']),
             $factors,
+            $flags,
         );
     }
 }

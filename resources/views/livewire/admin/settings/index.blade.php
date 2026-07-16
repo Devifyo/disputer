@@ -30,6 +30,18 @@
                     <i data-lucide="scale" class="w-4 h-4"></i> Trip Eligibility
                 </button>
 
+                <button @click="activeTab = 'claims'"
+                        :class="activeTab === 'claims' ? 'bg-white shadow-sm border-slate-200 text-primary-600' : 'border-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900'"
+                        class="flex items-center gap-3 px-4 py-2.5 rounded-xl border text-sm font-bold transition-all text-left">
+                    <i data-lucide="hand-coins" class="w-4 h-4"></i> Flight Claims
+                </button>
+
+                <button @click="activeTab = 'website'"
+                        :class="activeTab === 'website' ? 'bg-white shadow-sm border-slate-200 text-primary-600' : 'border-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900'"
+                        class="flex items-center gap-3 px-4 py-2.5 rounded-xl border text-sm font-bold transition-all text-left">
+                    <i data-lucide="globe" class="w-4 h-4"></i> Website
+                </button>
+
                 {{-- <button @click="activeTab = 'system'"
                         :class="activeTab === 'system' ? 'bg-white shadow-sm border-slate-200 text-primary-600' : 'border-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900'"
                         class="flex items-center gap-3 px-4 py-2.5 rounded-xl border text-sm font-bold transition-all text-left mt-4">
@@ -136,6 +148,81 @@
                     <button wire:click="updateEligibility" wire:loading.attr="disabled" class="min-w-[140px] px-6 py-2 bg-slate-900 text-white rounded-xl text-sm font-bold shadow-lg shadow-slate-900/20 hover:bg-slate-800 transition-all disabled:opacity-70 flex justify-center items-center gap-2">
                         <span wire:loading.remove wire:target="updateEligibility">Save Settings</span>
                         <span wire:loading.flex wire:target="updateEligibility" class="items-center gap-2">
+                            <i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Saving...
+                        </span>
+                    </button>
+                </div>
+            </div>
+
+            {{-- TAB: FLIGHT CLAIMS --}}
+            <div x-show="activeTab === 'claims'" x-cloak
+                 x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="opacity-0 translate-y-8"
+                 x-transition:enter-end="opacity-100 translate-y-0"
+                 class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div class="px-6 py-5 border-b border-slate-100">
+                    <h2 class="text-lg font-bold text-slate-800">Flight Claims</h2>
+                    <p class="text-xs text-slate-500 mt-1">Success fee and the trust indicators shown on the claim confirmation screen.</p>
+                </div>
+                <div class="p-6 space-y-6">
+                    <div class="max-w-md">
+                        <label class="block text-[11px] font-bold text-slate-400 uppercase mb-2">Success Fee (%)</label>
+                        <input type="number" min="0" max="50" step="0.5" wire:model="claims_success_fee"
+                               class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:border-primary-500 outline-none">
+                        @error('claims_success_fee') <span class="text-rose-500 text-[10px] font-bold mt-1 block">{{ $message }}</span> @enderror
+                        <p class="text-xs text-slate-500 mt-2">Deducted from the recovered compensation only when a claim succeeds - shown to the customer before they consent.</p>
+                    </div>
+                    <div class="grid sm:grid-cols-2 gap-4 max-w-2xl">
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-400 uppercase mb-2">Successful claims (display)</label>
+                            <input type="text" wire:model="claims_social_won" placeholder="e.g. 12,000+"
+                                   class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:border-primary-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-400 uppercase mb-2">Total recovered (display)</label>
+                            <input type="text" wire:model="claims_social_recovered" placeholder="e.g. EUR 6.4M"
+                                   class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:border-primary-500 outline-none">
+                        </div>
+                    </div>
+                    <p class="text-xs text-slate-500">Customer testimonials on the confirmation screen come from published <strong>Success Stories</strong>.</p>
+                </div>
+                <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+                    <button wire:click="updateClaims" wire:loading.attr="disabled" class="min-w-[140px] px-6 py-2 bg-slate-900 text-white rounded-xl text-sm font-bold shadow-lg shadow-slate-900/20 hover:bg-slate-800 transition-all disabled:opacity-70 flex justify-center items-center gap-2">
+                        <span wire:loading.remove wire:target="updateClaims">Save Settings</span>
+                        <span wire:loading.flex wire:target="updateClaims" class="items-center gap-2">
+                            <i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Saving...
+                        </span>
+                    </button>
+                </div>
+            </div>
+
+            {{-- TAB: WEBSITE CONFIGURATION --}}
+            <div x-show="activeTab === 'website'" x-cloak
+                 x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="opacity-0 translate-y-8"
+                 x-transition:enter-end="opacity-100 translate-y-0"
+                 class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div class="px-6 py-5 border-b border-slate-100">
+                    <h2 class="text-lg font-bold text-slate-800">Website Configuration</h2>
+                    <p class="text-xs text-slate-500 mt-1">Feature toggles for customer-facing sections of the app.</p>
+                </div>
+                <div class="p-6 space-y-6">
+                    <label class="flex items-start gap-4 max-w-xl cursor-pointer select-none">
+                        <input type="checkbox" wire:model="site_plus_promo"
+                               class="mt-1 w-5 h-5 rounded border-slate-300 text-slate-900 focus:ring-slate-900">
+                        <span>
+                            <span class="block text-sm font-bold text-slate-800">Show the Unjamm Plus upgrade on claim confirmation</span>
+                            <span class="block text-xs text-slate-500 mt-1">
+                                The "Choose how we process it" section (Free vs Plus - priority queue, next-business-day payout,
+                                family support). When off, customers go straight from payout to consent without any upsell.
+                            </span>
+                        </span>
+                    </label>
+                </div>
+                <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+                    <button wire:click="updateWebsite" wire:loading.attr="disabled" class="min-w-[140px] px-6 py-2 bg-slate-900 text-white rounded-xl text-sm font-bold shadow-lg shadow-slate-900/20 hover:bg-slate-800 transition-all disabled:opacity-70 flex justify-center items-center gap-2">
+                        <span wire:loading.remove wire:target="updateWebsite">Save Settings</span>
+                        <span wire:loading.flex wire:target="updateWebsite" class="items-center gap-2">
                             <i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Saving...
                         </span>
                     </button>

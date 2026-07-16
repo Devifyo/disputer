@@ -14,3 +14,6 @@ Schedule::command('cases:alert-escalations')->everyMinute()->withoutOverlapping(
 
 // Trip Protection — poll FlightAware for trips that hit a monitoring checkpoint.
 Schedule::command('trips:monitor')->everyFiveMinutes()->withoutOverlapping();
+
+// Nudge claim signers who were invited 48h+ ago and haven't signed.
+Schedule::command('claims:signature-reminders')->dailyAt('09:00');

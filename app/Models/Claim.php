@@ -19,12 +19,14 @@ class Claim extends Model
     public const STATUS_REJECTED            = 'rejected';
 
     public const DISRUPTIONS = [
-        'delayed'           => 'Delayed 3h+',
-        'cancelled'         => 'Cancelled',
-        'denied_boarding'   => 'Denied boarding',
-        'downgrade'         => 'Downgraded',
-        'missed_connection' => 'Missed connection',
-        'other'             => 'Other',
+        'delayed'            => 'Delayed 3h+',
+        'cancelled'          => 'Cancelled',
+        'denied_boarding'    => 'Denied boarding',
+        'downgrade'          => 'Downgraded',
+        'missed_connection'  => 'Missed connection',
+        'schedule_change'    => 'Schedule change',
+        'returned_to_origin' => 'Returned to departure airport',
+        'other'              => 'Other',
     ];
 
     protected $fillable = [
@@ -37,6 +39,7 @@ class Claim extends Model
         'fa_flight_id', 'flight_arrival_delay_minutes', 'reported_arrival_delay_minutes', 'did_not_travel', 'flight_cancelled', 'flight_diverted', 'flight_verified_at', 'flight_snapshot',
         'eligibility_status', 'eligibility_regulation', 'eligibility_article', 'eligibility_confidence',
         'eligibility_reason', 'eligibility_details', 'eligibility_evaluated_at', 'eligibility_decision_source',
+        'confirmed_at', 'consents', 'plus_selected', 'signed_at', 'signature_path', 'poa_path', 'assignment_path',
     ];
 
     protected $casts = [
@@ -53,6 +56,10 @@ class Claim extends Model
         'compensation_explanation' => 'array',
         'eligibility_details'      => 'array',
         'eligibility_evaluated_at' => 'datetime',
+        'confirmed_at'             => 'datetime',
+        'consents'                 => 'array',
+        'plus_selected'            => 'boolean',
+        'signed_at'                => 'datetime',
     ];
 
     protected static function booted(): void
@@ -90,6 +97,19 @@ class Claim extends Model
         return $this->belongsTo(ItineraryPassenger::class, 'itinerary_passenger_id');
     }
 
+    public function signers(): HasMany
+    {
+        return $this->hasMany(ClaimSigner::class);
+    }
+
+    /** All authorisations collected - the claim may be filed. */
+    public function signaturesComplete(): bool
+    {
+        $signers = $this->relationLoaded('signers') ? $this->signers : $this->signers()->get();
+
+        return $signers->isNotEmpty() && $signers->every(fn (ClaimSigner $s) => $s->status === ClaimSigner::STATUS_SIGNED);
+    }
+
     public function events(): HasMany
     {
         // Open (pending) steps always render last - they are the current state.
@@ -118,7 +138,7 @@ class Claim extends Model
     public function recordEvent(string $label, string $status = 'done', $when = null, int $sort = 0): ClaimEvent
     {
         return $this->events()->create([
-            'label'       => $label,
+            'label'       => Str::limit($label, 250),
             'status'      => $status,
             'happened_at' => $when ?: now(),
             'sort'        => $sort,
@@ -129,6 +149,11 @@ class Claim extends Model
      * Create a draft Claim for every passenger on the itinerary that does not
      * already have one, copying the flight snapshot onto the claim.
      */
+    /**
+     * One master claim per booking: every passenger on the itinerary is
+     * covered by the same claim file, with per-passenger compensation and
+     * booking totals presented on top of it.
+     */
     public static function ensureForItinerary(Itinerary $itinerary): void
     {
         // Itineraries registered to protect a future trip are not disputes.
@@ -136,50 +161,57 @@ class Claim extends Model
             return;
         }
 
-        $itinerary->load('passengers.claim', 'flights');
+        $itinerary->load('passengers', 'flights');
+
+        if (static::where('itinerary_id', $itinerary->id)->exists()) {
+            return;
+        }
 
         $first = $itinerary->flights->first();
         $last  = $itinerary->flights->last();
+        $lead  = $itinerary->passengers->first();
 
-        foreach ($itinerary->passengers as $passenger) {
-            if ($passenger->claim) {
-                continue;
-            }
-
-            // Skip if the same passenger + flight already has a claim (e.g. the
-            // same ticket re-uploaded as a different file, or a photo vs PDF).
-            $duplicate = self::findDuplicate($itinerary->user_id, [
-                'passenger_name'    => $passenger->full_name,
-                'flight_date'       => $first?->departure_at?->toDateString(),
-                'departure_airport' => $first?->departure_airport,
-                'arrival_airport'   => $last?->arrival_airport,
-                'booking_reference' => $itinerary->booking_reference,
-            ]);
-            if ($duplicate) {
-                continue;
-            }
-
-            $claim = static::create([
-                'user_id'                => $itinerary->user_id,
-                'itinerary_id'           => $itinerary->id,
-                'itinerary_passenger_id' => $passenger->id,
-                'status'                 => self::STATUS_DRAFT,
-                'departure_airport'      => $first?->departure_airport,
-                'arrival_airport'        => $last?->arrival_airport,
-                'airline'                => $itinerary->primary_airline ?: $first?->airline,
-                'flight_number'          => $first?->flight_number,
-                'flight_date'            => $first?->departure_at?->toDateString(),
-                'passenger_name'         => $passenger->full_name,
-                'booking_reference'      => $itinerary->booking_reference,
-            ]);
-
-            $claim->recordEvent('Your claim case has been received', 'done', $claim->created_at);
-            $claim->recordEvent('Claim under review', 'pending', $claim->created_at, 1);
-
-            // Verify the flight + evaluate eligibility + estimate compensation
-            // (covers both the upload funnel and inbound claims@ emails).
-            EvaluateClaim::dispatch($claim);
+        // Skip if the same booking + flight already has a claim (e.g. the
+        // same ticket re-uploaded as a different file, or a photo vs PDF).
+        $duplicate = self::findDuplicate($itinerary->user_id, [
+            'passenger_name'    => $lead?->full_name,
+            'flight_date'       => $first?->departure_at?->toDateString(),
+            'departure_airport' => $first?->departure_airport,
+            'arrival_airport'   => $last?->arrival_airport,
+            'booking_reference' => $itinerary->booking_reference,
+        ]);
+        if ($duplicate) {
+            return;
         }
+
+        $claim = static::create([
+            'user_id'                => $itinerary->user_id,
+            'itinerary_id'           => $itinerary->id,
+            'itinerary_passenger_id' => $lead?->id,
+            'status'                 => self::STATUS_DRAFT,
+            'departure_airport'      => $first?->departure_airport,
+            'arrival_airport'        => $last?->arrival_airport,
+            'airline'                => $itinerary->primary_airline ?: $first?->airline,
+            'flight_number'          => $first?->flight_number,
+            'flight_date'            => $first?->departure_at?->toDateString(),
+            'passenger_name'         => $lead?->full_name,
+            'booking_reference'      => $itinerary->booking_reference,
+        ]);
+
+        $claim->recordEvent('Your claim case has been received', 'done', $claim->created_at);
+        $claim->recordEvent('Claim under review', 'pending', $claim->created_at, 1);
+
+        // Verify the flight + evaluate eligibility + estimate compensation
+        // (covers both the upload funnel and inbound claims@ emails).
+        EvaluateClaim::dispatch($claim);
+    }
+
+    /** Everyone the claim covers - all booking passengers, or the named one. */
+    public function passengerNames(): array
+    {
+        $names = $this->itinerary?->passengers?->pluck('full_name')->filter()->values()->all() ?: [];
+
+        return $names ?: array_values(array_filter([$this->passenger_name]));
     }
 
     /**

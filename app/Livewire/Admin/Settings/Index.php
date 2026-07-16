@@ -26,12 +26,46 @@ class Index extends Component
     // Trip Eligibility — engine verdicts below this confidence are auto-rejected.
     public $eligibility_confidence_threshold;
 
+    // Flight Claims — success fee + confirmation screen trust indicators.
+    public $claims_success_fee;
+    public $claims_social_won;
+    public $claims_social_recovered;
+
+    // Website configuration — feature toggles.
+    public $site_plus_promo;
+
     public function mount()
     {
         $admin = auth()->user();
         $this->name = $admin->name;
         $this->email = $admin->email;
         $this->eligibility_confidence_threshold = EligibilityEngine::confidenceThreshold();
+        $this->claims_success_fee = Setting::get('claims.success_fee_percent', 25);
+        $this->claims_social_won = Setting::get('claims.social_claims_won', '12,000+');
+        $this->claims_social_recovered = Setting::get('claims.social_recovered', 'EUR 6.4M');
+        $this->site_plus_promo = (bool) Setting::get('app.plus_promo_enabled', true);
+    }
+
+    public function updateWebsite()
+    {
+        Setting::set('app.plus_promo_enabled', $this->site_plus_promo ? 1 : 0);
+
+        $this->dispatch('toast', ['type' => 'success', 'message' => 'Website configuration saved.']);
+    }
+
+    public function updateClaims()
+    {
+        $this->validate([
+            'claims_success_fee'      => 'required|numeric|min:0|max:50',
+            'claims_social_won'       => 'required|string|max:40',
+            'claims_social_recovered' => 'required|string|max:40',
+        ], [], ['claims_success_fee' => 'success fee']);
+
+        Setting::set('claims.success_fee_percent', $this->claims_success_fee + 0);
+        Setting::set('claims.social_claims_won', $this->claims_social_won);
+        Setting::set('claims.social_recovered', $this->claims_social_recovered);
+
+        $this->dispatch('toast', ['type' => 'success', 'message' => 'Claim settings saved.']);
     }
 
     public function updateEligibility()

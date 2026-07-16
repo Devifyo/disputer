@@ -246,20 +246,22 @@ class TripMonitoringApiTest extends TestCase
 
     // ── Trip → claim handoff ────────────────────────────────
 
-    public function test_eligible_trip_creates_one_claim_per_passenger(): void
+    public function test_eligible_trip_creates_one_master_claim_for_the_whole_booking(): void
     {
         $trip = $this->eligibleTrip(passengers: ['Tenzin Hagyal', 'Pema Hagyal']);
 
         $this->actingAs($this->user)
             ->postJson(route('user.itineraries.api.trips.claim', $trip))
             ->assertCreated()
-            ->assertJsonCount(2, 'data');
+            ->assertJsonCount(1, 'data');
 
         $claims = $trip->claims()->get();
-        $this->assertCount(2, $claims);
-        $this->assertEqualsCanonicalizing(['Tenzin Hagyal', 'Pema Hagyal'], $claims->pluck('passenger_name')->all());
+        $this->assertCount(1, $claims);
+        $this->assertSame('Tenzin Hagyal', $claims->first()->passenger_name);
         $this->assertSame('delayed', $claims->first()->disruption_type);
         $this->assertSame('YEG', $claims->first()->departure_airport);
+        // The stored trip verdict carried over - the engine was not re-run.
+        $this->assertSame($trip->id, $claims->first()->eligibility_details['inherited_from_trip'] ?? null);
         $this->assertTrue($trip->events()->where('type', 'claim_created')->exists());
 
         // The trip leaves the action-needed state once its claim is filed.

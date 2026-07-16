@@ -152,6 +152,22 @@ abstract class EuStyleRule implements RegulationRule
                 'A missed connection on a single booking entitles passengers to compensation when arrival at the final destination is 3+ hours late.',
                 [...$factors, 'Arrival time at the final destination is not verified yet.'],
             ),
+            'schedule_change' => new EligibilityResult(
+                $this->code(),
+                true,
+                'Articles 5 & 7',
+                $score - 30,
+                'A significant schedule change on short notice is treated as a cancellation - passengers are entitled to re-routing or a refund, and to compensation when notified under 14 days before departure.',
+                [...$factors, $unverified, 'How much notice the airline gave is not verified yet.'],
+            ),
+            'returned_to_origin' => new EligibilityResult(
+                $this->code(),
+                true,
+                'Articles 5 & 7',
+                $score - 25,
+                'A flight that took off but returned to its departure airport never delivered the journey - it is treated as a cancellation, entitling passengers to compensation plus re-routing or a refund.',
+                [...$factors, $unverified],
+            ),
             'other' => new EligibilityResult(
                 $this->code(),
                 false,

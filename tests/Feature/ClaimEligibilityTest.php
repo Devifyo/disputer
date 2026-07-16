@@ -9,9 +9,11 @@ use App\Services\Eligibility\ClaimEligibilityService;
 use App\Services\Eligibility\CompensationCalculator;
 use App\Services\Eligibility\EligibilityContext;
 use App\Services\Eligibility\EligibilityResult;
+use App\Mail\GenericEmail;
 use Spatie\Permission\Models\Role;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
@@ -111,6 +113,7 @@ class ClaimEligibilityTest extends TestCase
 
     public function test_verified_long_delay_makes_the_claim_eligible_with_compensation(): void
     {
+        Mail::fake();
         $this->fakeFlightAndAirports(arrivalDelaySeconds: 260 * 60);
 
         $claim = $this->claim(['disruption_type' => 'delayed']);
@@ -123,6 +126,10 @@ class ClaimEligibilityTest extends TestCase
         $this->assertSame(600.0, (float) $claim->compensation_amount);
         $this->assertSame('EUR', $claim->compensation_currency);
         $this->assertTrue($claim->events()->where('label', 'like', '%Eligible under EU261%')->exists());
+
+        // The customer hears about it: "you're owed X - claim it now".
+        Mail::assertSent(GenericEmail::class, fn (GenericEmail $mail) =>
+            str_contains($mail->htmlBody, 'EUR 600.00') && str_contains($mail->htmlBody, 'Claim it now'));
     }
 
     public function test_unverifiable_old_flight_is_judged_on_declared_facts_and_reviewed(): void
