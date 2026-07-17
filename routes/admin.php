@@ -11,6 +11,9 @@ use App\Livewire\Admin\SuccessStories\Index as SuccessStoriesIndex;
 use App\Livewire\Admin\Plans\Index as AdminPlans;
 use App\Livewire\Admin\Support\Index as SupportIndex;
 use App\Livewire\Admin\TripReviews\Index as TripReviewsIndex;
+use App\Livewire\Admin\FlightClaims\Trips as FlightClaimsTrips;
+use App\Livewire\Admin\FlightClaims\Claims as FlightClaimsClaims;
+use App\Livewire\Admin\FlightClaims\ClaimDetail as FlightClaimsClaimDetail;
 use App\Livewire\Admin\CmsPages\Index as CmsPagesIndex;
 
 Route::prefix('admin')->name('admin.')->middleware(['auth', 'role_access:admin'])->group(function () {
@@ -25,6 +28,22 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role_access:admin']
     Route::get('/impersonate-case/{case}', [DashboardController::class, 'impersonateAndViewCase'])->name('impersonate.case');
     Route::get('/support', SupportIndex::class)->name('support.index');
     Route::get('/trip-reviews', TripReviewsIndex::class)->name('trip-reviews.index');
+    Route::get('/flight-claims/trips', FlightClaimsTrips::class)->name('flight-claims.trips');
+    Route::get('/flight-claims/claims', FlightClaimsClaims::class)->name('flight-claims.claims');
+    Route::get('/flight-claims/claims/{claim}', FlightClaimsClaimDetail::class)->whereNumber('claim')->name('flight-claims.claims.show');
+    Route::get('/flight-claims/claims/{claim}/document/{key}', function (\App\Models\Claim $claim, string $key) {
+        $path = match (true) {
+            $key === 'assignment'             => $claim->assignment_path,
+            $key === 'itinerary'              => $claim->itinerary?->file_path,
+            str_starts_with($key, 'poa-')     => $claim->signers()->find((int) substr($key, 4))?->poa_path,
+            str_starts_with($key, 'doc-')     => $claim->documents[(int) substr($key, 4)]['path'] ?? null,
+            str_starts_with($key, 'extra-')   => $claim->airline_letter['extra'][(int) substr($key, 6)]['path'] ?? null,
+            default                           => null,
+        };
+        abort_unless($path && \Illuminate\Support\Facades\Storage::disk('local')->exists($path), 404);
+
+        return \Illuminate\Support\Facades\Storage::disk('local')->response($path);
+    })->whereNumber('claim')->name('flight-claims.claims.document');
     Route::get('/trip-reviews/{trip}/document/{index}', function (\App\Models\Trip $trip, int $index) {
         $doc = $trip->report_details['documents'][$index] ?? null;
         abort_unless($doc && \Illuminate\Support\Facades\Storage::disk('local')->exists($doc['path']), 404);

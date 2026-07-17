@@ -94,14 +94,48 @@
                 Support Inbox
             </a>
 
-            @php $pendingReviews = \App\Models\Trip::where('eligibility_status', 'review')->count(); @endphp
-            <a href="{{ route('admin.trip-reviews.index') }}" wire:navigate class="{{ $navClass('admin.trip-reviews.*') }} group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200" @click="mobileSidebarOpen = false">
-                <i data-lucide="scale" class="w-4.5 h-4.5 transition-colors {{ $iconClass('admin.trip-reviews.*') }}"></i>
-                Trip Reviews
-                @if ($pendingReviews)
-                    <span class="ml-auto min-w-[20px] h-5 px-1.5 rounded-full bg-rose-500 text-white text-[11px] font-black flex items-center justify-center">{{ $pendingReviews }}</span>
-                @endif
-            </a>
+            {{-- Flight Claims Management: collapsible group --}}
+            @php
+                $pendingReviews     = \App\Models\Trip::where('eligibility_status', 'review')->count();
+                $pendingClaims      = \App\Models\Claim::where('status', \App\Models\Claim::STATUS_PENDING_ELIGIBILITY)->count();
+                $flightClaimsBadge  = $pendingReviews + $pendingClaims;
+                $flightClaimsActive = request()->routeIs('admin.trip-reviews.*') || request()->routeIs('admin.flight-claims.*');
+                $subClass = fn ($route) => request()->routeIs($route)
+                    ? 'bg-primary-500/10 text-primary-400 font-semibold'
+                    : 'hover:bg-white/5 hover:text-slate-200 text-slate-400 font-medium';
+            @endphp
+            <div x-data="{ open: {{ $flightClaimsActive ? 'true' : 'false' }} }" class="space-y-1">
+                <button @click="open = !open"
+                        class="{{ $flightClaimsActive ? 'text-slate-200' : 'text-slate-400' }} hover:bg-white/5 hover:text-slate-200 font-medium group flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm transition-all duration-200">
+                    <i data-lucide="plane" class="w-4.5 h-4.5 transition-colors {{ $flightClaimsActive ? 'text-primary-400' : 'text-slate-500 group-hover:text-slate-300' }}"></i>
+                    Flight Claims
+                    @if ($flightClaimsBadge)
+                        <span class="ml-auto min-w-[20px] h-5 px-1.5 rounded-full bg-rose-500 text-white text-[11px] font-black flex items-center justify-center">{{ $flightClaimsBadge }}</span>
+                    @endif
+                    <i data-lucide="chevron-down" class="w-4 h-4 transition-transform duration-200 {{ $flightClaimsBadge ? '' : 'ml-auto' }}" :class="open ? 'rotate-180' : ''"></i>
+                </button>
+
+                <div x-show="open" x-collapse x-cloak class="pl-4 space-y-1">
+                    <a href="{{ route('admin.trip-reviews.index') }}" wire:navigate class="{{ $subClass('admin.trip-reviews.*') }} group flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all duration-200 border-l border-white/10" @click="mobileSidebarOpen = false">
+                        <i data-lucide="scale" class="w-4 h-4 {{ $iconClass('admin.trip-reviews.*') }}"></i>
+                        Trip Reviews
+                        @if ($pendingReviews)
+                            <span class="ml-auto min-w-[18px] h-4.5 px-1.5 rounded-full bg-rose-500/90 text-white text-[10px] font-black flex items-center justify-center">{{ $pendingReviews }}</span>
+                        @endif
+                    </a>
+                    <a href="{{ route('admin.flight-claims.trips') }}" wire:navigate class="{{ $subClass('admin.flight-claims.trips') }} group flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all duration-200 border-l border-white/10" @click="mobileSidebarOpen = false">
+                        <i data-lucide="shield-check" class="w-4 h-4 {{ $iconClass('admin.flight-claims.trips') }}"></i>
+                        Protected Trips
+                    </a>
+                    <a href="{{ route('admin.flight-claims.claims') }}" wire:navigate class="{{ $subClass('admin.flight-claims.claims') }} group flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all duration-200 border-l border-white/10" @click="mobileSidebarOpen = false">
+                        <i data-lucide="hand-coins" class="w-4 h-4 {{ $iconClass('admin.flight-claims.claims') }}"></i>
+                        Claims
+                        @if ($pendingClaims)
+                            <span class="ml-auto min-w-[18px] h-4.5 px-1.5 rounded-full bg-rose-500/90 text-white text-[10px] font-black flex items-center justify-center">{{ $pendingClaims }}</span>
+                        @endif
+                    </a>
+                </div>
+            </div>
             <div class="px-3 mt-6 mb-2 text-[10px] uppercase tracking-wider font-bold text-slate-600">Institutes</div>
 
             <a href="{{ route('admin.institutions.index') }}" wire:navigate class="{{ $navClass('admin.institutions.*') }} group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200" @click="mobileSidebarOpen = false">

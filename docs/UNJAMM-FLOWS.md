@@ -136,8 +136,39 @@ senders also create accounts+claims (no sender filter yet).
 - Settings -> Flight Claims: success fee %, social proof stats.
 - Settings -> Website: feature toggles (Setting `app.plus_promo_enabled` -
   show/hide the Unjamm Plus upsell on claim confirmation).
+- Sidebar "Flight Claims" group (collapsible submenu): Trip Reviews (pending
+  badge), Protected Trips (admin.flight-claims.trips - all monitored trips,
+  search + status filters, read-only detail panel) and Claims
+  (admin.flight-claims.claims - all claims with workflow stage incl.
+  signature progress).
+- Admin claim detail page (admin.flight-claims.claims.show): compact header +
+  context rail (verdict, FlightAware tracking snapshot with sched/actual
+  times + delays + gates, payout, passengers & signatures w/ POA preview,
+  timeline) and the outbound claim email composer - AI-drafted via
+  ClaimLetterService: Gemini reads the FULL claim record (tracking snapshot,
+  verdict, entitlements, signatures, consent) plus every stored document as
+  multimodal inline_data (ticket, customer evidence, admin extras; max 6
+  files / 8MB each) and writes a jurisdiction-specific demand letter
+  (CA: APPR + s.19(4) 30 days + CTA; US: DOT Parts 250/260 + OACP;
+  EU: 261/2004 + 14 days + NEB; UK: UK261 + CAA/ADR). Deterministic
+  jurisdiction-aware template fallback. Fields To/Subject/Body persisted on
+  claims.airline_letter, attachments listed
+  (signed POAs, Assignment, ticket, supporting docs - streamable via
+  admin.flight-claims.claims.document). Attachments are selectable
+  (checkboxes, default = all; stored in airline_letter.attachments) and the
+  admin can upload extra external documents (airline_letter.extra, removable).
+  "Send to airline" is intentionally disabled until the outbound
+  mailbox/sending flow is defined.
 - Trip Reviews queue: Review|All tabs, approve/reject (reason required,
   emailed), decision recorded (who + source ai/rules/ai+rules/admin).
+- Claim review decisions live on the admin claim detail page: claims in
+  pending_eligibility_review show a "Your decision is needed" card -
+  Approve (prices compensation, closes the review event, sends the
+  "you're owed" email) or Reject (reason required min 10 chars, compensation
+  cleared, `claim-eligibility-rejected` email). Decision recorded in
+  eligibility_details (decided_by_admin, decided_at) + decision_source=admin.
+  Sidebar: Claims submenu badge = claims awaiting review; group badge =
+  trips + claims combined.
 - Templates: all customer emails are admin-editable EmailTemplates.
 
 ## 8. Key conventions

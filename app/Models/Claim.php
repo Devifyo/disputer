@@ -40,6 +40,7 @@ class Claim extends Model
         'eligibility_status', 'eligibility_regulation', 'eligibility_article', 'eligibility_confidence',
         'eligibility_reason', 'eligibility_details', 'eligibility_evaluated_at', 'eligibility_decision_source',
         'confirmed_at', 'consents', 'plus_selected', 'signed_at', 'signature_path', 'poa_path', 'assignment_path',
+        'airline_letter',
     ];
 
     protected $casts = [
@@ -58,6 +59,7 @@ class Claim extends Model
         'eligibility_evaluated_at' => 'datetime',
         'confirmed_at'             => 'datetime',
         'consents'                 => 'array',
+        'airline_letter'           => 'array',
         'plus_selected'            => 'boolean',
         'signed_at'                => 'datetime',
     ];

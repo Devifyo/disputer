@@ -60,7 +60,7 @@ class ClaimEligibilityService
     }
 
     /** "You're owed X - claim it now" email, sent once when a claim turns eligible. */
-    private function notifyEligible(Claim $claim, ?array $compensation): void
+    public function notifyEligible(Claim $claim, ?array $compensation): void
     {
         $email = $claim->contact_email ?: $claim->user?->email;
         if (!$email) {

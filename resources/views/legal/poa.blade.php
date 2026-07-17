@@ -14,20 +14,20 @@
 <head>
 <meta charset="utf-8">
 <style>
-    body { font-family: DejaVu Sans, sans-serif; font-size: 12px; color: #1e293b; line-height: 1.6; margin: 40px 50px; }
+    body { font-family: DejaVu Sans, sans-serif; font-size: 12px; color: #1e293b; line-height: 1.5; margin: 28px 44px; }
     h1 { font-size: 19px; margin: 0 0 2px; }
     .muted { color: #64748b; font-size: 11px; }
     .box { border: 1px solid #cbd5e1; border-radius: 6px; padding: 12px 16px; margin: 16px 0; }
     table { width: 100%; border-collapse: collapse; }
     td { padding: 3px 0; vertical-align: top; }
     td.k { color: #64748b; width: 170px; }
-    .sig { margin-top: 40px; }
+    .sig { margin-top: 24px; }
     .sig-box { border: 1px solid #cbd5e1; border-radius: 8px; background: #ffffff; padding: 14px 18px; margin-top: 10px; }
     .sig-label { font-size: 13px; font-weight: bold; color: #0f172a; }
     .sig-area { height: 90px; margin-top: 8px; border-bottom: 2px solid #1e293b; }
     .sig-area img { max-height: 84px; }
-    ol li { margin-bottom: 6px; }
-    .footer { margin-top: 36px; padding-top: 10px; border-top: 1px solid #e2e8f0; font-size: 10px; color: #94a3b8; }
+    ol li { margin-bottom: 4px; }
+    .footer { margin-top: 20px; padding-top: 8px; border-top: 1px solid #e2e8f0; font-size: 10px; color: #94a3b8; }
 </style>
 </head>
 <body>
