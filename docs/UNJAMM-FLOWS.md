@@ -199,6 +199,20 @@ the claim's Compensation tab (regulation, reason, flight info, NO amounts).
   timeline; airline_letter, filing, drafts and audit logs are excluded from
   the customer API (regression-tested).
 
+## 5d. Landing page live disruption board
+
+- The "We're watching, right now" board serves REAL disrupted flights:
+  LiveDisruptionFeedService scans FlightAware departures at 6 hubs
+  (LHR/CDG/FRA/AMS/YYZ/JFK, last 12h, 2 pages each), keeps cancellations and
+  3h+ delays, prices the "You get" column by regime (US: cancellations only,
+  REFUND). Endpoint GET /api/live-disruptions (throttled, 5-min browser
+  cache); the landing page swaps rows into the flip animation, falling back
+  to a static sample pool.
+- Cost control: ONE scan per hour (cache TTL 3590s), warmed by the scheduler
+  (warm-live-disruptions, hourly) so visitors never trigger FlightAware
+  calls; last good scan kept as a permanent stale backup; quiet windows are
+  padded with samples so the board never looks empty.
+
 ## 6. Inbound email claims
 
 customer -> claims@unjamm.com (Hostinger MX) -> forwarder ->

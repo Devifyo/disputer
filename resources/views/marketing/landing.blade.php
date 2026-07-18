@@ -453,7 +453,7 @@
             { key: 'status', w: '168px', len: 10, align: 'left', color: 'status' },
             { key: 'pay',    w: '120px',  len: 7, align: 'right', color: 'var(--accent)' },
         ];
-        var statusColor = { 'DELAYED 3H': '#FFC53D', 'DELAYED 4H': '#FFC53D', 'CANCELLED': '#FF6B6B', 'DENIED BRD': '#FF9F45', 'BAG DELAY': '#7CC5FF', 'DIVERTED': '#FFC53D' };
+        var statusColor = { 'DELAYED 3H': '#FFC53D', 'DELAYED 4H': '#FFC53D', 'DELAYED 5H': '#FFC53D', 'DELAYED 6H': '#FFC53D', 'DELAYED 7H': '#FFC53D', 'DELAYED 8H': '#FFC53D', 'DELAYED 9H': '#FFC53D', 'CANCELLED': '#FF6B6B', 'DENIED BRD': '#FF9F45', 'BAG DELAY': '#7CC5FF', 'DIVERTED': '#FFC53D' };
         var pool = [
             { flight: 'BA 249', route: 'LHR -> GRU', status: 'DELAYED 4H', pay: '600EUR' },
             { flight: 'AC 856', route: 'YYZ -> LHR', status: 'CANCELLED',  pay: '1000CAD' },
@@ -468,6 +468,19 @@
             { flight: 'DL 084', route: 'JFK -> CDG', status: 'BAG DELAY',  pay: '2350CAD' },
             { flight: 'BA 117', route: 'LHR -> JFK', status: 'DENIED BRD', pay: '520GBP' },
         ];
+
+        /* Real disruptions, scanned via FlightAware and cached server-side -
+           swapped into the rotation in place; the samples above are only the
+           fallback while loading or when the feed is unavailable. */
+        fetch('{{ route('live-disruptions') }}')
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+                if (res && res.data && res.data.length >= 4) {
+                    pool.length = 0;
+                    res.data.forEach(function (row) { pool.push(row); });
+                }
+            })
+            .catch(function () {});
         var CH = ' ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789->€£$';
         var pad = function (s, n, align) {
             s = (s || '').toUpperCase().slice(0, n);

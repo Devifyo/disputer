@@ -7,6 +7,8 @@ use App\Http\Controllers\{MarketingController, SupportController};
 use App\Http\Controllers\{CheckoutController, StripeWebhookController};
 // 1. Put the root route OUTSIDE the auth middleware
 Route::get('/', [MarketingController::class, 'index'])->name('home');
+Route::get('/api/live-disruptions', [MarketingController::class, 'liveDisruptions'])
+    ->middleware('throttle:30,1')->name('live-disruptions');
 Route::get('/support', [SupportController::class, 'index'])->name('support');
 Route::post('/support', [SupportController::class, 'submit'])->name('support.submit');
 

@@ -1,8 +1,9 @@
 <?php
 
+use App\Jobs\CheckImapReplies;
+use App\Services\Marketing\LiveDisruptionFeedService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
-use App\Jobs\CheckImapReplies;
 use Illuminate\Support\Facades\Schedule;
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -20,3 +21,8 @@ Schedule::command('claims:signature-reminders')->dailyAt('09:00');
 
 // Claim workflow deadlines (e.g. 30-day airline response timer).
 Schedule::command('claims:evaluate-workflow-timers')->dailyAt('08:00');
+
+// Keep the landing page's live disruption board warm - visitors never
+// trigger a FlightAware scan themselves.
+Schedule::call(fn () => app(LiveDisruptionFeedService::class)->rows())
+    ->hourly()->name('warm-live-disruptions')->withoutOverlapping();
