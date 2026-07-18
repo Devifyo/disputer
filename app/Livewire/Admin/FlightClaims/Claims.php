@@ -3,6 +3,7 @@
 namespace App\Livewire\Admin\FlightClaims;
 
 use App\Models\Claim;
+use App\Models\ClaimLifecycleStage;
 use App\Models\ClaimSigner;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -22,9 +23,14 @@ class Claims extends Component
     public const FILTERS = [
         'all'        => 'All',
         'review'     => 'In review',
-        'eligible'   => 'Eligible',
         'signatures' => 'Awaiting signatures',
         'ready'      => 'Ready to file',
+        'filed'      => 'Awaiting airline',
+        'responded'  => 'Responded',
+        'escalation' => 'Escalation',
+        'paid'       => 'Paid',
+        'denied'     => 'Denied',
+        'closed'     => 'Closed',
         'rejected'   => 'Not eligible',
     ];
 
@@ -39,20 +45,34 @@ class Claims extends Component
         $this->resetPage();
     }
 
-    /** The customer-facing workflow stage, for the Stage column. */
+    /** Stage pill: eligibility overlays first, then the configured lifecycle stage. */
     public static function stage(Claim $claim): array
     {
-        return match (true) {
-            $claim->status === Claim::STATUS_REJECTED            => ['Not eligible', 'bg-rose-50 text-rose-700 ring-rose-200'],
-            $claim->status === Claim::STATUS_PENDING_ELIGIBILITY => ['Team review', 'bg-amber-50 text-amber-700 ring-amber-200'],
-            $claim->status !== Claim::STATUS_ELIGIBLE            => ['Evaluating', 'bg-slate-50 text-slate-600 ring-slate-200'],
-            $claim->signed_at !== null                           => ['Ready to file', 'bg-emerald-50 text-emerald-700 ring-emerald-200'],
-            $claim->confirmed_at !== null                        => [
+        if ($claim->status === Claim::STATUS_REJECTED) {
+            return ['Not eligible', 'bg-rose-50 text-rose-700 ring-rose-200'];
+        }
+        if ($claim->status === Claim::STATUS_PENDING_ELIGIBILITY) {
+            return ['Team review', 'bg-amber-50 text-amber-700 ring-amber-200'];
+        }
+        if ($claim->status !== Claim::STATUS_ELIGIBLE) {
+            return ['Evaluating', 'bg-slate-50 text-slate-600 ring-slate-200'];
+        }
+
+        if ($claim->workflow_state === 'awaiting_signature') {
+            return [
                 sprintf('Signatures %d/%d', $claim->signers->where('status', ClaimSigner::STATUS_SIGNED)->count(), max(1, $claim->signers->count())),
                 'bg-violet-50 text-violet-700 ring-violet-200',
-            ],
-            default                                              => ['Awaiting confirmation', 'bg-blue-50 text-blue-700 ring-blue-200'],
-        };
+            ];
+        }
+        if ($claim->workflow_state === 'draft') {
+            return ['Awaiting confirmation', 'bg-blue-50 text-blue-700 ring-blue-200'];
+        }
+
+        $stage = ClaimLifecycleStage::byKey($claim->workflow_state);
+
+        return $stage
+            ? [$stage->name, $stage->badgeClasses()]
+            : [ucfirst(str_replace('_', ' ', $claim->workflow_state)), 'bg-slate-50 text-slate-600 ring-slate-200'];
     }
 
     public function render()
@@ -72,9 +92,14 @@ class Claims extends Component
             })
             ->when($this->status !== 'all', fn ($q) => match ($this->status) {
                 'review'     => $q->where('status', Claim::STATUS_PENDING_ELIGIBILITY),
-                'eligible'   => $q->where('status', Claim::STATUS_ELIGIBLE),
-                'signatures' => $q->whereNotNull('confirmed_at')->whereNull('signed_at'),
-                'ready'      => $q->whereNotNull('signed_at'),
+                'signatures' => $q->where('workflow_state', 'awaiting_signature'),
+                'ready'      => $q->where('workflow_state', 'ready_to_file'),
+                'filed'      => $q->whereIn('workflow_state', ['filed', 'awaiting_response']),
+                'responded'  => $q->where('workflow_state', 'responded'),
+                'escalation' => $q->whereIn('workflow_state', ['awaiting_escalation', 'escalated', 'litigation']),
+                'paid'       => $q->where('workflow_state', 'paid'),
+                'denied'     => $q->where('workflow_state', 'denied'),
+                'closed'     => $q->where('workflow_state', 'closed'),
                 'rejected'   => $q->where('status', Claim::STATUS_REJECTED),
                 default      => $q,
             })

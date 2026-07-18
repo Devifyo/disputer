@@ -190,13 +190,19 @@ class ClaimSignatureService
     {
         $claim->recordEvent('Authorisation signed by ' . $signer->coversLabel(), 'done', now(), 2);
 
+        $workflow = app(ClaimWorkflowService::class);
+        $workflow->audit($claim, 'Authorisation signed: ' . $signer->coversLabel(), 'customer');
+
         if (!$claim->signaturesComplete() || $claim->signed_at) {
             return;
         }
 
         $claim->forceFill(['signed_at' => now()])->save();
         $claim->recordEvent('All authorisations signed - your claim is unlocked for filing', 'done', now(), 2);
-        $claim->recordEvent('Claim submitted - waiting for the airline\'s response', 'pending', now(), 3);
+
+        if ($workflow->can($claim, 'ready_to_file')) {
+            $workflow->transition($claim, 'ready_to_file', 'system', null, 'All required signatures completed.');
+        }
     }
 
     /**

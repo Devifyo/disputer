@@ -8,6 +8,7 @@ use App\Models\Claim;
 use App\Models\Itinerary;
 use App\Models\Trip;
 use App\Models\TripEvent;
+use App\Services\Claims\ClaimWorkflowService;
 use App\Services\Eligibility\ClaimEligibilityService;
 use App\Services\Eligibility\EligibilityEngine;
 use App\Services\FlightAwareService;
@@ -304,6 +305,10 @@ class TripApiController extends Controller
         ]);
 
         $claim->recordEvent('Claim created from your protected trip', 'done', now());
+        app(ClaimWorkflowService::class)->audit($claim, sprintf(
+            'Claim created from protected trip #%d - verdict inherited, %d passenger(s)',
+            $trip->id, count($passengers)
+        ), 'customer');
         $claim->recordEvent(
             $trip->eligibility_decision_source === 'admin'
                 ? sprintf('Eligibility confirmed by our team under %s (%s)', $trip->eligibility_regulation, $trip->eligibility_article)

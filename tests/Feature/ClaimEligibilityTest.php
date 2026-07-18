@@ -130,6 +130,9 @@ class ClaimEligibilityTest extends TestCase
         // The customer hears about it: "you're owed X - claim it now".
         Mail::assertSent(GenericEmail::class, fn (GenericEmail $mail) =>
             str_contains($mail->htmlBody, 'EUR 600.00') && str_contains($mail->htmlBody, 'Claim it now'));
+
+        // The evaluation lands in the immutable audit trail.
+        $this->assertTrue($claim->auditLogs()->where('via', 'system')->where('action', 'like', 'Eligibility evaluated: eligible under EU261%')->exists());
     }
 
     public function test_unverifiable_old_flight_is_judged_on_declared_facts_and_reviewed(): void

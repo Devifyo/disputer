@@ -11,6 +11,7 @@ use App\Models\Setting;
 use App\Models\SuccessStory;
 use App\Services\Claims\ClaimLegalDocumentService;
 use App\Services\Claims\ClaimSignatureService;
+use App\Services\Claims\ClaimWorkflowService;
 use App\Services\Eligibility\ClaimEligibilityService;
 use App\Services\FlightAwareService;
 use Illuminate\Http\Request;
@@ -89,6 +90,7 @@ class ClaimApiController extends Controller
         ]));
 
         $claim->recordEvent('Your claim case has been received', 'done', $claim->created_at);
+        app(ClaimWorkflowService::class)->audit($claim, 'Claim submitted via the manual funnel', 'customer');
         $claim->recordEvent('Claim under review', 'pending', $claim->created_at, 1);
 
         // Verify the flight + evaluate eligibility + estimate compensation
@@ -509,6 +511,12 @@ class ClaimApiController extends Controller
             ])->save();
 
             $model->recordEvent('You confirmed the claim details and authorised Unjamm', 'done', now(), 2);
+
+            $workflow = app(ClaimWorkflowService::class);
+            $workflow->audit($model, 'Claim confirmed - consent recorded', 'customer', null, 'IP ' . $request->ip());
+            if ($workflow->can($model, 'awaiting_signature')) {
+                $workflow->transition($model, 'awaiting_signature', 'customer', null, 'Customer confirmed and authorised Unjamm.');
+            }
         } elseif ($request->has('plus')) {
             $model->forceFill(['plus_selected' => (bool) $data['plus']])->save();
         }

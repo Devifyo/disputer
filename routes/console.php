@@ -17,3 +17,6 @@ Schedule::command('trips:monitor')->everyFiveMinutes()->withoutOverlapping();
 
 // Nudge claim signers who were invited 48h+ ago and haven't signed.
 Schedule::command('claims:signature-reminders')->dailyAt('09:00');
+
+// Claim workflow deadlines (e.g. 30-day airline response timer).
+Schedule::command('claims:evaluate-workflow-timers')->dailyAt('08:00');

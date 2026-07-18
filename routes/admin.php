@@ -14,6 +14,8 @@ use App\Livewire\Admin\TripReviews\Index as TripReviewsIndex;
 use App\Livewire\Admin\FlightClaims\Trips as FlightClaimsTrips;
 use App\Livewire\Admin\FlightClaims\Claims as FlightClaimsClaims;
 use App\Livewire\Admin\FlightClaims\ClaimDetail as FlightClaimsClaimDetail;
+use App\Livewire\Admin\FlightClaims\Lifecycle as FlightClaimsLifecycle;
+use App\Livewire\Admin\FlightClaims\Airlines as FlightClaimsAirlines;
 use App\Livewire\Admin\CmsPages\Index as CmsPagesIndex;
 
 Route::prefix('admin')->name('admin.')->middleware(['auth', 'role_access:admin'])->group(function () {
@@ -30,6 +32,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role_access:admin']
     Route::get('/trip-reviews', TripReviewsIndex::class)->name('trip-reviews.index');
     Route::get('/flight-claims/trips', FlightClaimsTrips::class)->name('flight-claims.trips');
     Route::get('/flight-claims/claims', FlightClaimsClaims::class)->name('flight-claims.claims');
+    Route::get('/flight-claims/lifecycle', FlightClaimsLifecycle::class)->name('flight-claims.lifecycle');
+    Route::get('/flight-claims/airlines', FlightClaimsAirlines::class)->name('flight-claims.airlines');
     Route::get('/flight-claims/claims/{claim}', FlightClaimsClaimDetail::class)->whereNumber('claim')->name('flight-claims.claims.show');
     Route::get('/flight-claims/claims/{claim}/document/{key}', function (\App\Models\Claim $claim, string $key) {
         $path = match (true) {

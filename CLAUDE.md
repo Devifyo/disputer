@@ -15,3 +15,8 @@
   changes: `npm run build`. Tests: `php artisan test` (dedicated DB
   disputer_testing). After running artisan as root:
   `chown -R www-data:www-data storage`.
+- Ops: APP_ENV=production, APP_DEBUG=false, CACHE_STORE=file. After .env
+  changes: `systemctl reload php8.2-fpm` + restart the queue. NEVER run
+  `php artisan config:cache` on this box - cached config would make the test
+  suite (RefreshDatabase) hit the production DB instead of disputer_testing.
+  `route:cache` is blocked by a duplicate route name (password.update).

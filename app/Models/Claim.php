@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Jobs\EvaluateClaim;
+use App\Services\Claims\ClaimWorkflowService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -40,7 +41,7 @@ class Claim extends Model
         'eligibility_status', 'eligibility_regulation', 'eligibility_article', 'eligibility_confidence',
         'eligibility_reason', 'eligibility_details', 'eligibility_evaluated_at', 'eligibility_decision_source',
         'confirmed_at', 'consents', 'plus_selected', 'signed_at', 'signature_path', 'poa_path', 'assignment_path',
-        'airline_letter',
+        'airline_letter', 'workflow_state', 'filed_at', 'filing',
     ];
 
     protected $casts = [
@@ -60,6 +61,8 @@ class Claim extends Model
         'confirmed_at'             => 'datetime',
         'consents'                 => 'array',
         'airline_letter'           => 'array',
+        'filed_at'                 => 'datetime',
+        'filing'                   => 'array',
         'plus_selected'            => 'boolean',
         'signed_at'                => 'datetime',
     ];
@@ -102,6 +105,33 @@ class Claim extends Model
     public function signers(): HasMany
     {
         return $this->hasMany(ClaimSigner::class);
+    }
+
+    public function drafts(): HasMany
+    {
+        return $this->hasMany(ClaimDraft::class)->latest('id');
+    }
+
+    public function auditLogs(): HasMany
+    {
+        return $this->hasMany(ClaimAuditLog::class)->latest('id');
+    }
+
+    public function workflowTimers(): HasMany
+    {
+        return $this->hasMany(ClaimWorkflowTimer::class);
+    }
+
+    /** The workflow this claim follows: its airline's attached one, else the default. */
+    public function resolvedWorkflowId(): int
+    {
+        return Airline::match($this->airline, $this->flight_number)?->claim_workflow_id
+            ?? ClaimWorkflow::defaultId();
+    }
+
+    public function workflowStage(): ?ClaimLifecycleStage
+    {
+        return ClaimLifecycleStage::byKey($this->workflow_state, $this->resolvedWorkflowId());
     }
 
     /** All authorisations collected - the claim may be filed. */
@@ -202,6 +232,12 @@ class Claim extends Model
 
         $claim->recordEvent('Your claim case has been received', 'done', $claim->created_at);
         $claim->recordEvent('Claim under review', 'pending', $claim->created_at, 1);
+
+        app(ClaimWorkflowService::class)->audit(
+            $claim,
+            'Itinerary uploaded - claim created for ' . count($itinerary->passengers) . ' passenger(s)',
+            'customer'
+        );
 
         // Verify the flight + evaluate eligibility + estimate compensation
         // (covers both the upload funnel and inbound claims@ emails).

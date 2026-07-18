@@ -64,6 +64,7 @@ class AdminFlightClaimsTest extends TestCase
         $claim = $this->claim();
 
         $this->actingAs($this->admin)->get(route('admin.flight-claims.trips'))->assertOk();
+        $this->actingAs($this->admin)->get(route('admin.flight-claims.lifecycle'))->assertOk()->assertSee('Lifecycle Management');
         $this->actingAs($this->admin)->get(route('admin.flight-claims.claims'))->assertOk()->assertSee($claim->number);
         $this->actingAs($this->admin)->get(route('admin.flight-claims.claims.show', $claim))
             ->assertOk()
@@ -145,6 +146,59 @@ class AdminFlightClaimsTest extends TestCase
             ->set('search', $claim->number)
             ->assertSee($claim->reference)
             ->assertDontSee($other->reference);
+    }
+
+    public function test_follow_up_and_regulator_drafts_are_generated_and_versioned(): void
+    {
+        config(['services.gemini.api_key' => null]);
+        $claim = $this->claim();
+
+        $component = Livewire::actingAs($this->admin)->test(ClaimDetail::class, ['claim' => $claim]);
+
+        // v1 initial claim, v1 follow-up (no response), v1 regulator complaint
+        $component->call('generate')
+            ->call('generateFollowUp', 'no_response')
+            ->call('generateRegulator');
+
+        $drafts = $claim->drafts()->get();
+        $this->assertCount(3, $drafts);
+        $this->assertEqualsCanonicalizing(
+            ['airline_claim', 'follow_up', 'regulator_complaint'],
+            $drafts->pluck('type')->all()
+        );
+
+        $followUp = $drafts->firstWhere('type', 'follow_up');
+        $this->assertStringContainsString('escalate this claim to the Canadian Transportation Agency', $followUp->body);
+        $this->assertSame('no_response', $followUp->context['reason']);
+
+        $regulator = $drafts->firstWhere('type', 'regulator_complaint');
+        $this->assertStringContainsString('complaint against Air Canada', $regulator->body);
+        $this->assertStringContainsString('APPR ss. 19-22', $regulator->body);
+
+        // Regenerating bumps the version; history is preserved.
+        $component->call('generate');
+        $this->assertSame(2, $claim->drafts()->where('type', 'airline_claim')->max('version'));
+        $this->assertCount(4, $claim->drafts()->get());
+    }
+
+    public function test_admin_edits_and_approval_are_tracked_as_versions(): void
+    {
+        config(['services.gemini.api_key' => null]);
+        $claim = $this->claim();
+
+        $component = Livewire::actingAs($this->admin)
+            ->test(ClaimDetail::class, ['claim' => $claim])
+            ->call('generate')
+            ->set('body', 'Edited body with our own wording for the airline claim.')
+            ->call('saveDraft');
+
+        $drafts = $claim->drafts()->where('type', 'airline_claim')->reorder('version')->get();
+        $this->assertCount(2, $drafts);
+        $this->assertSame('admin', $drafts->last()->generated_by);
+
+        $component->call('approveDraft', $drafts->last()->id);
+        $this->assertNotNull($drafts->last()->fresh()->approved_at);
+        $this->assertNull($drafts->first()->fresh()->approved_at);
     }
 
     public function test_letter_template_fallback_is_jurisdiction_specific(): void

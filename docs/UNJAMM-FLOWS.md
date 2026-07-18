@@ -3,7 +3,7 @@
 Living documentation of the flight-dispute module: how the flows work, where
 the code lives, and what changed. **Update this file whenever a flow changes.**
 
-Last updated: 2026-07-16
+Last updated: 2026-07-17
 
 ---
 
@@ -122,6 +122,83 @@ the claim's Compensation tab (regulation, reason, flight info, NO amounts).
 - Dropbox test mode: DROPBOX_SIGN_TEST_MODE=true -> TEST watermark, not
   legally binding. Production needs a paid API plan + app approval.
 
+## 5a. Airline directory & email routing
+
+- `airlines` (name, IATA code, active, notes) + `airline_contacts`
+  (purpose-based addresses: claims / legal / escalation / customer
+  relations). Admin module: Flight Claims -> Airlines (search, CRUD, one
+  address per purpose; emptying an address removes it). Seeded with the
+  carriers already in the system - admins fill the addresses.
+- Resolution: `Airline::match(name, flightNumber)` - the flight number's
+  IATA prefix is authoritative (QK8474 -> Air Canada Express even when the
+  claim says "Air Canada"), name is the fallback.
+- Per-stage routing: lifecycle stages carry `airline_contact_purpose`
+  (default: Filed -> claims). The admin claim composer's To field and the
+  filing recipient prefill from the claim's airline + the stage's purpose,
+  with a directory hint under the field (and an "add it to the directory"
+  warning when the airline or contact is missing).
+
+## 5b. Multiple workflows per airline
+
+- `claim_workflows` - named lifecycles. One is the DEFAULT (used by every
+  airline without its own); each airline may attach to exactly ONE workflow
+  (Airlines form -> Workflow select; deleting a workflow drops its airlines
+  back to the default).
+- Lifecycle Management has a workflow switcher (chips with DEFAULT badge +
+  attached-airline counts), "New workflow" (duplicates the default's stages),
+  "Make default" and "Delete". Stages, transitions, timers, ordering and
+  routing are all per-workflow (stage keys unique per workflow).
+- Resolution: `Claim::resolvedWorkflowId()` = matched airline's workflow ??
+  default. The engine, stage badges, timers and manual actions all resolve
+  through it - e.g. an "Air Canada process" workflow can set a 60-day
+  response window while everyone else keeps 30 (tested).
+- Per-step emails: every stage carries `airline_contact_purpose` (Filed ->
+  claims, Awaiting Admin Escalation -> escalation) resolved against the
+  airline's directory contacts - so each airline gets its own address at
+  each step, including a dedicated escalation address.
+- The airline form shows all four contact purposes as fixed slots (Claims
+  department / Legal / Escalation / Customer relations) plus the Workflow
+  select; lifecycle stages route to whichever purpose they declare.
+
+## 5c. Claim workflow state machine (configurable lifecycle)
+
+- Stages live in `claim_lifecycle_stages` (admin-managed: Flight Claims ->
+  Lifecycle) - name/key/color/icon/order (drag-and-drop), initial/final/
+  system flags, customer visibility + simplified customer label, manual vs
+  automatic entry, auto-timer (delay days + target stage), notifications
+  (notify_admin -> alert email; notify_customer -> `claim-stage-update`
+  email with the simplified label), AI action on entry (drafts the airline
+  claim / follow-up / regulator complaint for admin review - never sent),
+  required roles for manual entry (enforced in the engine), allowed next
+  stages (previous stages shown derived), preview. System stages are locked (key immutable,
+  cannot deactivate/delete). Custom stages (e.g. Legal Review between Ready
+  To File and Filed) slot in via config only - no code changes.
+- Default lifecycle: draft -> awaiting_signature -> ready_to_file -> filed
+  -> awaiting_response -> responded -> paid|denied -> awaiting_escalation ->
+  escalated -> litigation -> closed.
+- Engine: `ClaimWorkflowService` - the ONLY way claim states change
+  (controllers/UI never touch workflow_state). Validates transitions against
+  the config, runs side effects (cancel/start timers, customer timeline
+  entry from customer_label, admin alert email `claim-escalation-alert`),
+  writes the immutable audit trail (`claim_audit_logs`: action, from/to,
+  via customer/admin/system/airline, actor, notes). Audited actions include:
+  claim created (upload/manual/trip), eligibility evaluated, consent
+  recorded, each signature, filing, airline response, every stage change.
+- Automatic transitions (system events only): confirm -> awaiting_signature;
+  all signatures -> ready_to_file; filed -> awaiting_response (instant
+  chain); awaiting_response -> awaiting_escalation after 30 days
+  (`claim_workflow_timers` + `claims:evaluate-workflow-timers`, daily 08:00,
+  admins notified). Never automatic: escalation to regulator, paid, denied -
+  always explicit admin actions.
+- Admin claim detail: Workflow card shows the current stage, the running
+  timer (due date/days left), the filing record, and the configured manual
+  next-stage actions - filing captures recipient/reference/attachments;
+  "responded" requires the airline's response text (audited via=airline).
+  Timeline tab carries the internal audit trail (never customer-visible).
+- Customers only ever see the simplified customer_label entries in their
+  timeline; airline_letter, filing, drafts and audit logs are excluded from
+  the customer API (regression-tested).
+
 ## 6. Inbound email claims
 
 customer -> claims@unjamm.com (Hostinger MX) -> forwarder ->
@@ -159,6 +236,21 @@ senders also create accounts+claims (no sender filter yet).
   admin can upload extra external documents (airline_letter.extra, removable).
   "Send to airline" is intentionally disabled until the outbound
   mailbox/sending flow is defined.
+- AI Drafting module (client spec): three draft types via ClaimLetterService -
+  initial airline claim, follow-ups (reasons: no_response / info_request /
+  partial / rejected / manual; admin pastes the airline's response as
+  context; prior correspondence fed to the prompt) and regulator complaints
+  (CTA / US DOT / CAA / NEB by jurisdiction). Strict rule in every prompt:
+  cite the Eligibility Engine's regulation+article EXACTLY, never invent
+  legal facts; AI writes correspondence only. Every generation and every
+  admin edit is an immutable version in claim_drafts (type, version,
+  generated_by ai/template/admin, author, context); Draft history panel
+  supports Load / Approve (one approved final per type); AI never sends -
+  admins review and send everything. Data fidelity: prompts forbid invented
+  dates/amounts/placeholders; today's date + the real original-demand date
+  and exact days-elapsed are computed and injected (elapsed-time may only be
+  stated from those figures); follow-ups/complaints are blocked until an
+  initial claim draft exists.
 - Trip Reviews queue: Review|All tabs, approve/reject (reason required,
   emailed), decision recorded (who + source ai/rules/ai+rules/admin).
 - Claim review decisions live on the admin claim detail page: claims in
@@ -188,6 +280,28 @@ senders also create accounts+claims (no sender filter yet).
 ---
 
 ## Changelog
+
+### 2026-07-17
+- Claim workflow state machine (see section 5b): configurable lifecycle
+  stages (admin module Flight Claims -> Lifecycle with drag-and-drop
+  reorder, transitions, timers, visibility, preview; system stages locked),
+  ClaimWorkflowService engine (sole mutator of workflow_state), immutable
+  claim_audit_logs, claim_workflow_timers + claims:evaluate-workflow-timers
+  (daily 08:00), 30-day airline response deadline -> Awaiting Admin
+  Escalation + admin alert email. Filing captures recipient/reference/
+  attachments; responded requires the airline's response text. Paid/Denied/
+  Escalation are admin-only by engine rule. Claims list stage pills and
+  filters config-driven; admin claim detail gained the Workflow action card
+  and the internal audit trail view.
+- AI Drafting module completed per client spec: follow-up drafts (5 reasons,
+  airline-response context, correspondence history), regulator complaints
+  (CTA/DOT/CAA/NEB), immutable draft versions with approvals
+  (claim_drafts + Draft history panel), strict citation + data-fidelity
+  rules (exact engine citations, injected today/original-demand dates and
+  days-elapsed; follow-ups blocked until an initial claim draft exists).
+- Admin claim detail: workflow-aware; document preview modal; per-signer POA
+  view from Passengers & signatures; tabbed work area (Claim email |
+  Timeline).
 
 ### 2026-07-16
 - Passenger management: names editable on the confirmation screen ("Not

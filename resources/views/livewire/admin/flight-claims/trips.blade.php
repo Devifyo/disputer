@@ -86,7 +86,10 @@
                                 @if ($trip->eligibility_status === 'review')
                                     <a href="{{ route('admin.trip-reviews.index') }}" wire:navigate class="text-xs font-bold text-amber-600 hover:underline mr-3">Review</a>
                                 @endif
-                                <button wire:click="open({{ $trip->id }})" class="text-xs font-bold text-primary-600 hover:underline">Details</button>
+                                <button wire:click="open({{ $trip->id }})" wire:loading.attr="disabled" class="text-xs font-bold text-primary-600 hover:underline">
+                                    <span wire:loading.remove wire:target="open({{ $trip->id }})">Details</span>
+                                    <span wire:loading wire:target="open({{ $trip->id }})"><svg class="inline w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg></span>
+                                </button>
                             </td>
                         </tr>
                     @empty

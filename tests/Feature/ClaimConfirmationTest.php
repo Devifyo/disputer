@@ -210,7 +210,10 @@ class ClaimConfirmationTest extends TestCase
         $this->assertNotNull($claim->signed_at);
         $this->assertTrue($claim->signaturesComplete());
         $this->assertTrue($claim->events()->where('label', 'like', '%unlocked for filing%')->exists());
-        $this->assertTrue($claim->events()->where('label', 'like', 'Claim submitted%')->where('status', 'pending')->exists());
+        // The workflow engine took over: confirmed -> signatures -> ready to file.
+        $this->assertSame('ready_to_file', $claim->workflow_state);
+        $this->assertTrue($claim->events()->where('label', 'like', '%preparing your claim for filing%')->where('status', 'pending')->exists());
+        $this->assertTrue($claim->auditLogs()->where('to_state', 'ready_to_file')->exists());
     }
 
     public function test_additional_adult_gets_an_individual_signing_request_and_public_page(): void

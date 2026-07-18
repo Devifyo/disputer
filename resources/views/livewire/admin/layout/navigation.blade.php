@@ -134,6 +134,14 @@
                             <span class="ml-auto min-w-[18px] h-4.5 px-1.5 rounded-full bg-rose-500/90 text-white text-[10px] font-black flex items-center justify-center">{{ $pendingClaims }}</span>
                         @endif
                     </a>
+                    <a href="{{ route('admin.flight-claims.lifecycle') }}" wire:navigate class="{{ $subClass('admin.flight-claims.lifecycle') }} group flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all duration-200 border-l border-white/10" @click="mobileSidebarOpen = false">
+                        <i data-lucide="workflow" class="w-4 h-4 {{ $iconClass('admin.flight-claims.lifecycle') }}"></i>
+                        Lifecycle
+                    </a>
+                    <a href="{{ route('admin.flight-claims.airlines') }}" wire:navigate class="{{ $subClass('admin.flight-claims.airlines') }} group flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all duration-200 border-l border-white/10" @click="mobileSidebarOpen = false">
+                        <i data-lucide="plane-takeoff" class="w-4 h-4 {{ $iconClass('admin.flight-claims.airlines') }}"></i>
+                        Airlines
+                    </a>
                 </div>
             </div>
             <div class="px-3 mt-6 mb-2 text-[10px] uppercase tracking-wider font-bold text-slate-600">Institutes</div>

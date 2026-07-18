@@ -3,6 +3,7 @@
 namespace App\Services\Eligibility;
 
 use App\Models\Claim;
+use App\Services\Claims\ClaimWorkflowService;
 use App\Services\FlightAwareService;
 use Illuminate\Support\Carbon;
 use Throwable;
@@ -53,6 +54,15 @@ class ClaimEligibilityService
         ])->save();
 
         $this->recordOutcome($claim, $decision, $compensation);
+
+        app(ClaimWorkflowService::class)->audit($claim, sprintf(
+            'Eligibility evaluated: %s under %s (%s), confidence %d%%, decided by %s',
+            $decision['status'],
+            $best?->regulation ?? '-',
+            $best?->article ?? '-',
+            $best?->confidence ?? 0,
+            $decision['details']['evaluated_by'] ?? '-',
+        ), 'system');
 
         if (!$wasEligible && $decision['status'] === EligibilityEngine::STATUS_ELIGIBLE) {
             $this->notifyEligible($claim, $compensation);
