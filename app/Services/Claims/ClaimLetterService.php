@@ -4,6 +4,7 @@ namespace App\Services\Claims;
 
 use App\Models\Claim;
 use App\Models\ClaimDraft;
+use App\Models\ClaimExpense;
 use App\Services\Eligibility\RegulationCitation;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -254,13 +255,14 @@ SHARED;
 
         $task = match ($type) {
             ClaimDraft::TYPE_FOLLOW_UP => $this->followUpTask($regime, $context),
-            ClaimDraft::TYPE_REGULATOR => $this->regulatorTask($regime, $context),
+            ClaimDraft::TYPE_REGULATOR => $this->regulatorTask($regime, $context, RegulatorDirectory::for($claim)),
             default                    => <<<INITIALTASK
 TASK: draft the formal INITIAL compensation claim email to the airline.
 - Address the airline's customer relations / claims department formally.
 - State that Unjamm represents the passenger(s) under a signed Power of Attorney and Assignment of Claims (attached).
 - Set out the flight, the disruption (with verified times/delay), the legal basis, and the amount claimed per passenger plus the total.
-- Where a ticket refund or expense reimbursement is also owed under the regime, claim it explicitly with amounts where the documents evidence them.
+- Where a ticket refund is also owed under the regime, claim it explicitly with the amount from the claim record.
+- EXPENSES: when the claim record has an "expenses" list, demand reimbursement of those verified out-of-pocket costs as a SEPARATE head of claim from the statutory compensation. List each expense with its type, date and amount, give the combined "expenses_total", cite the regime's right-to-care / expense provision, and state that the receipts are attached. When the list is empty, do not mention expenses or receipts at all.
 - Demand payment within {$regime['deadline']} and state the claim will be escalated to {$regime['body']} if unanswered or rejected without valid grounds.
 INITIALTASK,
         };
@@ -312,8 +314,18 @@ PROMPT;
         return "TASK: draft a FOLLOW-UP email to the airline on this existing claim.\n{$angle}{$elapsed}\n{$responseBlock}";
     }
 
-    private function regulatorTask(array $regime, array $context): string
+    private function regulatorTask(array $regime, array $context, array $regulator = []): string
     {
+        // The competent authority is resolved from the route, not guessed by
+        // the model - EU261 has a different NEB per member state.
+        $body = ($regulator['confident'] ?? false)
+            ? "{$regulator['name']} ({$regulator['code']})"
+            : $regime['body'];
+
+        $addressee = ($regulator['confident'] ?? false)
+            ? "\nCOMPETENT AUTHORITY (resolved from the route - address the complaint to exactly this body, never another):\n- {$regulator['name']} ({$regulator['code']})\n- Why it is competent: {$regulator['reason']}\n"
+            : '';
+
         $note = trim((string) ($context['airline_response'] ?? ''));
         $noteBlock = $note !== '' ? "\nCARRIER'S POSITION / LAST RESPONSE (provided by the administrator):\n\"{$note}\"\n" : '';
 
@@ -323,8 +335,8 @@ PROMPT;
         }
 
         return <<<REGULATORTASK
-TASK: draft a formal COMPLAINT to {$regime['body']} about the carrier's handling of this claim.
-- Address the regulator, not the airline.
+TASK: draft a formal COMPLAINT to {$body} about the carrier's handling of this claim.
+{$addressee}- Address the regulator, not the airline.
 - Identify the complainant(s) (represented by Unjamm under a signed Power of Attorney, attached) and the carrier.
 - Summarise the flight, the verified disruption, the legal basis and the amounts owed.
 - Describe the carrier's conduct: the claim submitted, deadlines given, and the failure to pay or respond substantively (use the correspondence history).
@@ -332,6 +344,24 @@ TASK: draft a formal COMPLAINT to {$regime['body']} about the carrier's handling
 - Note that the claim correspondence and signed authorisations are attached.
 {$noteBlock}
 REGULATORTASK;
+    }
+
+    /** Verified receipts as a separate reimbursement demand - blank when there are none. */
+    private function expenseParagraph(array $facts): string
+    {
+        if (empty($facts['expenses'])) {
+            return '';
+        }
+
+        $lines = collect($facts['expenses'])
+            ->map(fn (array $e) => '- ' . trim(implode(' - ', array_filter([
+                $e['type'] ?? null, $e['date'] ?? null, $e['amount'] ?? null,
+            ]))))
+            ->implode("\n");
+
+        return "\n\nThe passengers also incurred the following out-of-pocket expenses as a direct result of the disruption, evidenced by the receipts attached:\n\n"
+            . $lines
+            . ($facts['expenses_total'] ? "\n\nWe therefore also claim reimbursement of {$facts['expenses_total']} in expenses, in addition to the compensation above." : '');
     }
 
     private function historyBlock(array $context): string
@@ -420,7 +450,12 @@ REGULATORTASK;
         }
 
         if ($type === ClaimDraft::TYPE_REGULATOR) {
-            $body = "Dear Sir or Madam,\n\n"
+            $regulator = RegulatorDirectory::for($claim);
+            $salutation = $regulator['confident']
+                ? "To the {$regulator['name']},"
+                : 'Dear Sir or Madam,';
+
+            $body = "{$salutation}\n\n"
                 . "We submit a complaint against {$f['airline']} on behalf of {$f['passengers']}, whom we represent under a signed Power of Attorney and Assignment of Claims (attached), regarding flight {$f['flight']} on {$f['flight_date']} ({$f['route']}).\n\n"
                 . "{$f['disruption_sentence']}\n\n"
                 . "Under {$f['legal_basis']} of {$regime['law']}, the passengers are entitled to {$total} in total. A formal claim was submitted to the carrier with the required supporting documents, and the carrier has failed to pay or to respond substantively within the deadline set.\n\n"
@@ -428,7 +463,8 @@ REGULATORTASK;
                 . "Yours faithfully,\nUnjamm Claims Team\nClaim reference: {$f['reference']}";
 
             return [
-                'subject' => "Complaint against {$f['airline']} - flight {$f['flight']} on {$f['flight_date']} - ref {$f['reference']}",
+                'subject' => trim(($regulator['confident'] ? "{$regulator['code']} complaint" : 'Complaint')
+                    . " against {$f['airline']} - flight {$f['flight']} on {$f['flight_date']} - ref {$f['reference']}"),
                 'body'    => $body,
             ];
         }
@@ -438,6 +474,7 @@ REGULATORTASK;
             . ($f['booking_reference'] ? " (booking reference {$f['booking_reference']})" : '') . ".\n\n"
             . "{$f['disruption_sentence']}\n\n"
             . "Under {$f['legal_basis']} of {$regime['law']}, the passengers are entitled to compensation of {$f['per_passenger']} each - {$total} in total for {$f['passenger_count']} passenger(s)."
+            . $this->expenseParagraph($f)
             . ($f['entitlements_note'] ? " Basis: {$f['entitlements_note']}." : '') . "\n\n"
             . "We request payment of {$total} within {$regime['deadline']}. Should the claim remain unanswered or be rejected without valid grounds, we will escalate it to {$regime['body']} without further notice.\n\n"
             . "Supporting documents are attached: the signed authorisations, the booking confirmation and the passengers' evidence.\n\n"
@@ -503,6 +540,20 @@ REGULATORTASK;
             'entitlements_note'    => $claim->compensation_basis,
             'entitlements'         => collect($claim->compensation_explanation['entitlements'] ?? [])
                 ->map(fn ($e) => ['right' => $e['label'] ?? '', 'state' => $e['state'] ?? '', 'detail' => $e['detail'] ?? ''])->all(),
+            // Verified out-of-pocket expenses - a SEPARATE demand from
+            // statutory compensation, evidenced by the attached receipts.
+            'expenses'             => $claim->expenses
+                ->where('status', ClaimExpense::STATUS_APPROVED)
+                ->map(fn (ClaimExpense $e) => array_filter([
+                    'type'        => $e->categoryLabel(),
+                    'amount'      => $e->formattedAmount() ?: null,
+                    'date'        => $e->expense_date?->format('d M Y'),
+                    'description' => $e->description,
+                    'receipt'     => $e->original_filename,
+                ]))
+                ->values()
+                ->all(),
+            'expenses_total'       => Claim::formatTotals($claim->approvedExpenseTotals()) ?: null,
             'ticket_price'         => $claim->ticket_price ? trim(($claim->ticket_currency ?: '') . ' ' . number_format((float) $claim->ticket_price, 2)) : null,
             'did_not_travel'       => (bool) $claim->did_not_travel,
             'booking_reference'    => $claim->booking_reference,

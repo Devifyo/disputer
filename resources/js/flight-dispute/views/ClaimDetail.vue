@@ -345,6 +345,77 @@
                             </template>
                         </div>
 
+                        <!-- Tab: Expenses - receipts the passenger paid out of pocket -->
+                        <div v-else-if="activeTab === 'expenses'" class="bg-white rounded-2xl ring-1 ring-slate-900/5 p-6 sm:p-8">
+                            <h2 class="font-bold text-slate-900 mb-1">Out-of-pocket expenses</h2>
+                            <p class="text-sm text-slate-500 mb-1">
+                                Meals, hotel, taxi, replacement tickets - anything the disruption forced you to pay for. Add the receipt and we will claim it back from the airline on top of your compensation.
+                            </p>
+                            <p class="text-xs font-bold text-emerald-700 mb-5">You keep 100% of expense reimbursements - our fee applies to compensation only.</p>
+
+                            <div v-if="approvedExpenseTotal" class="flex items-center gap-2 bg-emerald-50 border border-emerald-100 text-emerald-800 px-4 py-3 rounded-xl text-sm mb-5">
+                                <span class="font-bold">{{ approvedExpenseTotal }}</span> approved and being claimed from the airline.
+                            </div>
+
+                            <!-- Add a receipt -->
+                            <div class="rounded-2xl border border-slate-200 p-4 mb-5">
+                                <p class="text-[11px] uppercase tracking-wider font-bold text-slate-400 mb-3">Add a receipt</p>
+                                <div class="grid sm:grid-cols-2 gap-3">
+                                    <select v-model="expenseForm.category"
+                                            class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:border-primary-500 outline-none">
+                                        <option v-for="(label, key) in (claim.expense_categories || {})" :key="key" :value="key">{{ label }}</option>
+                                    </select>
+                                    <input v-model="expenseForm.expense_date" type="date"
+                                           class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:border-primary-500 outline-none" />
+                                    <div class="flex gap-2">
+                                        <input v-model="expenseForm.amount" type="number" step="0.01" min="0" placeholder="Amount"
+                                               class="flex-1 px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:border-primary-500 outline-none" />
+                                        <input v-model="expenseForm.currency" type="text" maxlength="3" placeholder="EUR"
+                                               class="w-20 px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm uppercase focus:border-primary-500 outline-none" />
+                                    </div>
+                                    <input v-model="expenseForm.description" type="text" maxlength="190" placeholder="What was it for? (optional)"
+                                           class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:border-primary-500 outline-none" />
+                                </div>
+                                <label class="flex items-center gap-3 mt-3 cursor-pointer">
+                                    <span class="inline-flex items-center gap-2 border border-dashed border-slate-300 hover:border-primary-400 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-600 transition-colors">
+                                        {{ expenseFile ? expenseFile.name : 'Choose receipt (PDF or photo)' }}
+                                    </span>
+                                    <input id="expense-file" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.heif" class="hidden" @change="pickExpenseFile" />
+                                </label>
+                                <p v-if="expenseError" class="text-xs font-bold text-rose-600 mt-2">{{ expenseError }}</p>
+                                <button :disabled="uploadingExpense" @click="submitExpense"
+                                        class="mt-3 w-full sm:w-auto bg-slate-900 hover:bg-slate-800 disabled:opacity-60 text-white text-sm font-bold px-6 py-2.5 rounded-xl transition-colors">
+                                    {{ uploadingExpense ? 'Uploading…' : 'Add receipt' }}
+                                </button>
+                            </div>
+
+                            <!-- Uploaded receipts -->
+                            <p v-if="!(claim.expenses || []).length" class="text-sm text-slate-400">No receipts added yet.</p>
+                            <ul v-else class="space-y-2">
+                                <li v-for="e in claim.expenses" :key="e.id"
+                                    class="flex items-start gap-3 rounded-xl border border-slate-200 p-3">
+                                    <span class="inline-flex px-2 py-0.5 rounded-full text-[9px] font-black shrink-0 mt-0.5"
+                                          :class="e.status === 'approved' ? 'bg-emerald-100 text-emerald-700'
+                                                : e.status === 'rejected' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'">
+                                        {{ e.status === 'approved' ? 'APPROVED' : e.status === 'rejected' ? 'NOT ACCEPTED' : 'IN REVIEW' }}
+                                    </span>
+                                    <div class="min-w-0 flex-1">
+                                        <p class="text-sm font-bold text-slate-800 truncate">
+                                            {{ e.category_label }}
+                                            <span v-if="e.display" class="text-slate-500 font-medium">· {{ e.display }}</span>
+                                        </p>
+                                        <p class="text-[11px] text-slate-400 truncate">
+                                            <span v-if="e.date">{{ e.date }} · </span>{{ e.filename }}
+                                        </p>
+                                        <p v-if="e.description" class="text-[11px] text-slate-500 mt-0.5">{{ e.description }}</p>
+                                        <p v-if="e.status === 'rejected' && e.reason" class="text-[11px] text-rose-600 mt-1">{{ e.reason }}</p>
+                                    </div>
+                                    <a :href="e.url" target="_blank" class="shrink-0 text-[11px] font-bold text-primary-600 hover:underline">View</a>
+                                    <button v-if="!e.locked" @click="deleteExpense(e.id)" class="shrink-0 text-[11px] font-bold text-slate-400 hover:text-rose-600">Remove</button>
+                                </li>
+                            </ul>
+                        </div>
+
                         <!-- Tab: Details -->
                         <div v-else-if="activeTab === 'details'" class="space-y-5">
                             <!-- Supply missing facts -->
@@ -610,9 +681,64 @@ const tabs = [
     { key: 'progress', label: 'Progress' },
     { key: 'compensation', label: 'Compensation' },
     { key: 'documents', label: 'Documents' },
+    { key: 'expenses', label: 'Expenses' },
     { key: 'details', label: 'Details' },
     { key: 'emails', label: 'Email History' },
 ];
+
+// ── Out-of-pocket expense receipts ──────────────────────────
+const expenseForm = ref({ category: 'meal', amount: '', currency: 'EUR', expense_date: '', description: '' });
+const expenseFile = ref(null);
+const uploadingExpense = ref(false);
+const expenseError = ref('');
+
+const approvedExpenseTotal = computed(() => {
+    const totals = {};
+    (claim.value?.expenses || [])
+        .filter((e) => e.status === 'approved' && e.amount)
+        .forEach((e) => {
+            const cur = e.currency || 'EUR';
+            totals[cur] = (totals[cur] || 0) + parseFloat(e.amount);
+        });
+    return Object.entries(totals).map(([cur, amt]) => `${cur} ${amt.toFixed(2)}`).join(' + ');
+});
+
+function pickExpenseFile(event) {
+    expenseFile.value = event.target.files?.[0] || null;
+}
+
+async function submitExpense() {
+    if (!expenseFile.value) {
+        expenseError.value = 'Attach a photo or PDF of the receipt.';
+        return;
+    }
+
+    uploadingExpense.value = true;
+    expenseError.value = '';
+    try {
+        const form = new FormData();
+        form.append('receipt', expenseFile.value);
+        Object.entries(expenseForm.value).forEach(([key, value]) => {
+            if (value !== '' && value !== null) form.append(key, value);
+        });
+        claim.value = await api.claims.addExpense(props.id, form);
+        expenseForm.value = { category: 'meal', amount: '', currency: 'EUR', expense_date: '', description: '' };
+        expenseFile.value = null;
+        if (document.getElementById('expense-file')) document.getElementById('expense-file').value = '';
+    } catch (e) {
+        expenseError.value = e.response?.data?.message || 'Could not upload the receipt. Please try again.';
+    } finally {
+        uploadingExpense.value = false;
+    }
+}
+
+async function deleteExpense(expenseId) {
+    try {
+        claim.value = await api.claims.removeExpense(props.id, expenseId);
+    } catch (e) {
+        expenseError.value = e.response?.data?.message || 'Could not remove the receipt.';
+    }
+}
 
 const detailRows = computed(() => claim.value ? [
     { label: 'Route', value: `${claim.value.departure_airport || '-'} → ${claim.value.arrival_airport || '-'}` },

@@ -6,10 +6,12 @@ use App\Models\Airline;
 use App\Models\AirlineContact;
 use App\Models\Claim;
 use App\Models\ClaimDraft;
+use App\Models\ClaimExpense;
 use App\Models\Setting;
 use App\Services\Claims\ClaimCorrespondenceService;
 use App\Services\Claims\ClaimLetterService;
 use App\Services\Claims\ClaimWorkflowService;
+use App\Services\Claims\RegulatorDirectory;
 use App\Services\Eligibility\ClaimEligibilityService;
 use App\Services\Eligibility\EligibilityEngine;
 use Illuminate\Support\Facades\Storage;
@@ -53,9 +55,14 @@ class ClaimDetail extends Component
     /** Pending admin uploads (extra documents for the airline). */
     public array $uploads = [];
 
+    /** Expense review state: per-expense reason / note / reimbursed amount. */
+    public array $expenseReason = [];
+    public array $expenseNote = [];
+    public array $expensePaid = [];
+
     public function mount(Claim $claim): void
     {
-        $this->claim = $claim->load(['user', 'signers', 'itinerary.passengers', 'events']);
+        $this->claim = $claim->load(['user', 'signers', 'itinerary.passengers', 'events', 'expenses']);
 
         $letter        = $claim->airline_letter ?? [];
         $this->to      = $letter['to'] ?? '';
@@ -197,7 +204,7 @@ class ClaimDetail extends Component
 
         $stageName = \App\Models\ClaimLifecycleStage::byKey($stageKey)?->name ?? $stageKey;
         $this->reset('wf_notes', 'filing_recipient', 'filing_reference');
-        $this->claim->refresh()->load(['user', 'signers', 'itinerary.passengers', 'events']);
+        $this->claim->refresh()->load(['user', 'signers', 'itinerary.passengers', 'events', 'expenses']);
         $this->dispatch('toast', ['type' => 'success', 'message' => "Claim moved to {$stageName}."]);
     }
 
@@ -243,8 +250,76 @@ class ClaimDetail extends Component
             }
         }
 
-        $this->claim->refresh()->load(['user', 'signers', 'itinerary.passengers', 'events']);
+        $this->claim->refresh()->load(['user', 'signers', 'itinerary.passengers', 'events', 'expenses']);
         $this->dispatch('toast', ['type' => 'success', 'message' => "Email sent to {$this->to}."]);
+    }
+
+    /**
+     * Verify one expense receipt. Approved receipts become claimable and
+     * attachable; rejected ones carry a reason the customer can read.
+     */
+    public function reviewExpense(int $expenseId, string $decision): void
+    {
+        $expense = $this->claim->expenses()->findOrFail($expenseId);
+        $reject  = $decision === ClaimExpense::STATUS_REJECTED;
+
+        if ($reject) {
+            $this->validate(
+                ["expenseReason.{$expenseId}" => 'required|string|min:4|max:190'],
+                ["expenseReason.{$expenseId}.required" => 'Give the customer a reason - it is shown on their claim.'],
+            );
+        }
+
+        $expense->forceFill([
+            'status'        => $reject ? ClaimExpense::STATUS_REJECTED : ClaimExpense::STATUS_APPROVED,
+            'review_reason' => $reject ? trim($this->expenseReason[$expenseId]) : null,
+            'admin_note'    => trim((string) ($this->expenseNote[$expenseId] ?? '')) ?: $expense->admin_note,
+            'reviewed_by'   => auth()->id(),
+            'reviewed_at'   => now(),
+        ])->save();
+
+        // Approved receipts default into the outgoing attachment set.
+        $key = "expense-{$expense->id}";
+        $this->attached = $reject
+            ? array_values(array_diff($this->attached, [$key]))
+            : array_values(array_unique([...$this->attached, $key]));
+        $this->persist();
+
+        app(ClaimWorkflowService::class)->audit(
+            $this->claim,
+            sprintf('Expense receipt %s: %s%s', $reject ? 'rejected' : 'approved',
+                $expense->categoryLabel(), $expense->formattedAmount() ? ' - ' . $expense->formattedAmount() : ''),
+            'admin', auth()->id(), $reject ? $expense->review_reason : ($expense->admin_note ?: null)
+        );
+
+        unset($this->expenseReason[$expenseId]);
+        $this->claim->refresh()->load(['user', 'signers', 'itinerary.passengers', 'events', 'expenses']);
+        $this->dispatch('toast', ['type' => 'success', 'message' => $reject ? 'Receipt rejected.' : 'Receipt approved and attached.']);
+    }
+
+    /** Record what the airline actually paid back for a receipt. */
+    public function recordReimbursement(int $expenseId): void
+    {
+        $this->validate(
+            ["expensePaid.{$expenseId}" => 'required|numeric|min:0|max:99999'],
+            [],
+            ["expensePaid.{$expenseId}" => 'reimbursed amount']
+        );
+
+        $expense = $this->claim->expenses()->findOrFail($expenseId);
+        $expense->forceFill([
+            'reimbursed_amount' => $this->expensePaid[$expenseId] + 0,
+            'reimbursed_at'     => now(),
+        ])->save();
+
+        app(ClaimWorkflowService::class)->audit(
+            $this->claim,
+            'Expense reimbursement recorded: ' . trim(($expense->currency ?? '') . ' ' . number_format((float) $expense->reimbursed_amount, 2)),
+            'admin', auth()->id(), $expense->categoryLabel()
+        );
+
+        $this->claim->refresh()->load(['user', 'signers', 'itinerary.passengers', 'events', 'expenses']);
+        $this->dispatch('toast', ['type' => 'success', 'message' => 'Reimbursement recorded.']);
     }
 
     /** Team decision: the claim is eligible - prices it and tells the customer. */
@@ -282,7 +357,7 @@ class ClaimDetail extends Component
             ))
         );
 
-        $this->claim->refresh()->load(['user', 'signers', 'itinerary.passengers', 'events']);
+        $this->claim->refresh()->load(['user', 'signers', 'itinerary.passengers', 'events', 'expenses']);
         $this->dispatch('toast', ['type' => 'success', 'message' => 'Claim approved - the customer has been notified.']);
     }
 
@@ -329,7 +404,7 @@ class ClaimDetail extends Component
         );
 
         $this->rejection_reason = '';
-        $this->claim->refresh()->load(['user', 'signers', 'itinerary.passengers', 'events']);
+        $this->claim->refresh()->load(['user', 'signers', 'itinerary.passengers', 'events', 'expenses']);
         $this->dispatch('toast', ['type' => 'success', 'message' => 'Claim rejected - the customer has been notified with your reason.']);
     }
 
@@ -435,7 +510,7 @@ class ClaimDetail extends Component
             $this->claim, "{$draft->typeLabel()} v{$draft->version} approved as final", 'admin', auth()->id(), $draft->subject
         );
 
-        $this->claim->refresh()->load(['user', 'signers', 'itinerary.passengers', 'events']);
+        $this->claim->refresh()->load(['user', 'signers', 'itinerary.passengers', 'events', 'expenses']);
         $this->dispatch('toast', ['type' => 'success', 'message' => "{$draft->typeLabel()} v{$draft->version} approved as the final version."]);
     }
 
@@ -504,7 +579,7 @@ class ClaimDetail extends Component
                 'attachments' => array_values(array_unique($this->attached)),
             ], $extra),
         ])->save();
-        $this->claim->refresh()->load(['user', 'signers', 'itinerary.passengers', 'events']);
+        $this->claim->refresh()->load(['user', 'signers', 'itinerary.passengers', 'events', 'expenses']);
     }
 
     /** Everything that would go out with the email. */
@@ -532,6 +607,15 @@ class ClaimDetail extends Component
 
         foreach ($this->claim->documents ?? [] as $index => $doc) {
             $docs[] = ['key' => "doc-{$index}", 'name' => $doc['name'] ?? ('Document ' . ($index + 1)), 'signed' => null];
+        }
+
+        // Approved expense receipts - selectable like any other evidence.
+        foreach ($this->claim->expenses->where('status', ClaimExpense::STATUS_APPROVED) as $expense) {
+            $docs[] = [
+                'key'    => "expense-{$expense->id}",
+                'name'   => 'Receipt - ' . $expense->categoryLabel() . ($expense->formattedAmount() ? " ({$expense->formattedAmount()})" : ''),
+                'signed' => null,
+            ];
         }
 
         foreach ($this->claim->airline_letter['extra'] ?? [] as $index => $doc) {
@@ -565,6 +649,8 @@ class ClaimDetail extends Component
                 'pendingTimer' => $this->claim->workflowTimers()->where('status', 'pending')->orderBy('due_at')->first(),
                 'auditLogs'    => $this->claim->auditLogs()->with('actor')->get(),
                 'mailbox'      => $this->claim->correspondence()->with('sender')->get(),
+                'regulator'    => RegulatorDirectory::for($this->claim),
+                'expenses'     => $this->claim->expenses()->with('reviewer')->get(),
             ])
             ->extends('layouts.admin')
             ->section('content');

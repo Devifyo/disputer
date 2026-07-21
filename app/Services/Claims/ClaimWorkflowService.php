@@ -5,7 +5,6 @@ namespace App\Services\Claims;
 use App\Models\Claim;
 use App\Models\ClaimLifecycleStage;
 use App\Models\ClaimWorkflowTimer;
-use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
@@ -173,10 +172,10 @@ class ClaimWorkflowService
 
     private function notifyAdmins(Claim $claim, ClaimLifecycleStage $stage, string $reason): void
     {
-        foreach (User::role('admin')->get() as $admin) {
+        foreach (AdminAlertRecipients::for(AdminAlertRecipients::TYPE_ESCALATION) as $admin) {
             try {
-                send_dynamic_email($admin->email, 'claim-escalation-alert', [
-                    '[NAME]'      => $admin->name,
+                send_dynamic_email($admin['email'], 'claim-escalation-alert', [
+                    '[NAME]'      => $admin['name'],
                     '[CLAIM]'     => '#' . $claim->number,
                     '[STAGE]'     => $stage->name,
                     '[FLIGHT]'    => trim(($claim->airline ?? '') . ' ' . ($claim->flight_number ?? '')),

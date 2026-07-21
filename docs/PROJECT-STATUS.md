@@ -32,6 +32,18 @@ Status keys: **Done** (built, tested, verified in production) ·
 | Canonical legal citation table | Done | `RegulationCitation` - engine decides the law, AI never picks a citation |
 | Admin eligibility approve/reject | Done | Prices the claim, emails the customer, audited |
 
+## 2a. Expense receipts
+
+| Item | Status | Notes |
+|---|---|---|
+| Customer uploads receipts | Done | Expenses tab: category, amount, currency, date, description + file |
+| Receipts linked to their claim | Done | Created on the claim; ownership enforced on every endpoint |
+| Admin verify / approve / reject | Done | Customer-facing reason + internal-only note, full audit trail |
+| Attach approved receipts to emails | Done | `expense-{id}` keys, gated on approved status |
+| AI claims reimbursement when receipts exist | Done | Separate head of claim with per-receipt breakdown |
+| Track claimed vs reimbursed | Done | Per receipt + per-currency totals on the claim detail |
+| No success fee on expense reimbursement | Done | Fee applies to statutory compensation only |
+
 ## 3. E-signatures
 
 | Item | Status | Notes |
@@ -48,6 +60,7 @@ Status keys: **Done** (built, tested, verified in production) ·
 | Initial airline claim drafts | Done | Full claim record + all documents read multimodally |
 | Follow-up drafts | Done | 5 reasons, airline-response context, elapsed-days injected |
 | Regulator complaint drafts | Done | CTA / US DOT / CAA / NEB |
+| Automatic regulator suggestion | Done | `RegulatorDirectory` - route-resolved, per-country EU NEBs, admin confirms |
 | Structured regulation data fed to AI | Done | `LEGAL BASIS` block: regulation, article, what it covers, amounts, deadline |
 | Citation guard (no invented articles) | Done | Draft citing unauthorised provisions is rejected, redrafted, then template |
 | Immutable draft versions + approvals | Done | `claim_drafts`, admin approves the final version |
@@ -75,6 +88,7 @@ Status keys: **Done** (built, tested, verified in production) ·
 | Inbound airline replies -> claim | Done | Reply-token match, subject-reference fallback |
 | Correspondence tab | Done | Quoted history collapsed, attachments previewable |
 | Admin alert on airline reply | Done | `claim-airline-reply-alert` |
+| Configurable alert recipients | Done | Unlimited rows, per-recipient alert types; falls back to admin accounts |
 | Unreviewed-reply badge on the workflow card | Not started | Offered; admins currently rely on the alert email |
 
 ## 7. Admin panel
@@ -92,7 +106,16 @@ Status keys: **Done** (built, tested, verified in production) ·
 |---|---|---|
 | Live disruption board | Done | Real FlightAware data, hourly warmed cache, sample fallback |
 
-## 9. Not yet started
+## 9. Needs human verification
+
+- **The NEB table's factual accuracy** (`RegulatorDirectory::NEBS`, 30
+  countries). Tests prove the lookup, the route rules and the completeness of
+  the table - they cannot prove that "Hungary -> BFKH" is the right authority
+  today. Enforcement bodies and their portals change. Before the first EU
+  complaint is filed, someone with legal standing should review the list.
+  Same applies to `RegulationCitation` article mappings.
+
+## 9a. Not yet started
 
 - **Payouts to customers** - success fee is configured and displayed, but there
   is no payment-out flow (how the client pays customers after an airline pays).
@@ -136,6 +159,25 @@ Status keys: **Done** (built, tested, verified in production) ·
 
 Newest first. One line per session: what changed, what it unblocked.
 
+- **2026-07-21** - Expense receipts end to end: customer Expenses tab
+  (upload with amount/currency/date/description, remove while pending), admin
+  verification panel (approve / reject with reason, internal notes, receipt
+  preview, Claimed vs Reimbursed totals), approved receipts attachable to
+  airline emails and demanded in the letter as a separate head of claim.
+  Success fee explicitly excluded from expense reimbursement.
+- **2026-07-21** - Regulator suggestion: `RegulatorDirectory` resolves the
+  competent enforcement body from regulation + route (APPR -> CTA, UK261 ->
+  CAA, US DOT -> DOT, EU261 -> the right member-state NEB out of 30). Shown
+  on the claim detail with its rationale and portal link, and the complaint
+  draft is addressed to the named body. Unresolvable routes are flagged for
+  the admin instead of guessed.
+
+- **2026-07-21** - Alert routing: unlimited alert recipients configured in
+  Settings -> Flight Claims, each subscribed to the alert types they want
+  (escalation decisions / airline replies), replacing delivery to admin
+  accounts - the box had a single placeholder admin (admin@admin.com), so
+  alerts were effectively going nowhere. Admin alert emails restyled to match
+  the customer email template (slate CTA button).
 - **2026-07-21** - Canonical legal citation table (`RegulationCitation`): the
   Eligibility Engine now resolves every citation from a vetted table instead of
   free-text AI output, drafting receives a structured `LEGAL BASIS` block, and a

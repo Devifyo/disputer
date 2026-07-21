@@ -36,6 +36,13 @@ export default {
         addDocuments(id, form) {
             return http.post(`/claims/${id}/documents`, form).then((r) => r.data.data);
         },
+        // Out-of-pocket expense receipts (FormData: receipt, category, amount...).
+        addExpense(id, form) {
+            return http.post(`/claims/${id}/expenses`, form).then((r) => r.data.data);
+        },
+        removeExpense(id, expenseId) {
+            return http.delete(`/claims/${id}/expenses/${expenseId}`).then((r) => r.data.data);
+        },
         // Claim confirmation + e-signature stage.
         confirmation(id) {
             return http.get(`/claims/${id}/confirmation`).then((r) => r.data.data);

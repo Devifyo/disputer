@@ -5,7 +5,6 @@ namespace App\Services\Claims;
 use App\Mail\AirlineClaimMail;
 use App\Models\Claim;
 use App\Models\ClaimCorrespondence;
-use App\Models\User;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
@@ -153,19 +152,50 @@ class ClaimCorrespondenceService
         return match (true) {
             $key === 'assignment'           => "Assignment-of-Claims-{$claim->reference}.{$ext}",
             $key === 'itinerary'            => $claim->itinerary?->original_filename ?: "Booking-{$claim->reference}.{$ext}",
-            str_starts_with($key, 'poa-')   => 'Power-of-Attorney-' . Str::slug($claim->signers()->find((int) substr($key, 4))?->signs_for ?: 'passenger') . ".{$ext}",
+            str_starts_with($key, 'poa-')   => $this->poaName($claim, (int) substr($key, 4), $ext),
+            // Receipts arrive named IMG_1234.jpg - label them for the airline.
+            str_starts_with($key, 'expense-') => $this->receiptName($claim, (int) substr($key, 8), $ext),
             str_starts_with($key, 'doc-')   => $claim->documents[(int) substr($key, 4)]['name'] ?? basename($path),
             str_starts_with($key, 'extra-') => $claim->airline_letter['extra'][(int) substr($key, 6)]['name'] ?? basename($path),
             default                         => basename($path),
         };
     }
 
+    /** Names the passenger the authorisation covers, falling back to the signer. */
+    private function poaName(Claim $claim, int $signerId, string $ext): string
+    {
+        $signer = $claim->signers()->find($signerId);
+        $who    = $signer?->signs_for ?: $signer?->name;
+
+        return 'Power-of-Attorney-' . Str::slug($who ?: 'passenger') . ".{$ext}";
+    }
+
+    /**
+     * "Receipt-hotel-accommodation-CAD180.00.pdf" - self-explanatory to the
+     * airline. The amount is NEVER slugged: Str::slug would strip the
+     * decimal point and turn CAD 180.00 into "cad-18000".
+     */
+    private function receiptName(Claim $claim, int $expenseId, string $ext): string
+    {
+        $expense = $claim->expenses()->find($expenseId);
+
+        if (!$expense) {
+            return "Receipt.{$ext}";
+        }
+
+        $amount = $expense->amount === null
+            ? ''
+            : '-' . ($expense->currency ?: '') . number_format((float) $expense->amount, 2);
+
+        return 'Receipt-' . Str::slug($expense->categoryLabel()) . $amount . ".{$ext}";
+    }
+
     private function alertAdmins(Claim $claim, ClaimCorrespondence $record): void
     {
-        foreach (User::role('admin')->get() as $admin) {
+        foreach (AdminAlertRecipients::for(AdminAlertRecipients::TYPE_AIRLINE_REPLY) as $admin) {
             try {
-                send_dynamic_email($admin->email, 'claim-airline-reply-alert', [
-                    '[NAME]'      => $admin->name,
+                send_dynamic_email($admin['email'], 'claim-airline-reply-alert', [
+                    '[NAME]'      => $admin['name'],
                     '[CLAIM]'     => '#' . $claim->number,
                     '[FROM]'      => trim(($record->from_name ?? '') . ' <' . $record->from_email . '>'),
                     '[FLIGHT]'    => trim(($claim->airline ?? '') . ' ' . ($claim->flight_number ?? '')),

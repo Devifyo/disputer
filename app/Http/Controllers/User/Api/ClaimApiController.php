@@ -5,6 +5,7 @@ namespace App\Http\Controllers\User\Api;
 use App\Http\Controllers\Controller;
 use App\Jobs\EvaluateClaim;
 use App\Models\Claim;
+use App\Models\ClaimExpense;
 use App\Models\ClaimSigner;
 use App\Models\Itinerary;
 use App\Models\Setting;
@@ -196,6 +197,85 @@ class ClaimApiController extends Controller
         return response()->json(['data' => $this->detail($model->refresh()), 'success' => true]);
     }
 
+    /**
+     * Upload one out-of-pocket expense receipt. The passenger states what it
+     * was and what it cost; an admin verifies it before it is ever claimed.
+     */
+    public function addExpense(Request $request, string $claim)
+    {
+        $id = decrypt_id($claim);
+        abort_if($id === null, 404);
+
+        $model = Claim::findOrFail($id);
+        $this->authorizeOwner($model);
+
+        $data = $request->validate([
+            'receipt'     => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,webp,heic,heif', 'max:12288'],
+            'category'    => ['required', 'string', Rule::in(array_keys(ClaimExpense::CATEGORIES))],
+            'amount'      => ['nullable', 'numeric', 'min:0', 'max:99999'],
+            'currency'    => ['nullable', 'string', 'size:3'],
+            'expense_date' => ['nullable', 'date', 'before_or_equal:today'],
+            'description' => ['nullable', 'string', 'max:190'],
+        ], [
+            'receipt.mimes' => 'Receipts must be a PDF or an image (JPG, PNG, WEBP, HEIC).',
+            'receipt.max'   => 'Receipts must be under 12MB.',
+        ]);
+
+        abort_if($model->expenses()->count() >= 30, 422, 'Expense receipt limit reached.');
+
+        $file = $request->file('receipt');
+
+        $model->expenses()->create([
+            'uploaded_by'       => Auth::id(),
+            'category'          => $data['category'],
+            'description'       => $data['description'] ?? null,
+            'amount'            => $data['amount'] ?? null,
+            'currency'          => isset($data['currency']) ? strtoupper($data['currency']) : null,
+            'expense_date'      => $data['expense_date'] ?? null,
+            'file_path'         => $file->store('claims/' . Auth::id() . '/expenses', 'local'),
+            'original_filename' => $file->getClientOriginalName(),
+            'mime'              => $file->getClientMimeType(),
+            'size_bytes'        => $file->getSize(),
+        ]);
+
+        $model->recordEvent('You added an expense receipt', 'done', now(), 2);
+
+        return response()->json(['data' => $this->detail($model->refresh()), 'success' => true]);
+    }
+
+    /** Remove a receipt - only while it is still awaiting review. */
+    public function removeExpense(string $claim, int $expense)
+    {
+        $id = decrypt_id($claim);
+        abort_if($id === null, 404);
+
+        $model = Claim::findOrFail($id);
+        $this->authorizeOwner($model);
+
+        $record = $model->expenses()->findOrFail($expense);
+        abort_unless($record->status === ClaimExpense::STATUS_PENDING, 422, 'This receipt has already been reviewed by our team.');
+
+        Storage::disk('local')->delete($record->file_path);
+        $record->delete();
+
+        return response()->json(['data' => $this->detail($model->refresh()), 'success' => true]);
+    }
+
+    /** Stream a receipt back to the passenger who uploaded it. */
+    public function expenseFile(string $claim, int $expense)
+    {
+        $id = decrypt_id($claim);
+        abort_if($id === null, 404);
+
+        $model = Claim::findOrFail($id);
+        $this->authorizeOwner($model);
+
+        $record = $model->expenses()->findOrFail($expense);
+        abort_unless(Storage::disk('local')->exists($record->file_path), 404);
+
+        return Storage::disk('local')->response($record->file_path, $record->original_filename);
+    }
+
     // ── Helpers ─────────────────────────────────────────────
 
     private function authorizeOwner(Claim $claim): void
@@ -290,7 +370,7 @@ class ClaimApiController extends Controller
 
     private function detail(Claim $c): array
     {
-        $c->load(['itinerary.flights', 'events', 'signers']);
+        $c->load(['itinerary.flights', 'events', 'signers', 'expenses']);
         $r = $this->resolve($c);
 
         $documents = [];
@@ -308,6 +388,23 @@ class ClaimApiController extends Controller
         }
 
         return array_merge($this->summary($c), [
+            'expenses'          => $c->expenses->map(fn (ClaimExpense $e) => [
+                'id'          => $e->id,
+                'category'    => $e->category,
+                'category_label' => $e->categoryLabel(),
+                'description' => $e->description,
+                'amount'      => $e->amount,
+                'currency'    => $e->currency,
+                'display'     => $e->formattedAmount(),
+                'date'        => $e->expense_date?->format('d M Y'),
+                'filename'    => $e->original_filename,
+                'status'      => $e->status,
+                // Only the customer-facing reason - internal notes never ship.
+                'reason'      => $e->review_reason,
+                'url'         => route('user.itineraries.api.claims.expense', ['claim' => encrypt_id($c->id), 'expense' => $e->id]),
+                'locked'      => $e->status !== ClaimExpense::STATUS_PENDING,
+            ])->values()->all(),
+            'expense_categories' => ClaimExpense::CATEGORIES,
             'passenger_name'    => $c->passenger_name,
             'disruption_note'   => $c->disruption_note,
             'booking_reference' => $c->booking_reference,

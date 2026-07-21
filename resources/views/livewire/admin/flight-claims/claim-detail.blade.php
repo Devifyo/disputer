@@ -453,6 +453,33 @@
                             </div>
                         @endif
 
+                        {{-- Competent regulator, resolved from the route - the admin decides whether to escalate --}}
+                        @if ($claim->eligibility_regulation)
+                            <div class="mb-3 rounded-xl border p-3 {{ $regulator['confident'] ? 'border-violet-200 bg-violet-50/50' : 'border-amber-200 bg-amber-50/50' }}">
+                                <div class="flex items-start gap-2">
+                                    <i data-lucide="{{ $regulator['confident'] ? 'landmark' : 'triangle-alert' }}" class="w-4 h-4 shrink-0 mt-0.5 {{ $regulator['confident'] ? 'text-violet-600' : 'text-amber-600' }}"></i>
+                                    <div class="min-w-0">
+                                        <p class="text-[10px] uppercase tracking-wider font-black {{ $regulator['confident'] ? 'text-violet-500' : 'text-amber-600' }}">
+                                            {{ $regulator['confident'] ? 'Suggested regulator' : 'Regulator needs confirming' }}
+                                        </p>
+                                        @if ($regulator['confident'])
+                                            <p class="text-sm font-bold text-slate-800 mt-0.5">
+                                                {{ $regulator['name'] }}
+                                                <span class="text-[11px] font-black text-violet-600">({{ $regulator['code'] }})</span>
+                                            </p>
+                                        @endif
+                                        <p class="text-[11px] text-slate-500 mt-0.5 leading-relaxed">{{ $regulator['reason'] }}</p>
+                                        @if ($regulator['url'])
+                                            <a href="{{ $regulator['url'] }}" target="_blank" rel="noopener"
+                                               class="inline-flex items-center gap-1 text-[11px] font-bold text-violet-600 hover:underline mt-1">
+                                                <i data-lucide="external-link" class="w-3 h-3"></i> Complaint portal
+                                            </a>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
+
                         @if ($claim->filed_at)
                             <p class="text-[11px] text-slate-400 mb-3">
                                 Filed {{ $claim->filed_at->format('d M Y H:i') }}
@@ -496,6 +523,128 @@
                         @else
                             <p class="text-xs text-slate-400">{{ $wfStage->is_final ? 'Final stage - the claim can no longer progress.' : 'No manual action available - the workflow advances automatically.' }}</p>
                         @endif
+                    </div>
+                @endif
+
+                {{-- Expense receipts: verify each one before it is claimed --}}
+                @if ($expenses->isNotEmpty())
+                    @php
+                        $pendingCount  = $expenses->where('status', 'pending')->count();
+                        $approvedTotal = \App\Models\Claim::formatTotals($claim->approvedExpenseTotals());
+                        $paidTotal     = \App\Models\Claim::formatTotals($claim->reimbursedExpenseTotals());
+                    @endphp
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+                        <div class="flex items-center justify-between gap-2 mb-1">
+                            <h2 class="font-bold text-slate-900 text-sm flex items-center gap-2">
+                                <i data-lucide="receipt" class="w-4 h-4 text-primary-500"></i> Expense receipts
+                            </h2>
+                            @if ($pendingCount)
+                                <span class="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">{{ $pendingCount }} to review</span>
+                            @endif
+                        </div>
+                        <p class="text-[11px] text-slate-400 mb-3">
+                            Uploaded by the customer. Approved receipts are claimed from the airline and attach to the email.
+                            <span class="font-bold text-slate-500">No success fee is charged on expense reimbursement.</span>
+                        </p>
+
+                        @if ($approvedTotal || $paidTotal)
+                            <div class="grid grid-cols-2 gap-2 mb-3">
+                                <div class="rounded-xl bg-slate-50 border border-slate-100 px-3 py-2">
+                                    <p class="text-[10px] uppercase tracking-wider font-black text-slate-400">Claimed</p>
+                                    <p class="text-sm font-bold text-slate-800 mt-0.5">{{ $approvedTotal ?: '-' }}</p>
+                                </div>
+                                <div class="rounded-xl bg-emerald-50 border border-emerald-100 px-3 py-2">
+                                    <p class="text-[10px] uppercase tracking-wider font-black text-emerald-600">Reimbursed</p>
+                                    <p class="text-sm font-bold text-emerald-800 mt-0.5">{{ $paidTotal ?: 'Not yet' }}</p>
+                                </div>
+                            </div>
+                        @endif
+
+                        <ul class="space-y-2">
+                            @foreach ($expenses as $expense)
+                                <li class="rounded-xl border border-slate-200 p-3" wire:key="expense-{{ $expense->id }}" x-data="{ open: false }">
+                                    <div class="flex items-start gap-2">
+                                        <span class="inline-flex px-2 py-0.5 rounded-full text-[9px] font-black ring-1 shrink-0 mt-0.5 {{ $expense->badgeClasses() }}">
+                                            {{ strtoupper($expense->status) }}
+                                        </span>
+                                        <div class="min-w-0 flex-1">
+                                            <p class="text-sm font-bold text-slate-800 truncate">
+                                                {{ $expense->categoryLabel() }}
+                                                @if ($expense->formattedAmount())
+                                                    <span class="text-slate-500 font-medium">· {{ $expense->formattedAmount() }}</span>
+                                                @endif
+                                            </p>
+                                            <p class="text-[11px] text-slate-400 truncate">
+                                                @if ($expense->expense_date) {{ $expense->expense_date->format('d M Y') }} · @endif
+                                                {{ $expense->original_filename }}
+                                            </p>
+                                            @if ($expense->description)
+                                                <p class="text-[11px] text-slate-500 mt-0.5">{{ $expense->description }}</p>
+                                            @endif
+                                            @if ($expense->status === 'rejected' && $expense->review_reason)
+                                                <p class="text-[11px] text-rose-600 mt-1"><strong>Rejected:</strong> {{ $expense->review_reason }}</p>
+                                            @endif
+                                            @if ($expense->reimbursed_amount !== null)
+                                                <p class="text-[11px] text-emerald-700 font-bold mt-1">
+                                                    Reimbursed {{ trim(($expense->currency ?? '') . ' ' . number_format((float) $expense->reimbursed_amount, 2)) }}
+                                                </p>
+                                            @endif
+                                        </div>
+                                        <button type="button" title="Preview receipt"
+                                                @click="preview = @js(route('admin.flight-claims.claims.document', ['claim' => $claim, 'key' => 'expense-' . $expense->id])); previewName = @js($expense->categoryLabel() . ' - ' . $expense->original_filename)"
+                                                class="shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors {{ $expense->status === 'approved' ? '' : 'opacity-100' }}">
+                                            <i data-lucide="eye" class="w-4 h-4"></i>
+                                        </button>
+                                    </div>
+
+                                    @if ($expense->status === 'pending')
+                                        <div class="flex flex-wrap gap-1.5 mt-2.5">
+                                            <button wire:click="reviewExpense({{ $expense->id }}, 'approved')" wire:loading.attr="disabled"
+                                                    class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold transition-colors disabled:opacity-60">
+                                                <span wire:loading.remove wire:target="reviewExpense({{ $expense->id }}, 'approved')" class="inline-flex items-center gap-1"><i data-lucide="check" class="w-3 h-3"></i> Approve</span>
+                                                <span wire:loading wire:target="reviewExpense({{ $expense->id }}, 'approved')">Saving…</span>
+                                            </button>
+                                            <button @click="open = !open"
+                                                    class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:border-rose-300 hover:text-rose-600 text-[11px] font-bold transition-colors">
+                                                <i data-lucide="x" class="w-3 h-3"></i> Reject
+                                            </button>
+                                        </div>
+                                        <div x-show="open" x-cloak x-collapse class="mt-2 space-y-1.5">
+                                            <input type="text" wire:model="expenseReason.{{ $expense->id }}" placeholder="Reason shown to the customer, e.g. receipt unreadable"
+                                                   class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs focus:border-rose-400 outline-none">
+                                            @error("expenseReason.{$expense->id}") <p class="text-[10px] font-bold text-rose-600">{{ $message }}</p> @enderror
+                                            <input type="text" wire:model="expenseNote.{{ $expense->id }}" placeholder="Internal note (optional - never shown to the customer)"
+                                                   class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs focus:border-primary-500 outline-none">
+                                            <button wire:click="reviewExpense({{ $expense->id }}, 'rejected')" wire:loading.attr="disabled"
+                                                    class="w-full bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold px-3 py-2 rounded-lg transition-colors disabled:opacity-60">
+                                                Confirm rejection
+                                            </button>
+                                        </div>
+                                    @elseif ($expense->status === 'approved' && $expense->reimbursed_amount === null)
+                                        <div class="flex gap-1.5 mt-2.5">
+                                            <input type="number" step="0.01" min="0" wire:model="expensePaid.{{ $expense->id }}" placeholder="Amount the airline paid back"
+                                                   class="flex-1 px-3 py-1.5 rounded-lg border border-slate-200 text-xs focus:border-primary-500 outline-none">
+                                            <button wire:click="recordReimbursement({{ $expense->id }})" wire:loading.attr="disabled"
+                                                    class="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-bold transition-colors disabled:opacity-60">
+                                                Record
+                                            </button>
+                                        </div>
+                                        @error("expensePaid.{$expense->id}") <p class="text-[10px] font-bold text-rose-600 mt-1">{{ $message }}</p> @enderror
+                                    @endif
+
+                                    @if ($expense->admin_note)
+                                        <p class="text-[10px] text-slate-400 mt-2 pt-2 border-t border-slate-100">
+                                            <strong>Internal:</strong> {{ $expense->admin_note }}
+                                        </p>
+                                    @endif
+                                    @if ($expense->reviewed_at)
+                                        <p class="text-[10px] text-slate-300 mt-1">
+                                            Reviewed by {{ $expense->reviewer?->name ?? 'admin' }} · {{ $expense->reviewed_at->format('d M H:i') }}
+                                        </p>
+                                    @endif
+                                </li>
+                            @endforeach
+                        </ul>
                     </div>
                 @endif
 

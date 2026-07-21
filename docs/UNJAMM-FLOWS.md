@@ -335,6 +335,43 @@ importer runs:
 ## Changelog
 
 ### 2026-07-21
+- Expense receipts (`claim_expenses`, `App\Models\ClaimExpense`): the
+  passenger uploads out-of-pocket receipts (meal / hotel / taxi / transport /
+  rebooking / other) with amount, currency, date and description from a new
+  Expenses tab on the claim; each receipt is linked to that claim by
+  construction. Admins verify each one on the claim detail - approve, or
+  reject with a customer-facing reason plus an internal-only note - record
+  what the airline actually reimbursed, and see Claimed vs Reimbursed totals.
+  Approved receipts become selectable attachments (`expense-{id}` document
+  keys, gated on approved status) and are demanded in the AI letter and the
+  template as a SEPARATE head of claim with a per-receipt breakdown; nothing
+  is mentioned when no receipt is approved. Customers may delete a receipt
+  only while it is pending. **No success fee is charged on expense
+  reimbursement** - the fee applies to statutory compensation only, stated in
+  both the customer and admin UIs.
+- Regulator suggestion (`App\Services\Claims\RegulatorDirectory`): the
+  competent enforcement body is resolved from the regulation + route.
+  APPR -> CTA, UK261 -> CAA, US_DOT -> DOT OACP are single-body regimes;
+  EU261 resolves to the National Enforcement Body of the member state where
+  the disruption happened (departure state, else arrival state for inbound
+  flights) from a 30-country NEB table (LBA, DGAC, AESA, ENAC, ILT, ...).
+  Shown on the admin claim detail with the reason and a complaint-portal
+  link; fed into the regulator complaint draft so the letter is addressed to
+  the named body instead of "the competent NEB". When the route cannot
+  settle it (neither airport in the EU/EEA) the card turns amber and asks
+  the admin to confirm rather than guessing. Deliberately deterministic -
+  naming the wrong authority is the same class of error as citing the wrong
+  article, so AI does not pick regulators.
+- Alert recipients are configurable per alert type: Setting
+  `claims.alert_recipients` holds `[{name, email, alerts[]}]` rows managed in
+  Admin -> Settings -> Flight Claims (add/remove rows, tick which alerts each
+  person receives). `AdminAlertRecipients::for($type)` resolves the list;
+  alert types are `escalation` (claim needs an escalation decision) and
+  `airline_reply` (new inbound airline email). When nobody subscribes to a
+  type the admin accounts receive it, so alerts are never silently dropped;
+  a legacy comma-separated value is still honoured as "everyone gets
+  everything". Both admin templates now use the same branded layout + slate
+  CTA button as customer emails.
 - Canonical legal citations (`App\Services\Eligibility\RegulationCitation`):
   a vetted table maps regime + disruption scenario -> exact article. The AI
   evaluator's citation is now advisory only - `normalise()` replaces it, so

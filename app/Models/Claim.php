@@ -127,6 +127,55 @@ class Claim extends Model
         return $this->hasMany(ClaimCorrespondence::class)->latest('id');
     }
 
+    public function expenses(): HasMany
+    {
+        return $this->hasMany(ClaimExpense::class)->orderBy('id');
+    }
+
+    /**
+     * Approved out-of-pocket expenses, totalled per currency - what the
+     * airline is asked to reimburse on top of compensation.
+     *
+     * Expense reimbursement is the passenger's own money back, so NO success
+     * fee is ever charged on it: the fee applies to statutory compensation
+     * only. Keep these totals separate from compensation everywhere.
+     *
+     * @return array<string, float>
+     */
+    public function approvedExpenseTotals(): array
+    {
+        return $this->expenseTotals(fn (ClaimExpense $e) => (float) $e->amount);
+    }
+
+    /**
+     * What the airline actually paid back per currency, recorded by an admin.
+     *
+     * @return array<string, float>
+     */
+    public function reimbursedExpenseTotals(): array
+    {
+        return $this->expenseTotals(fn (ClaimExpense $e) => (float) $e->reimbursed_amount, 'reimbursed_amount');
+    }
+
+    /** @return array<string, float> */
+    private function expenseTotals(callable $value, string $column = 'amount'): array
+    {
+        return $this->expenses
+            ->where('status', ClaimExpense::STATUS_APPROVED)
+            ->whereNotNull($column)
+            ->groupBy(fn (ClaimExpense $e) => $e->currency ?: ($this->compensation_currency ?: 'EUR'))
+            ->map(fn ($group) => round(array_sum($group->map($value)->all()), 2))
+            ->all();
+    }
+
+    /** Expense totals rendered for display, e.g. "EUR 215.00". */
+    public static function formatTotals(array $totals): string
+    {
+        return collect($totals)
+            ->map(fn (float $amount, string $currency) => trim($currency . ' ' . number_format($amount, 2)))
+            ->implode(' + ');
+    }
+
     /**
      * Reply-to address that routes airline replies back to this claim: the
      * inbound-parse host is a catch-all, so the plus-token survives the trip.
@@ -146,6 +195,10 @@ class Claim extends Model
             str_starts_with($key, 'doc-')      => $this->documents[(int) substr($key, 4)]['path'] ?? null,
             str_starts_with($key, 'extra-')    => $this->airline_letter['extra'][(int) substr($key, 6)]['path'] ?? null,
             str_starts_with($key, 'inbound-')  => $this->inboundAttachmentPath($key),
+            // Only approved receipts can ever leave the building.
+            str_starts_with($key, 'expense-')  => $this->expenses()
+                ->where('status', ClaimExpense::STATUS_APPROVED)
+                ->find((int) substr($key, 8))?->file_path,
             default                            => null,
         };
     }

@@ -185,6 +185,52 @@
                         </div>
                     </div>
                     <p class="text-xs text-slate-500">Customer testimonials on the confirmation screen come from published <strong>Success Stories</strong>.</p>
+
+                    <div class="pt-5 border-t border-slate-100">
+                        <div class="flex items-center justify-between gap-3 mb-1">
+                            <label class="block text-[11px] font-bold text-slate-400 uppercase">Alert recipients</label>
+                            <span class="text-[11px] font-bold text-slate-400">{{ count(array_filter($alert_recipients, fn ($r) => trim($r['email'] ?? '') !== '')) }} configured</span>
+                        </div>
+                        <p class="text-xs text-slate-500 mb-3">
+                            Who gets notified when a claim needs an escalation decision or an airline replies.
+                            Tick the alerts each person should receive.
+                            @if (!array_filter($alert_recipients, fn ($r) => trim($r['email'] ?? '') !== ''))
+                                <span class="text-amber-600 font-bold">None set - alerts currently go to every admin account.</span>
+                            @endif
+                        </p>
+
+                        <div class="space-y-2.5 max-w-3xl">
+                            @foreach ($alert_recipients as $i => $recipient)
+                                <div class="rounded-xl border border-slate-200 p-3 bg-slate-50/50" wire:key="alert-recipient-{{ $i }}">
+                                    <div class="flex flex-col sm:flex-row gap-2">
+                                        <input type="text" wire:model="alert_recipients.{{ $i }}.name" placeholder="Name or team (optional)"
+                                               class="sm:w-52 px-3 py-2 rounded-lg border border-slate-200 text-sm focus:border-primary-500 outline-none">
+                                        <input type="email" wire:model="alert_recipients.{{ $i }}.email" placeholder="alerts@unjamm.com"
+                                               class="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-sm focus:border-primary-500 outline-none">
+                                        <button type="button" wire:click="removeAlertRecipient({{ $i }})"
+                                                class="shrink-0 px-2.5 py-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors" title="Remove">
+                                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                        </button>
+                                    </div>
+                                    @error("alert_recipients.{$i}.email") <span class="text-rose-500 text-[10px] font-bold mt-1 block">{{ $message }}</span> @enderror
+                                    <div class="flex flex-wrap gap-x-4 gap-y-1.5 mt-2.5">
+                                        @foreach ($alertTypes as $type => $label)
+                                            <label class="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 cursor-pointer">
+                                                <input type="checkbox" value="{{ $type }}" wire:model="alert_recipients.{{ $i }}.alerts"
+                                                       class="rounded border-slate-300 text-slate-900 focus:ring-slate-900">
+                                                {{ $label }}
+                                            </label>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+
+                        <button type="button" wire:click="addAlertRecipient"
+                                class="mt-2.5 inline-flex items-center gap-1.5 text-xs font-bold text-primary-600 hover:text-primary-700 transition-colors">
+                            <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add another recipient
+                        </button>
+                    </div>
                 </div>
                 <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end">
                     <button wire:click="updateClaims" wire:loading.attr="disabled" class="min-w-[140px] px-6 py-2 bg-slate-900 text-white rounded-xl text-sm font-bold shadow-lg shadow-slate-900/20 hover:bg-slate-800 transition-all disabled:opacity-70 flex justify-center items-center gap-2">
