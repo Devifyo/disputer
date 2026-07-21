@@ -43,6 +43,17 @@
         }
         *, *::before, *::after { box-sizing: border-box; }
         html { scroll-behavior: smooth; }
+        /* Slim, themed scrollbar for panels that scroll inside the page. */
+        .uj-scroll { scrollbar-width: thin; scrollbar-color: rgba(63,203,148,.45) transparent; }
+        .uj-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+        .uj-scroll::-webkit-scrollbar-track { background: transparent; border-radius: 8px; }
+        .uj-scroll::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,.16);
+            border-radius: 8px;
+            border: 2px solid transparent;
+            background-clip: content-box;
+        }
+        .uj-scroll::-webkit-scrollbar-thumb:hover { background: rgba(63,203,148,.55); background-clip: content-box; }
         body {
             margin: 0;
             background: var(--bg);

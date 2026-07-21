@@ -335,6 +335,32 @@ importer runs:
 ## Changelog
 
 ### 2026-07-21
+- Public flight check (`App\Services\Marketing\PublicFlightLookupService`,
+  `POST /api/flight-lookup`, throttle 10/min + CSRF): a "Search your flight"
+  button sits immediately left of the LIVE badge on the landing page and
+  opens a modal taking flight number + departure date. Anonymous visitors get
+  the flight's real status and a PROVISIONAL eligibility read with an
+  estimated amount, then a CTA to create an account. Deliberately scoped:
+  rule-based evaluator only - no AI call, no DB writes, no account - and each
+  flight+date is cached (30 min found / 15 min not found) so repeat lookups
+  and bots cost nothing at FlightAware. Four honest result states: eligible,
+  disrupted-but-uncertain, not-disrupted (told plainly, never sold a claim),
+  and not-found (outside the ~10-day tracking window - still invites a claim,
+  since most claims are older than that). An API failure still shows a CTA
+  rather than dead-ending the visitor.
+  The result renders as a FlightAware-style card: carrier name (our directory,
+  else FlightAware's operators endpoint cached forever, else blank - never
+  "XX flight"), IATA codes, city and airport names, scheduled vs actual times
+  in each airport's LOCAL zone with an early/late delta, and a progress track.
+  A CANCELLED flight suppresses actual times, delta and progress - AeroAPI
+  leaves the schedule populated, which would otherwise read as "2m early" on a
+  flight that never operated - and shows a dashed route instead. Signed-in
+  visitors get "Start this claim in your account" rather than the signup CTA.
+  Guests also get a zero-friction second path under the primary CTA: "Email
+  my ticket" (mailto to CLAIMS_DISPLAY_ADDRESS, subject prefilled with the
+  flight) plus a copy button - the existing inbound pipeline (section 6)
+  parses the ticket and creates BOTH the claim and the account, so a visitor
+  can convert without filling in any form. Hidden for signed-in users.
 - Expense receipts (`claim_expenses`, `App\Models\ClaimExpense`): the
   passenger uploads out-of-pocket receipts (meal / hotel / taxi / transport /
   rebooking / other) with amount, currency, date and description from a new

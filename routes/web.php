@@ -9,6 +9,11 @@ use App\Http\Controllers\{CheckoutController, StripeWebhookController};
 Route::get('/', [MarketingController::class, 'index'])->name('home');
 Route::get('/api/live-disruptions', [MarketingController::class, 'liveDisruptions'])
     ->middleware('throttle:30,1')->name('live-disruptions');
+
+// Public flight check - anonymous, so throttled harder than the feed and
+// answered from cache whenever the same flight is looked up again.
+Route::post('/api/flight-lookup', [MarketingController::class, 'flightLookup'])
+    ->middleware('throttle:10,1')->name('flight-lookup');
 Route::get('/support', [SupportController::class, 'index'])->name('support');
 Route::post('/support', [SupportController::class, 'submit'])->name('support.submit');
 

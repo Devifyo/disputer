@@ -105,6 +105,7 @@ Status keys: **Done** (built, tested, verified in production) ·
 | Item | Status | Notes |
 |---|---|---|
 | Live disruption board | Done | Real FlightAware data, hourly warmed cache, sample fallback |
+| Public flight check (no signup) | Done | Modal beside the LIVE badge; provisional verdict + signup CTA, cached & throttled |
 
 ## 9. Needs human verification
 
@@ -159,6 +160,10 @@ Status keys: **Done** (built, tested, verified in production) ·
 
 Newest first. One line per session: what changed, what it unblocked.
 
+- **2026-07-21** - Public flight check on the landing page: visitors search a
+  flight without an account and see status + provisional eligibility + an
+  estimate before being asked to sign up. Verified live (BA112 JFK-LHR,
+  5h35m late -> GBP 520).
 - **2026-07-21** - Expense receipts end to end: customer Expenses tab
   (upload with amount/currency/date/description, remove while pending), admin
   verification panel (approve / reject with reason, internal notes, receipt

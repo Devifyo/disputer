@@ -198,6 +198,21 @@ class FlightAwareService
      * Airport metadata (country code, timezone, coordinates) by IATA/ICAO
      * code. Airports don't move — cached forever.
      */
+    /** Carrier display name for an ICAO operator code, e.g. AIC -> "Air India". */
+    public function operatorName(string $code): ?string
+    {
+        $code = strtoupper(trim($code));
+        if ($code === '') {
+            return null;
+        }
+
+        return Cache::rememberForever("flightaware.operator.{$code}", function () use ($code) {
+            $result = $this->get('/operators/' . rawurlencode($code));
+
+            return $result['ok'] ? ($result['data']['name'] ?? null) : null;
+        });
+    }
+
     public function airportInfo(string $code): ?array
     {
         $code = strtoupper(trim($code));

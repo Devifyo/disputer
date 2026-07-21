@@ -92,8 +92,17 @@
           <div style="font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);">Live disruption feed</div>
           <h2 style="font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:clamp(32px,3.6vw,48px);letter-spacing:-.025em;line-height:1.05;margin:16px 0 0;">We're watching, right now.</h2>
         </div>
-        <div style="display:inline-flex;align-items:center;gap:9px;background:rgba(255,90,90,.12);border:1px solid rgba(255,90,90,.35);color:#FF8A8A;padding:8px 14px;border-radius:999px;font-size:13px;font-weight:700;letter-spacing:.03em;">
-          <span style="width:8px;height:8px;border-radius:50%;background:#FF5A5A;display:inline-block;animation:ujBlink 1.4s infinite;"></span>LIVE
+        <div style="display:inline-flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <button type="button" onclick="ujOpenSearch()" aria-haspopup="dialog"
+                  style="display:inline-flex;align-items:center;gap:9px;background:var(--accent);color:#04120C;border:none;padding:11px 20px;border-radius:999px;font-size:14px;font-weight:700;letter-spacing:.01em;cursor:pointer;transition:transform .16s ease,box-shadow .16s ease;box-shadow:0 10px 30px -12px rgba(63,203,148,.7);"
+                  onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 16px 36px -12px rgba(63,203,148,.85)'"
+                  onmouseout="this.style.transform='';this.style.boxShadow='0 10px 30px -12px rgba(63,203,148,.7)'">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+            Search your flight
+          </button>
+          <div style="display:inline-flex;align-items:center;gap:9px;background:rgba(255,90,90,.12);border:1px solid rgba(255,90,90,.35);color:#FF8A8A;padding:8px 14px;border-radius:999px;font-size:13px;font-weight:700;letter-spacing:.03em;">
+            <span style="width:8px;height:8px;border-radius:50%;background:#FF5A5A;display:inline-block;animation:ujBlink 1.4s infinite;"></span>LIVE
+          </div>
         </div>
       </div>
 
@@ -374,6 +383,44 @@
     </div>
   </section>
 
+  <!-- FLIGHT CHECK: value before signup -->
+  <div id="ujSearch" role="dialog" aria-modal="true" aria-labelledby="ujSearchTitle"
+       style="display:none;position:fixed;inset:0;z-index:120;align-items:center;justify-content:center;padding:20px;background:rgba(4,8,12,.78);backdrop-filter:blur(6px);">
+    <div class="uj-scroll" style="width:100%;max-width:520px;background:#0B0F15;border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:28px;box-shadow:0 50px 120px -40px rgba(0,0,0,.9);max-height:90vh;overflow-y:auto;overscroll-behavior:contain;">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:6px;">
+        <h3 id="ujSearchTitle" style="margin:0;font-family:'Bricolage Grotesque',sans-serif;font-size:24px;font-weight:700;letter-spacing:-.02em;color:#fff;">Check your flight</h3>
+        <button type="button" onclick="ujCloseSearch()" aria-label="Close"
+                style="background:none;border:none;color:#5A6B7D;font-size:26px;line-height:1;cursor:pointer;padding:0 2px;">&times;</button>
+      </div>
+      <p style="margin:0 0 20px;font-size:14px;line-height:1.6;color:#8FA3B8;">
+        No account needed. Enter your flight and we will tell you what happened to it - and whether it looks like the airline owes you money.
+      </p>
+
+      <form id="ujSearchForm" novalidate>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div>
+            <label for="ujFlightNo" style="display:block;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#5A6B7D;margin-bottom:7px;">Flight number</label>
+            <input id="ujFlightNo" type="text" placeholder="AC123" autocomplete="off" maxlength="10" required
+                   style="width:100%;box-sizing:border-box;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:13px 15px;color:#fff;font-size:15px;font-family:ui-monospace,Menlo,monospace;text-transform:uppercase;outline:none;"
+                   onfocus="this.style.borderColor='#3FCB94'" onblur="this.style.borderColor='rgba(255,255,255,.12)'">
+          </div>
+          <div>
+            <label for="ujFlightDate" style="display:block;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#5A6B7D;margin-bottom:7px;">Departure date</label>
+            <input id="ujFlightDate" type="date" required
+                   style="width:100%;box-sizing:border-box;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:13px 15px;color:#fff;font-size:15px;outline:none;color-scheme:dark;"
+                   onfocus="this.style.borderColor='#3FCB94'" onblur="this.style.borderColor='rgba(255,255,255,.12)'">
+          </div>
+        </div>
+        <button id="ujSearchBtn" type="submit"
+                style="width:100%;margin-top:16px;background:#3FCB94;color:#04120C;border:none;border-radius:12px;padding:15px 22px;font-size:15px;font-weight:700;cursor:pointer;transition:opacity .16s;">
+          Check this flight
+        </button>
+      </form>
+
+      <div id="ujSearchResult" style="display:none;margin-top:22px;padding-top:22px;border-top:1px solid rgba(255,255,255,.08);"></div>
+    </div>
+  </div>
+
 @endsection
 
 @push('scripts')
@@ -552,6 +599,179 @@
             setRow(row, rec);
         }, 2600);
     })();
+})();
+
+/* ── Public flight check: value before signup ───────────── */
+(function () {
+    var modal = document.getElementById('ujSearch');
+    var form  = document.getElementById('ujSearchForm');
+    var out   = document.getElementById('ujSearchResult');
+    var btn   = document.getElementById('ujSearchBtn');
+    if (!modal || !form) { return; }
+
+    var ident = document.getElementById('ujFlightNo');
+    var when  = document.getElementById('ujFlightDate');
+
+    window.ujOpenSearch = function () {
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+        setTimeout(function () { ident.focus(); }, 60);
+    };
+    window.ujCloseSearch = function () {
+        modal.style.display = 'none';
+        document.body.style.overflow = '';
+    };
+
+    modal.addEventListener('click', function (e) { if (e.target === modal) { window.ujCloseSearch(); } });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && modal.style.display === 'flex') { window.ujCloseSearch(); } });
+
+    // Default to yesterday - most people check a flight that just happened.
+    (function () {
+        var d = new Date(); d.setDate(d.getDate() - 1);
+        when.value = d.toISOString().slice(0, 10);
+        when.max = new Date().toISOString().slice(0, 10);
+    })();
+
+    function esc(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+    }
+
+    /* One end of the journey: code, city, scheduled vs actual local time. */
+    function endpoint(p, align) {
+        if (!p) { return ''; }
+        var right = align === 'right';
+        var times = '';
+        if (p.scheduled || p.actual) {
+            var shown = p.actual || p.scheduled;
+            times = '<div style="margin-top:6px;font-family:ui-monospace,Menlo,monospace;font-size:15px;font-weight:700;color:#fff;">'
+                  + esc(shown) + (p.timezone ? ' <span style="font-size:11px;font-weight:600;color:#5A6B7D;">' + esc(p.timezone) + '</span>' : '')
+                  + '</div>';
+            if (p.actual && p.scheduled && p.actual !== p.scheduled) {
+                times += '<div style="font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#5A6B7D;text-decoration:line-through;">' + esc(p.scheduled) + '</div>';
+            }
+            if (p.delta) {
+                times += '<div style="margin-top:3px;font-size:11px;font-weight:700;color:' + (p.late ? '#FF8A8A' : '#3FCB94') + ';">' + esc(p.delta) + '</div>';
+            }
+        }
+        return '<div style="flex:1;min-width:0;text-align:' + (right ? 'right' : 'left') + ';">'
+             + '<div style="font-family:ui-monospace,Menlo,monospace;font-size:26px;font-weight:700;color:#fff;line-height:1;">' + esc(p.code || '?') + '</div>'
+             + (p.city ? '<div style="margin-top:4px;font-size:12px;font-weight:700;color:#8FA3B8;text-transform:uppercase;letter-spacing:.04em;">' + esc(p.city) + '</div>' : '')
+             + (p.airport ? '<div style="margin-top:2px;font-size:11px;color:#5A6B7D;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(p.airport) + '</div>' : '')
+             + times
+             + '</div>';
+    }
+
+    function flightCard(f) {
+        var bad    = f.cancelled || f.delay_min >= 180;
+        var accent = f.cancelled ? '#FF5A5A' : (bad ? '#F5C26B' : '#3FCB94');
+        var status = f.cancelled ? 'CANCELLED' : (f.delay_min >= 15 ? 'DELAYED ' + f.status : (f.status_text || 'ON TIME'));
+        var pct    = f.cancelled ? 0 : Math.max(4, Math.min(100, f.progress || 100));
+
+        // A cancelled flight never flew: show the route as a broken line
+        // rather than a completed journey.
+        var track = f.cancelled
+            ? '<div style="height:2px;margin:16px 4px 0;background:repeating-linear-gradient(90deg,rgba(255,90,90,.55) 0 8px,transparent 8px 15px);border-radius:2px;"></div>'
+            : '<div style="position:relative;height:2px;margin:16px 4px 0;background:rgba(255,255,255,.1);border-radius:2px;">'
+              + '<div style="position:absolute;left:0;top:0;height:2px;width:' + pct + '%;background:' + accent + ';border-radius:2px;"></div>'
+              + '<div style="position:absolute;top:-5px;left:calc(' + pct + '% - 5px);width:10px;height:10px;border-radius:50%;background:' + accent + ';box-shadow:0 0 0 3px rgba(9,12,17,1);"></div>'
+              + '</div>';
+
+        return '<div style="margin:0 0 18px;padding:16px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:14px;">'
+             + '<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:2px;">'
+             +   '<span style="font-family:\'Bricolage Grotesque\',sans-serif;font-size:19px;font-weight:700;color:#fff;">' + esc(f.airline || f.ident) + '</span>'
+             +   '<span style="font-family:ui-monospace,Menlo,monospace;font-size:13px;color:#5A6B7D;">' + esc(f.ident) + '</span>'
+             + '</div>'
+             + '<div style="font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:' + accent + ';margin-bottom:16px;">'
+             +   esc(status) + '<span style="color:#5A6B7D;font-weight:600;letter-spacing:.02em;text-transform:none;"> · ' + esc(f.date) + '</span>'
+             + '</div>'
+             + '<div style="display:flex;align-items:flex-start;gap:16px;">' + endpoint(f.from, 'left') + endpoint(f.to, 'right') + '</div>'
+             + track
+             + (f.cancelled ? '<div style="margin-top:8px;font-size:11px;color:#5A6B7D;text-align:center;">This flight did not operate - times shown were the schedule.</div>' : '')
+             + '</div>';
+    }
+
+    /* Signed-in visitors already have an account - send them to their claims. */
+    var authed = @json(auth()->check());
+
+    function ctaLabel(r) {
+        if (!authed) { return r.cta; }
+
+        return r.eligible ? 'Start this claim in your account' : 'Go to my claims';
+    }
+
+    function card(r) {
+        var accent = r.eligible ? '#3FCB94' : (r.found ? '#8FA3B8' : '#F5C26B');
+
+        return (r.flight ? flightCard(r.flight) : '')
+            + '<p style="margin:0 0 8px;font-family:\'Bricolage Grotesque\',sans-serif;font-size:20px;font-weight:700;line-height:1.25;color:' + accent + ';">' + esc(r.headline) + '</p>'
+            + '<p style="margin:0 0 18px;font-size:14px;line-height:1.65;color:#8FA3B8;">' + esc(r.detail) + '</p>'
+            + '<a href="{{ $ctaUrl }}" style="display:block;text-align:center;background:' + (r.eligible ? '#3FCB94' : '#ffffff') + ';color:#04120C;padding:14px 22px;border-radius:12px;font-size:15px;font-weight:700;text-decoration:none;">' + esc(ctaLabel(r)) + '</a>'
+            + emailRoute(r)
+            + '<p style="margin:12px 0 0;font-size:12px;color:#5A6B7D;text-align:center;">'
+            + (authed ? 'No win, no fee. This is a provisional read - we confirm everything on the claim itself.'
+                      : 'Free to check. No win, no fee. This is a provisional read - we confirm everything once you start a claim.')
+            + '</p>';
+    }
+
+    /* Zero-friction alternative: forward the ticket and we build the claim
+       (and the account) from it - no form to fill in at all. */
+    function emailRoute(r) {
+        if (authed) { return ''; }
+
+        var subject = encodeURIComponent('My flight claim' + (r.flight ? ' - ' + r.flight.ident + ' ' + r.flight.date : ''));
+        var body    = encodeURIComponent('My ticket is attached / forwarded below.');
+
+        return '<div style="margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,.08);text-align:center;">'
+             + '<p style="margin:0 0 10px;font-size:13px;color:#8FA3B8;">Or skip the form entirely - forward your ticket and we will build the claim for you.</p>'
+             + '<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">'
+             +   '<a href="mailto:{{ $claimsEmail }}?subject=' + subject + '&body=' + body + '" '
+             +      'style="display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);color:#fff;padding:11px 18px;border-radius:10px;font-size:14px;font-weight:700;text-decoration:none;">'
+             +      '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 6 10-6"/></svg>'
+             +      'Email ticket</a>'
+             +   '<button type="button" onclick="ujCopyEmail(this)" '
+             +      'style="display:inline-flex;align-items:center;gap:7px;background:none;border:1px solid rgba(255,255,255,.14);color:#8FA3B8;padding:11px 16px;border-radius:10px;font-family:ui-monospace,Menlo,monospace;font-size:13px;font-weight:600;cursor:pointer;">'
+             +      '{{ $claimsEmail }} · <span class="uj-copy-label">Copy</span></button>'
+             + '</div>'
+             + '<p style="margin:9px 0 0;font-size:11px;color:#5A6B7D;">We read the ticket, create the claim and set up your account automatically.</p>'
+             + '</div>';
+    }
+
+    form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        if (!ident.value.trim()) { ident.focus(); return; }
+
+        btn.disabled = true;
+        btn.textContent = 'Checking…';
+        out.style.display = 'block';
+        out.innerHTML = '<p style="margin:0;font-size:14px;color:#8FA3B8;">Checking live flight records…</p>';
+
+        fetch('{{ route('flight-lookup') }}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+            body: JSON.stringify({ flight: ident.value.trim(), date: when.value })
+        })
+        .then(function (res) { return res.json().then(function (b) { return { ok: res.ok, body: b }; }); })
+        .then(function (r) {
+            if (!r.ok) {
+                var msg = r.body && r.body.errors
+                    ? Object.values(r.body.errors)[0][0]
+                    : 'That did not work - please check the flight number and try again.';
+                out.innerHTML = '<p style="margin:0;font-size:14px;color:#F5C26B;">' + msg + '</p>';
+                return;
+            }
+            out.innerHTML = card(r.body.data);
+        })
+        .catch(function () {
+            out.innerHTML = '<p style="margin:0 0 14px;font-size:14px;color:#F5C26B;">We could not reach the flight database just now.</p>'
+                + '<a href="{{ $ctaUrl }}" style="display:block;text-align:center;background:#ffffff;color:#04120C;padding:14px 22px;border-radius:12px;font-size:15px;font-weight:700;text-decoration:none;">Start a claim anyway - it is free</a>';
+        })
+        .finally(function () {
+            btn.disabled = false;
+            btn.textContent = 'Check this flight';
+        });
+    });
 })();
 </script>
 @endpush
