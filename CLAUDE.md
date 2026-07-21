@@ -1,10 +1,17 @@
 # Unjamm - working notes for Claude
 
-- **Living documentation**: `docs/UNJAMM-FLOWS.md` describes every
-  flight-dispute flow (trips, claims, eligibility, compensation,
-  e-signatures, inbound email) plus a changelog. **After any change to these
-  flows, update that file in the same session** - keep the "Last updated"
-  date and the changelog current.
+- **Living documentation - update BOTH without being asked**, in the same
+  session as the change:
+  - `docs/PROJECT-STATUS.md` - the delivery tracker (Done / Partial / Not
+    started / Blocked per feature, known gaps, session log). Never mark
+    something Done that has not been verified running. Add an entry to the
+    session log and refresh "Last updated".
+  - `docs/UNJAMM-FLOWS.md` - how every flight-dispute flow actually works
+    (trips, claims, eligibility, compensation, e-signatures, correspondence,
+    inbound email) plus its changelog and "Last updated" date.
+- The AI never decides the law and never sends anything: legal citations come
+  from `RegulationCitation` (canonical table), the Eligibility Engine decides,
+  the model only drafts, an admin reviews and sends.
 - Coding standards: PHP imports at top (never inline `\FQCN`), minimal
   comments, hyphen "-" never em-dash, CTA/tab styling bg-slate-900,
   mobile-responsive.

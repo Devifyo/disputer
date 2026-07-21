@@ -4,6 +4,7 @@ namespace App\Services\Claims;
 
 use App\Models\Claim;
 use App\Models\ClaimDraft;
+use App\Services\Eligibility\RegulationCitation;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -65,16 +66,24 @@ class ClaimLetterService
     {
         $claim->loadMissing('itinerary.passengers', 'user', 'signers');
 
-        try {
-            if (config('services.gemini.api_key')) {
+        // A draft that cites unauthorised law is rejected and redrafted once;
+        // the deterministic template (canonical citations by construction)
+        // is the backstop, so a bad citation can never reach an airline.
+        for ($attempt = 1; $attempt <= 2; $attempt++) {
+            try {
+                if (!config('services.gemini.api_key')) {
+                    break;
+                }
+
                 return $this->generateWithAi($claim, $type, $context) + ['generated_by' => 'ai'];
+            } catch (Throwable $e) {
+                Log::warning('Claim letter AI generation failed', [
+                    'claim'   => $claim->id,
+                    'type'    => $type,
+                    'attempt' => $attempt,
+                    'error'   => $e->getMessage(),
+                ]);
             }
-        } catch (Throwable $e) {
-            Log::warning('Claim letter AI generation failed - using template', [
-                'claim' => $claim->id,
-                'type'  => $type,
-                'error' => $e->getMessage(),
-            ]);
         }
 
         return $this->template($claim, $type, $context) + ['generated_by' => 'template'];
@@ -108,7 +117,109 @@ class ClaimLetterService
             throw new RuntimeException('Gemini returned malformed letter JSON.');
         }
 
+        // The model may not cite anything the engine did not authorise.
+        $invented = $this->inventedCitations($claim, $decoded['subject'] . ' ' . $decoded['body']);
+        if ($invented !== []) {
+            throw new RuntimeException('Draft cited unauthorised provisions: ' . implode(', ', $invented));
+        }
+
         return ['subject' => trim($decoded['subject']), 'body' => trim($decoded['body'])];
+    }
+
+    /**
+     * Citations in the text that the Eligibility Engine never authorised.
+     * Only the claim's own regime is policed - a letter may legitimately
+     * mention another regime by name without citing its provisions.
+     *
+     * @return array<int, string>
+     */
+    public function inventedCitations(Claim $claim, string $text): array
+    {
+        $regulation = (string) $claim->eligibility_regulation;
+        $allowed    = RegulationCitation::allowed($regulation);
+
+        if ($allowed === []) {
+            return [];
+        }
+
+        // "Section 19", "s. 19(4)", "Article 7(1)", "Articles 5 and 7", "Part 250".
+        $pattern = '/\b(?:s(?:ection)?s?\.?|articles?|art\.?|paragraphs?|§§?|(?:14\s+CFR\s+)?parts?)\s*'
+                 . '\d+[a-z]?(?:\s*\(\d+\))*(?:\s*\([a-z]\))*(?:\s*(?:and|&|to|-|,)\s*\d+[a-z]?(?:\s*\(\d+\))*)*/i';
+
+        preg_match_all($pattern, $text, $matches);
+
+        // Every provision the engine authorised, as "kind:number" pairs.
+        $permitted = collect($allowed)->flatMap(fn (string $c) => $this->provisions($c))->unique();
+
+        // A citation is legitimate when every provision it names is
+        // authorised. Sub-paragraphs are fine - "Section 19" covers
+        // "s.19(2)" - but "Section 20" when only 19 is allowed is not.
+        return collect($matches[0])
+            ->map(fn (string $c) => trim(preg_replace('/\s+/', ' ', $c)))
+            ->reject(function (string $found) use ($permitted) {
+                $named = $this->provisions($found);
+
+                return $named !== [] && collect($named)->every(fn ($p) => $permitted->contains($p));
+            })
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Break a citation into canonical "kind:number" provisions, so notation
+     * differences never matter: "s.19(2)", "Section 19" and "sections 19"
+     * all reduce to "section:19"; "Articles 5 and 7" to two provisions.
+     *
+     * @return array<int, string>
+     */
+    private function provisions(string $citation): array
+    {
+        $citation = strtolower(trim($citation));
+
+        $kind = match (true) {
+            (bool) preg_match('/^(s\.?|sec|section)/', $citation)  => 'section',
+            (bool) preg_match('/^(art|article|§)/', $citation)     => 'article',
+            (bool) preg_match('/part/', $citation)                 => 'part',
+            (bool) preg_match('/^para/', $citation)                => 'paragraph',
+            default                                                => 'other',
+        };
+
+        // Leading numbers only - sub-paragraphs in brackets are part of the
+        // same provision, so "19(2)" and "19" are both "section:19".
+        preg_match_all('/(?<!\()\b(\d+)\b(?!\))/', $citation, $numbers);
+
+        return collect($numbers[1])->map(fn ($n) => "{$kind}:{$n}")->unique()->values()->all();
+    }
+
+    /**
+     * The engine's legal decision, handed to the model as structured data -
+     * it formats this, it does not decide it.
+     */
+    private function legalBasis(Claim $claim): array
+    {
+        $regulation = (string) $claim->eligibility_regulation;
+        $scenario   = RegulationCitation::scenarioFromClaim($claim);
+        $paxCount   = max(1, count($claim->passengerNames()));
+
+        return array_filter([
+            'regulation'          => $regulation,
+            'article'             => (string) $claim->eligibility_article,
+            'article_covers'      => RegulationCitation::describes($regulation, $scenario),
+            'disruption'          => $scenario,
+            'engine_reason'       => (string) $claim->eligibility_reason,
+            'compensation_basis'  => (string) $claim->compensation_basis,
+            'amount_per_passenger' => $claim->compensation_amount
+                ? trim(($claim->compensation_currency ?? '') . ' ' . number_format((float) $claim->compensation_amount, 2))
+                : null,
+            'passengers'          => $paxCount,
+            'total_claimed'       => $claim->compensation_amount
+                ? trim(($claim->compensation_currency ?? '') . ' ' . number_format((float) $claim->compensation_amount * $paxCount, 2))
+                : null,
+            'refund_article'      => RegulationCitation::supporting($regulation, 'refund'),
+            'right_to_care_article' => RegulationCitation::supporting($regulation, 'care'),
+            'payment_deadline_article' => RegulationCitation::supporting($regulation, 'deadline'),
+        ], fn ($v) => $v !== null && $v !== '');
     }
 
     private function prompt(Claim $claim, string $type, array $context): string
@@ -116,11 +227,15 @@ class ClaimLetterService
         $jurisdiction = ClaimLegalDocumentService::jurisdiction($claim);
         $regime       = self::JURISDICTIONS[$jurisdiction] ?? self::JURISDICTIONS['EU'];
         $facts        = json_encode($this->facts($claim), JSON_PRETTY_PRINT);
-        $legalBasis   = trim(($claim->eligibility_regulation ?? '') . ' ' . ($claim->eligibility_article ?? ''));
+        $legal        = json_encode($this->legalBasis($claim), JSON_PRETTY_PRINT);
+        $allowed      = implode('", "', RegulationCitation::allowed((string) $claim->eligibility_regulation));
 
         $shared = <<<SHARED
 CLAIM RECORD (structured data from the Eligibility Engine - verified where stated, never invent facts):
 {$facts}
+
+LEGAL BASIS (decided by the Eligibility Engine - authoritative, not open to interpretation):
+{$legal}
 
 JURISDICTION: {$jurisdiction}
 - Governing law: {$regime['law']}
@@ -128,7 +243,7 @@ JURISDICTION: {$jurisdiction}
 - Enforcement body: {$regime['body']}
 - Regime specifics: {$regime['notes']}
 
-LEGAL CITATION RULE (strict): cite the legal basis EXACTLY as provided by the Eligibility Engine: "{$legalBasis}". Never substitute, add or guess other articles or sections. You do not determine eligibility or amounts - the Eligibility Engine already did; your only job is well-written correspondence.
+LEGAL CITATION RULE (strict): the Eligibility Engine decides the law; you only write the letter. Cite the LEGAL BASIS block verbatim - its "regulation" and "article" are the claim's legal grounds. The ONLY citations you may write are: "{$allowed}". Any other article, section or paragraph number is forbidden, including ones you believe are more accurate - if the correct provision seems missing, write the claim without a citation rather than inventing one. Do not add sub-paragraph letters or numbers that are not in the allowed list.
 
 DATA FIDELITY RULE (strict): every date, amount, name, flight detail and reference in the letter must come from the CLAIM RECORD, the CORRESPONDENCE HISTORY or the attached documents - never invent or estimate any of them. Today's date is in the claim record ("today") - use it if you date the letter. If the date of an earlier letter is provided, reference it exactly; if it is not provided, write "our previous correspondence" without a date. Never write placeholders like [date] or [amount].
 
@@ -373,7 +488,13 @@ REGULATORTASK;
                 'arrival_delay_min'   => $snapshot['arrival_delay_minutes'] ?? null,
                 'cancelled'           => $snapshot['cancelled'] ?? false,
             ] : null,
-            'legal_basis'          => trim(($claim->eligibility_regulation ?? '') . ' ' . ($claim->eligibility_article ?? '')),
+            // Resolved through the canonical table, so a claim decided before
+            // the table existed still drafts with the correct citation.
+            'legal_basis'          => trim(($claim->eligibility_regulation ?? '') . ' ' . RegulationCitation::normalise(
+                (string) $claim->eligibility_regulation,
+                RegulationCitation::scenarioFromClaim($claim),
+                $claim->eligibility_article
+            )),
             'verdict_reason'       => $claim->eligibility_reason,
             'engine_confidence'    => $claim->eligibility_confidence,
             'decision_source'      => $claim->eligibility_decision_source,

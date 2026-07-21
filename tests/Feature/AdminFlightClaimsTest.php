@@ -51,7 +51,7 @@ class AdminFlightClaimsTest extends TestCase
             'flight_cancelled'       => true,
             'flight_verified_at'     => now(),
             'eligibility_regulation' => 'APPR',
-            'eligibility_article'    => 'ss. 19-22',
+            'eligibility_article'    => 'Section 19',
             'eligibility_confidence' => 85,
             'eligibility_reason'     => 'Cancelled with short notice.',
             'compensation_amount'    => 400,
@@ -173,7 +173,7 @@ class AdminFlightClaimsTest extends TestCase
 
         $regulator = $drafts->firstWhere('type', 'regulator_complaint');
         $this->assertStringContainsString('complaint against Air Canada', $regulator->body);
-        $this->assertStringContainsString('APPR ss. 19-22', $regulator->body);
+        $this->assertStringContainsString('APPR Section 19', $regulator->body);
 
         // Regenerating bumps the version; history is preserved.
         $component->call('generate');
@@ -211,7 +211,7 @@ class AdminFlightClaimsTest extends TestCase
         $this->assertSame('template', $draft['generated_by']);
         $this->assertStringContainsString('AC1540', $draft['subject']);
         $this->assertStringContainsString('Tenzin Hagyal', $draft['body']);
-        $this->assertStringContainsString('APPR ss. 19-22', $draft['body']);
+        $this->assertStringContainsString('APPR Section 19', $draft['body']);
         $this->assertStringContainsString('Air Passenger Protection Regulations', $draft['body']);
         $this->assertStringContainsString('CAD 400.00', $draft['body']);
         $this->assertStringContainsString('30 days', $draft['body']);

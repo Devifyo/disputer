@@ -105,16 +105,23 @@ class ClaimDetail extends Component
         $letter = $this->claim->airline_letter ?? [];
         $extra  = $letter['extra'] ?? [];
 
+        $added = [];
         foreach ($this->uploads as $file) {
             $extra[] = [
                 'name' => $file->getClientOriginalName(),
                 'path' => $file->store("claims/{$this->claim->user_id}/admin", 'local'),
             ];
+            $added[]          = $file->getClientOriginalName();
             $this->attached[] = 'extra-' . (count($extra) - 1);
         }
 
         $this->uploads = [];
         $this->persist(['extra' => $extra]);
+
+        app(ClaimWorkflowService::class)->audit(
+            $this->claim, count($added) . ' document(s) added to the claim file', 'admin', auth()->id(), implode(', ', $added)
+        );
+
         $this->dispatch('toast', ['type' => 'success', 'message' => 'Document(s) added to the email.']);
     }
 
@@ -123,6 +130,7 @@ class ClaimDetail extends Component
         $letter = $this->claim->airline_letter ?? [];
         $extra  = $letter['extra'] ?? [];
 
+        $removed = $extra[$index]['name'] ?? "document {$index}";
         if (isset($extra[$index]['path'])) {
             Storage::disk('local')->delete($extra[$index]['path']);
         }
@@ -138,6 +146,10 @@ class ClaimDetail extends Component
             ->all();
 
         $this->persist(['extra' => $extra]);
+
+        app(ClaimWorkflowService::class)->audit(
+            $this->claim, 'Document removed from the claim file', 'admin', auth()->id(), $removed
+        );
     }
 
     /**
@@ -261,6 +273,15 @@ class ClaimDetail extends Component
             'currency' => $this->claim->fresh()->compensation_currency,
         ]);
 
+        $priced = $this->claim->fresh();
+        app(ClaimWorkflowService::class)->audit(
+            $this->claim, 'Eligibility approved by the team', 'admin', auth()->id(),
+            trim(sprintf('%s %s - %s %s per passenger',
+                $priced->eligibility_regulation, $priced->eligibility_article,
+                $priced->compensation_currency, number_format((float) $priced->compensation_amount, 2)
+            ))
+        );
+
         $this->claim->refresh()->load(['user', 'signers', 'itinerary.passengers', 'events']);
         $this->dispatch('toast', ['type' => 'success', 'message' => 'Claim approved - the customer has been notified.']);
     }
@@ -302,6 +323,10 @@ class ClaimDetail extends Component
                 '[CLAIM_URL]' => url('/flight-disputes/claims/' . encrypt_id($this->claim->id)),
             ]);
         }
+
+        app(ClaimWorkflowService::class)->audit(
+            $this->claim, 'Eligibility rejected by the team', 'admin', auth()->id(), $this->rejection_reason
+        );
 
         $this->rejection_reason = '';
         $this->claim->refresh()->load(['user', 'signers', 'itinerary.passengers', 'events']);
@@ -405,6 +430,10 @@ class ClaimDetail extends Component
 
         $this->claim->drafts()->where('type', $draft->type)->update(['approved_at' => null, 'approved_by' => null]);
         $draft->forceFill(['approved_at' => now(), 'approved_by' => auth()->id()])->save();
+
+        app(ClaimWorkflowService::class)->audit(
+            $this->claim, "{$draft->typeLabel()} v{$draft->version} approved as final", 'admin', auth()->id(), $draft->subject
+        );
 
         $this->claim->refresh()->load(['user', 'signers', 'itinerary.passengers', 'events']);
         $this->dispatch('toast', ['type' => 'success', 'message' => "{$draft->typeLabel()} v{$draft->version} approved as the final version."]);

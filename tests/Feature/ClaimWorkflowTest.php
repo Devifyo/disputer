@@ -161,7 +161,7 @@ class ClaimWorkflowTest extends TestCase
         $claim->forceFill([
             'contact_email'          => 'customer@example.com',
             'eligibility_regulation' => 'APPR',
-            'eligibility_article'    => 'ss. 19-22',
+            'eligibility_article'    => 'Section 19',
         ])->save();
 
         $this->workflow->transition($claim, 'awaiting_escalation', 'system', null, 'Deadline expired.');
@@ -172,7 +172,7 @@ class ClaimWorkflowTest extends TestCase
         // A regulator complaint DRAFT was prepared - stored, audited, not sent.
         $draft = $claim->drafts()->where('type', 'regulator_complaint')->first();
         $this->assertNotNull($draft);
-        $this->assertStringContainsString('APPR ss. 19-22', $draft->body);
+        $this->assertStringContainsString('APPR Section 19', $draft->body);
         $this->assertTrue($claim->auditLogs()->where('action', 'like', 'AI draft prepared%')->exists());
     }
 
@@ -239,5 +239,29 @@ class ClaimWorkflowTest extends TestCase
         $this->assertStringNotContainsString('airline_letter', $payload);
         $this->assertStringNotContainsString('claims@aircanada.ca', $payload);
         $this->assertStringNotContainsString('internal letter', $payload);
+    }
+
+    public function test_audit_entries_can_never_be_edited_or_deleted(): void
+    {
+        $claim = $this->claim('ready_to_file');
+        $this->workflow->audit($claim, 'Claim filed with the airline', 'admin', null, 'original note');
+
+        $entry = $claim->auditLogs()->first();
+
+        try {
+            $entry->update(['notes' => 'tampered']);
+            $this->fail('Audit entries must not be updatable.');
+        } catch (RuntimeException $e) {
+            $this->assertStringContainsString('immutable', $e->getMessage());
+        }
+
+        try {
+            $entry->delete();
+            $this->fail('Audit entries must not be deletable.');
+        } catch (RuntimeException $e) {
+            $this->assertStringContainsString('cannot be deleted', $e->getMessage());
+        }
+
+        $this->assertSame('original note', $claim->auditLogs()->first()->notes);
     }
 }

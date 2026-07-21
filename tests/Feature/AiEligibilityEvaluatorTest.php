@@ -60,7 +60,9 @@ class AiEligibilityEvaluatorTest extends TestCase
         $trip->refresh();
 
         $this->assertSame('EU261', $result->regulation);
-        $this->assertSame('Article 7(1)(c)', $trip->eligibility_article);
+        // The model's proposed citation is advisory - the canonical table
+        // decides, so the stored article is the vetted one for a delay.
+        $this->assertSame('Article 7', $trip->eligibility_article);
         $this->assertSame(88, $trip->eligibility_confidence);
         $this->assertSame('ai', $trip->eligibility_details['evaluated_by']);
         $this->assertSame(EligibilityEngine::STATUS_ELIGIBLE, $trip->eligibility_status);

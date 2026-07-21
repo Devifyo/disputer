@@ -334,6 +334,20 @@ importer runs:
 
 ## Changelog
 
+### 2026-07-21
+- Canonical legal citations (`App\Services\Eligibility\RegulationCitation`):
+  a vetted table maps regime + disruption scenario -> exact article. The AI
+  evaluator's citation is now advisory only - `normalise()` replaces it, so
+  the engine (not the model) decides the law. Drafting receives a structured
+  LEGAL BASIS block (regulation, article, what it covers, amounts, deadline,
+  supporting provisions) plus an explicit allow-list; `inventedCitations()`
+  rejects any draft citing an unauthorised provision, retries once, then
+  falls back to the deterministic template. Backfill command
+  `claims:normalise-citations` corrected 13 existing claims (e.g. APPR
+  "ss. 20-22" -> "Section 19" on a cancellation; a denied-boarding claim
+  citing "Article 7(1)" -> "Article 4").
+- New delivery tracker `docs/PROJECT-STATUS.md`, kept current every session.
+
 ### 2026-07-18
 - Airline correspondence (see section 6a): "Send to airline" is live - claim
   emails go out from CLAIMS_DISPLAY_ADDRESS with a per-claim reply-to token
@@ -346,6 +360,10 @@ importer runs:
   preview of airline attachments. New: claim_correspondence table,
   ClaimCorrespondenceService, AirlineClaimMail, Claim::documentPath()
   (shared by the admin document route and outbound attachments).
+- Audit trail completed: eligibility approve/reject decisions, draft
+  approvals, and admin document add/remove now write audit entries (were
+  previously untracked). ClaimAuditLog is enforced append-only at the model
+  level - updating or deleting an entry throws.
 - Correspondence display: airline replies split into new text vs quoted
   history (collapsed behind a toggle; stored body stays complete). AI letter
   prompt gained strict FORMATTING rules - salutation line, blank-line
