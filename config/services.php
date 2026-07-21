@@ -29,6 +29,10 @@ return [
         // claims.unjamm.com subdomain routes to SendGrid Inbound Parse via
         // its own MX record, independent of the root domain's mailboxes.
         'claims_display' => env('CLAIMS_DISPLAY_ADDRESS', 'claims@claims.unjamm.com'),
+        // Domain for per-claim reply-to addresses (claims+CLM-XXXX@...).
+        // Must be the Inbound Parse host - it accepts any local part, so
+        // airline replies come back tagged with the claim they belong to.
+        'reply_domain'   => env('CLAIMS_REPLY_DOMAIN', 'claims.unjamm.com'),
     ],
 
     'ses' => [

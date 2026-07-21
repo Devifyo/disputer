@@ -3,7 +3,7 @@
 Living documentation of the flight-dispute module: how the flows work, where
 the code lives, and what changed. **Update this file whenever a flow changes.**
 
-Last updated: 2026-07-17
+Last updated: 2026-07-18
 
 ---
 
@@ -221,6 +221,42 @@ claims@claims.unjamm.com (MX -> SendGrid) -> Inbound Parse ->
 Display address env: CLAIMS_DISPLAY_ADDRESS. Known gap: transactional/no-reply
 senders also create accounts+claims (no sender filter yet).
 
+## 6a. Airline correspondence (outbound + replies)
+
+One mailbox, two streams - the webhook splits them before the itinerary
+importer runs:
+
+- **Outbound** (admin claim detail -> "Send to airline"): AirlineClaimMail
+  goes out From CLAIMS_DISPLAY_ADDRESS ("Unjamm Claims") with
+  `Reply-To: claims+{reference-lowercase}@CLAIMS_REPLY_DOMAIN` (the Inbound
+  Parse host accepts any local part, so the token survives). The claim
+  reference is appended to the subject once (`[Ref: CLM-XXXXXXXX]`) if
+  missing. Selected composer attachments (POAs, assignment, itinerary,
+  customer docs, admin extras) resolve via `Claim::documentPath($key)` and go
+  out as named files. Stored as an immutable `claim_correspondence` row
+  (direction=outbound, sent_by) + audit entry. A send while the claim is in
+  `ready_to_file` IS the filing: the workflow transitions to `filed` with the
+  filing record (recipient/subject/attachments) and the auto chain takes it
+  to `awaiting_response` + 30-day timer.
+- **Inbound**: `ClaimCorrespondenceService::matchInbound()` checks, in
+  order: (1) reply-token in any recipient (`claims+clm-...@`), (2) claim
+  reference anywhere in the subject (covers airlines replying to the visible
+  From address - the Hostinger forwarder still lands them on the webhook).
+  Matched mail becomes a `claim_correspondence` row (direction=inbound,
+  matched_by=reply_token|subject_reference), attachments stored under
+  `claims/{user}/inbound/`, audit entry via=airline, and every admin gets a
+  `claim-airline-reply-alert` email. No account/claim is ever created for an
+  airline address. Unmatched mail falls through to the customer itinerary
+  flow unchanged. The workflow does NOT auto-advance on inbound mail - the
+  admin reads it in the Correspondence tab and records the response
+  (`responded`) explicitly.
+- **Admin UI**: claim detail work area gained a Correspondence tab (count
+  badge): expandable cards per email, direction badges (SENT/AIRLINE),
+  matched-by note, inline attachment preview for airline files
+  (`inbound-{correspondenceId}-{index}` document keys).
+- Customers never see airline correspondence (communication-visibility rule).
+- Env: CLAIMS_REPLY_DOMAIN (default claims.unjamm.com).
+
 ## 7. Admin
 
 - Settings -> Trip Eligibility: confidence threshold.
@@ -286,6 +322,9 @@ senders also create accounts+claims (no sender filter yet).
 - PHP: imports at top, never inline FQCN. Hyphen "-", never em-dash.
 - CTA styling: bg-slate-900; pending = amber clock icon; timeline pending
   events always render last.
+- Admin confirmations: never native wire:confirm / js alert - dispatch
+  `admin-confirm` to the shared `x-admin.confirm` modal (danger: true for
+  destructive actions) and include the component once per page.
 - Tests: `php artisan test` (DB disputer_testing) - keep green; frontend
   changes need `npm run build`; backend changes need queue worker restart
   (`supervisorctl restart unjamm-queue:`). After running artisan as root:
@@ -294,6 +333,24 @@ senders also create accounts+claims (no sender filter yet).
 ---
 
 ## Changelog
+
+### 2026-07-18
+- Airline correspondence (see section 6a): "Send to airline" is live - claim
+  emails go out from CLAIMS_DISPLAY_ADDRESS with a per-claim reply-to token
+  (claims+{ref}@CLAIMS_REPLY_DOMAIN) and the reference tagged in the
+  subject; sending from ready_to_file files the claim through the workflow.
+  Inbound webhook now splits airline replies (token or subject-reference
+  match -> claim_correspondence + audit + admin alert email
+  claim-airline-reply-alert) from customer ticket submissions (unchanged
+  fallback). Admin claim detail gained the Correspondence tab with inline
+  preview of airline attachments. New: claim_correspondence table,
+  ClaimCorrespondenceService, AirlineClaimMail, Claim::documentPath()
+  (shared by the admin document route and outbound attachments).
+- Correspondence display: airline replies split into new text vs quoted
+  history (collapsed behind a toggle; stored body stays complete). AI letter
+  prompt gained strict FORMATTING rules - salutation line, blank-line
+  paragraphs, amounts as a list, sign-off block - no more wall-of-text
+  drafts.
 
 ### 2026-07-17
 - Claim workflow state machine (see section 5b): configurable lifecycle

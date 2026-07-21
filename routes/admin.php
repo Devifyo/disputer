@@ -36,14 +36,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role_access:admin']
     Route::get('/flight-claims/airlines', FlightClaimsAirlines::class)->name('flight-claims.airlines');
     Route::get('/flight-claims/claims/{claim}', FlightClaimsClaimDetail::class)->whereNumber('claim')->name('flight-claims.claims.show');
     Route::get('/flight-claims/claims/{claim}/document/{key}', function (\App\Models\Claim $claim, string $key) {
-        $path = match (true) {
-            $key === 'assignment'             => $claim->assignment_path,
-            $key === 'itinerary'              => $claim->itinerary?->file_path,
-            str_starts_with($key, 'poa-')     => $claim->signers()->find((int) substr($key, 4))?->poa_path,
-            str_starts_with($key, 'doc-')     => $claim->documents[(int) substr($key, 4)]['path'] ?? null,
-            str_starts_with($key, 'extra-')   => $claim->airline_letter['extra'][(int) substr($key, 6)]['path'] ?? null,
-            default                           => null,
-        };
+        $path = $claim->documentPath($key);
         abort_unless($path && \Illuminate\Support\Facades\Storage::disk('local')->exists($path), 404);
 
         return \Illuminate\Support\Facades\Storage::disk('local')->response($path);

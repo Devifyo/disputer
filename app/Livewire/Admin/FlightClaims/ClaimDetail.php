@@ -7,6 +7,7 @@ use App\Models\AirlineContact;
 use App\Models\Claim;
 use App\Models\ClaimDraft;
 use App\Models\Setting;
+use App\Services\Claims\ClaimCorrespondenceService;
 use App\Services\Claims\ClaimLetterService;
 use App\Services\Claims\ClaimWorkflowService;
 use App\Services\Eligibility\ClaimEligibilityService;
@@ -186,6 +187,52 @@ class ClaimDetail extends Component
         $this->reset('wf_notes', 'filing_recipient', 'filing_reference');
         $this->claim->refresh()->load(['user', 'signers', 'itinerary.passengers', 'events']);
         $this->dispatch('toast', ['type' => 'success', 'message' => "Claim moved to {$stageName}."]);
+    }
+
+    /**
+     * Send the composed email to the airline. Goes out from the public
+     * claims address with this claim's reply-to token, so the reply lands
+     * back on this claim automatically. A first send while the claim is
+     * ready to file IS the filing - the workflow moves with it.
+     */
+    public function send(ClaimCorrespondenceService $correspondence, ClaimWorkflowService $workflow): void
+    {
+        $this->validate([
+            'to'      => 'required|email|max:190',
+            'subject' => 'required|string|max:190',
+            'body'    => 'required|string|min:50',
+        ], ['body.min' => 'The email body looks empty - generate or write the claim first.'], ['to' => 'recipient email']);
+
+        $this->persist();
+
+        try {
+            $correspondence->send($this->claim, $this->to, $this->subject, $this->body, $this->attached, auth()->id());
+        } catch (\Throwable $e) {
+            report($e);
+            $this->dispatch('toast', ['type' => 'error', 'message' => 'Sending failed - the email was not delivered. ' . $e->getMessage()]);
+
+            return;
+        }
+
+        if ($this->claim->workflow_state === 'ready_to_file') {
+            try {
+                $workflow->transition($this->claim, 'filed', 'admin', auth()->id(), 'Claim emailed to the airline.', [
+                    'filed_at' => now(),
+                    'filing'   => [
+                        'recipient'       => $this->to,
+                        'email_reference' => null,
+                        'subject'         => $this->subject,
+                        'attachments'     => array_values(array_unique($this->attached)),
+                        'notes'           => null,
+                    ],
+                ]);
+            } catch (\RuntimeException $e) {
+                $this->dispatch('toast', ['type' => 'error', 'message' => 'Sent, but the claim could not move to Filed: ' . $e->getMessage()]);
+            }
+        }
+
+        $this->claim->refresh()->load(['user', 'signers', 'itinerary.passengers', 'events']);
+        $this->dispatch('toast', ['type' => 'success', 'message' => "Email sent to {$this->to}."]);
     }
 
     /** Team decision: the claim is eligible - prices it and tells the customer. */
@@ -488,6 +535,7 @@ class ClaimDetail extends Component
                 'wfOptions'    => $this->claim->status === Claim::STATUS_ELIGIBLE ? $workflow->manualOptions($this->claim) : collect(),
                 'pendingTimer' => $this->claim->workflowTimers()->where('status', 'pending')->orderBy('due_at')->first(),
                 'auditLogs'    => $this->claim->auditLogs()->with('actor')->get(),
+                'mailbox'      => $this->claim->correspondence()->with('sender')->get(),
             ])
             ->extends('layouts.admin')
             ->section('content');

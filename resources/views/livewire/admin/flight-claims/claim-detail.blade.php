@@ -37,13 +37,22 @@
         </div>
 
         <div class="grid xl:grid-cols-5 gap-6 items-start">
-            {{-- WORK AREA: tabbed - compose now; correspondence and notes join after the sending flow --}}
+            {{-- WORK AREA: tabbed - compose, correspondence with the airline, timeline --}}
             <div class="xl:col-span-3 min-w-0" x-data="{ tab: 'email' }">
                 <div class="inline-flex items-center gap-1 bg-white rounded-xl border border-slate-200 shadow-sm p-1 mb-4">
                     <button @click="tab = 'email'"
                             :class="tab === 'email' ? 'bg-slate-900 text-white shadow' : 'text-slate-500 hover:text-slate-800'"
                             class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all">
                         <i data-lucide="mail" class="w-4 h-4"></i> Claim email
+                    </button>
+                    <button @click="tab = 'mailbox'"
+                            :class="tab === 'mailbox' ? 'bg-slate-900 text-white shadow' : 'text-slate-500 hover:text-slate-800'"
+                            class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all">
+                        <i data-lucide="inbox" class="w-4 h-4"></i> Correspondence
+                        @if ($mailbox->isNotEmpty())
+                            <span class="text-[10px] font-black px-1.5 py-0.5 rounded-full"
+                                  :class="tab === 'mailbox' ? 'bg-white/20' : 'bg-slate-100 text-slate-500'">{{ $mailbox->count() }}</span>
+                        @endif
                     </button>
                     <button @click="tab = 'timeline'"
                             :class="tab === 'timeline' ? 'bg-slate-900 text-white shadow' : 'text-slate-500 hover:text-slate-800'"
@@ -191,18 +200,24 @@
                             @if (($claim->airline_letter['generated_at'] ?? null))
                                 Draft {{ ($claim->airline_letter['generated_by'] ?? '') === 'ai' ? 'AI-generated' : 'template-generated' }}
                                 {{ \Illuminate\Support\Carbon::parse($claim->airline_letter['generated_at'])->diffForHumans() }}
-                            @else
-                                No draft yet - generate one to get started.
+                                <span class="text-slate-300">·</span>
                             @endif
+                            Sends from {{ config('services.inbound.claims_display') }} - replies auto-attach to this claim ({{ $claim->reference }}).
                         </p>
                         <div class="flex items-center gap-2">
                             <button wire:click="saveDraft" wire:loading.attr="disabled" class="px-5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-bold hover:border-slate-300 transition-colors disabled:opacity-60">
                                 <span wire:loading.remove wire:target="saveDraft">Save draft</span>
                                 <span wire:loading wire:target="saveDraft" class="inline-flex items-center gap-2"><svg class="inline w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg> Saving…</span>
                             </button>
-                            <button disabled title="Sending flow comes next - outbound mailbox not configured yet"
-                                    class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-bold opacity-40 cursor-not-allowed">
-                                <i data-lucide="send" class="w-4 h-4"></i> Send to airline
+                            <button @click="$dispatch('admin-confirm', {
+                                        title: 'Send to airline',
+                                        message: 'Send this email to ' + ($wire.to || 'the airline') + ' now? It goes out from {{ config('services.inbound.claims_display') }} with all selected attachments, and the reply will attach to this claim automatically.',
+                                        confirmLabel: 'Send now',
+                                        method: 'send',
+                                    })" wire:loading.attr="disabled"
+                                    class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold transition-colors disabled:opacity-60">
+                                <span wire:loading.remove wire:target="send" class="inline-flex items-center gap-2"><i data-lucide="send" class="w-4 h-4"></i> Send to airline</span>
+                                <span wire:loading wire:target="send" class="inline-flex items-center gap-2"><svg class="inline w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg> Sending…</span>
                             </button>
                         </div>
                     </div>
@@ -248,6 +263,76 @@
                                         <span wire:loading.remove wire:target="loadDraft({{ $draft->id }})">{{ $loadedDraftId === $draft->id ? 'Loaded' : 'Load' }}</span>
                                         <span wire:loading wire:target="loadDraft({{ $draft->id }})"><svg class="inline w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg></span>
                                     </button>
+                                </li>
+                            @endforeach
+                        </ul>
+                    @endif
+                </div>
+
+                {{-- Correspondence tab: every email exchanged with the airline --}}
+                <div x-show="tab === 'mailbox'" x-cloak class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+                    @if ($mailbox->isEmpty())
+                        <div class="text-center py-10">
+                            <i data-lucide="inbox" class="w-8 h-8 text-slate-300 mx-auto mb-3"></i>
+                            <p class="text-sm font-medium text-slate-500">No correspondence yet</p>
+                            <p class="text-xs text-slate-400 mt-1">Emails sent to the airline and their replies will appear here. Replies match this claim automatically via its reference ({{ $claim->reference }}).</p>
+                        </div>
+                    @else
+                        <ul class="space-y-3">
+                            @foreach ($mailbox as $mail)
+                                <li x-data="{ open: false }"
+                                    class="rounded-xl border {{ $mail->direction === 'inbound' ? 'border-emerald-200 bg-emerald-50/40' : 'border-slate-200' }}">
+                                    <button @click="open = !open" class="w-full text-left px-4 py-3 flex items-start gap-3">
+                                        <span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-black ring-1 shrink-0 mt-0.5
+                                            {{ $mail->direction === 'inbound' ? 'bg-emerald-100 text-emerald-700 ring-emerald-200' : 'bg-blue-50 text-blue-700 ring-blue-200' }}">
+                                            {{ $mail->direction === 'inbound' ? 'AIRLINE' : 'SENT' }}
+                                        </span>
+                                        <span class="min-w-0 flex-1">
+                                            <span class="block text-sm font-bold text-slate-800 truncate">{{ $mail->subject ?: '(no subject)' }}</span>
+                                            <span class="block text-[11px] text-slate-400 mt-0.5">
+                                                @if ($mail->direction === 'inbound')
+                                                    From {{ $mail->from_name ? $mail->from_name . ' - ' : '' }}{{ $mail->from_email }}
+                                                    @if ($mail->matched_by) · matched by {{ $mail->matched_by === 'reply_token' ? 'reply address' : 'subject reference' }} @endif
+                                                @else
+                                                    To {{ $mail->to_email }} · sent by {{ $mail->sender?->name ?? 'system' }}
+                                                @endif
+                                                · {{ $mail->created_at->format('d M Y H:i') }}
+                                                @if (count($mail->attachments ?? []))
+                                                    · <i data-lucide="paperclip" class="inline w-3 h-3"></i> {{ count($mail->attachments) }}
+                                                @endif
+                                            </span>
+                                        </span>
+                                        <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 shrink-0 mt-1 transition-transform" :class="open && 'rotate-180'"></i>
+                                    </button>
+                                    <div x-show="open" x-collapse x-cloak>
+                                        <div class="px-4 pb-4 border-t border-slate-100 pt-3" x-data="{ quoted: false }">
+                                            <pre class="whitespace-pre-wrap font-sans text-[13px] leading-relaxed text-slate-700 max-h-96 overflow-y-auto">{{ $mail->newBody() }}</pre>
+                                            @if ($mail->quotedBody())
+                                                <button @click="quoted = !quoted" class="mt-2 inline-flex items-center gap-1 text-[11px] font-bold text-slate-400 hover:text-slate-600 transition-colors">
+                                                    <i data-lucide="ellipsis" class="w-3.5 h-3.5"></i>
+                                                    <span x-text="quoted ? 'Hide quoted history' : 'Show quoted history'"></span>
+                                                </button>
+                                                <pre x-show="quoted" x-collapse x-cloak class="whitespace-pre-wrap font-sans text-[12px] leading-relaxed text-slate-400 border-l-2 border-slate-200 pl-3 mt-2 max-h-72 overflow-y-auto">{{ $mail->quotedBody() }}</pre>
+                                            @endif
+                                            @if (count($mail->attachments ?? []))
+                                                <div class="flex flex-wrap gap-2 mt-3">
+                                                    @foreach ($mail->attachments as $i => $file)
+                                                        @if ($mail->direction === 'inbound')
+                                                            <button type="button"
+                                                                    @click.stop="preview = @js(route('admin.flight-claims.claims.document', ['claim' => $claim, 'key' => 'inbound-' . $mail->id . '-' . $i])); previewName = @js($file['name'] ?? 'Attachment')"
+                                                                    class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-[11px] font-bold text-slate-600 hover:border-slate-300 transition-colors">
+                                                                <i data-lucide="paperclip" class="w-3 h-3"></i> {{ $file['name'] ?? 'Attachment' }}
+                                                            </button>
+                                                        @else
+                                                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 text-[11px] font-bold text-slate-500">
+                                                                <i data-lucide="paperclip" class="w-3 h-3"></i> {{ $file['name'] ?? 'Attachment' }}
+                                                            </span>
+                                                        @endif
+                                                    @endforeach
+                                                </div>
+                                            @endif
+                                        </div>
+                                    </div>
                                 </li>
                             @endforeach
                         </ul>
@@ -567,4 +652,6 @@
             <iframe :src="preview" class="flex-1 w-full bg-slate-100" frameborder="0"></iframe>
         </div>
     </div>
+
+    <x-admin.confirm />
 </div>

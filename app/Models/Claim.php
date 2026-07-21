@@ -122,6 +122,42 @@ class Claim extends Model
         return $this->hasMany(ClaimWorkflowTimer::class);
     }
 
+    public function correspondence(): HasMany
+    {
+        return $this->hasMany(ClaimCorrespondence::class)->latest('id');
+    }
+
+    /**
+     * Reply-to address that routes airline replies back to this claim: the
+     * inbound-parse host is a catch-all, so the plus-token survives the trip.
+     */
+    public function replyAddress(): string
+    {
+        return 'claims+' . strtolower($this->reference) . '@' . config('services.inbound.reply_domain');
+    }
+
+    /** Storage path behind a composer attachment key (poa-*, assignment, itinerary, doc-*, extra-*, inbound-*). */
+    public function documentPath(string $key): ?string
+    {
+        return match (true) {
+            $key === 'assignment'              => $this->assignment_path,
+            $key === 'itinerary'               => $this->itinerary?->file_path,
+            str_starts_with($key, 'poa-')      => $this->signers()->find((int) substr($key, 4))?->poa_path,
+            str_starts_with($key, 'doc-')      => $this->documents[(int) substr($key, 4)]['path'] ?? null,
+            str_starts_with($key, 'extra-')    => $this->airline_letter['extra'][(int) substr($key, 6)]['path'] ?? null,
+            str_starts_with($key, 'inbound-')  => $this->inboundAttachmentPath($key),
+            default                            => null,
+        };
+    }
+
+    /** inbound-{correspondenceId}-{index} - a file the airline sent back. */
+    private function inboundAttachmentPath(string $key): ?string
+    {
+        [$id, $index] = array_pad(explode('-', substr($key, 8)), 2, null);
+
+        return $this->correspondence()->find((int) $id)?->attachments[(int) $index]['path'] ?? null;
+    }
+
     /** The workflow this claim follows: its airline's attached one, else the default. */
     public function resolvedWorkflowId(): int
     {

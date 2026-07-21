@@ -47,7 +47,14 @@
         @if ($workflow && !$workflow->is_default)
             <span class="ml-auto flex items-center gap-2">
                 <button wire:click="setDefaultWorkflow({{ $workflowId }})" class="text-xs font-bold text-blue-600 hover:underline">Make default</button>
-                <button wire:click="deleteWorkflow({{ $workflowId }})" wire:confirm="Delete this workflow? Attached airlines fall back to the default lifecycle." class="text-xs font-bold text-rose-600 hover:underline">Delete</button>
+                <button @click="$dispatch('admin-confirm', {
+                            title: 'Delete workflow',
+                            message: 'Delete this workflow? Attached airlines fall back to the default lifecycle.',
+                            confirmLabel: 'Delete',
+                            danger: true,
+                            method: 'deleteWorkflow',
+                            params: [{{ $workflowId }}],
+                        })" class="text-xs font-bold text-rose-600 hover:underline">Delete</button>
             </span>
         @endif
     </div>
@@ -121,7 +128,14 @@
                                         <span wire:loading.remove wire:target="toggleActive({{ $stage->id }})">{{ $stage->is_active ? 'Deactivate' : 'Activate' }}</span>
                                         <span wire:loading wire:target="toggleActive({{ $stage->id }})"><svg class="inline w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg></span>
                                     </button>
-                                    <button wire:click="delete({{ $stage->id }})" wire:confirm="Delete this stage? Claims currently in it keep the raw key until moved." class="text-xs font-bold text-rose-600 hover:underline">Delete</button>
+                                    <button @click="$dispatch('admin-confirm', {
+                                                title: 'Delete stage',
+                                                message: 'Delete this stage? Claims currently in it keep the raw key until moved.',
+                                                confirmLabel: 'Delete',
+                                                danger: true,
+                                                method: 'delete',
+                                                params: [{{ $stage->id }}],
+                                            })" class="text-xs font-bold text-rose-600 hover:underline">Delete</button>
                                 @endunless
                             </td>
                         </tr>
@@ -294,29 +308,91 @@
     @if ($showPreview)
         <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" wire:click="$set('showPreview', false)"></div>
-            <div class="relative bg-white w-full max-w-lg rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto p-6">
-                <div class="flex items-center justify-between mb-4">
-                    <h2 class="font-bold text-slate-900">Workflow preview</h2>
-                    <button wire:click="$set('showPreview', false)" class="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"><i data-lucide="x" class="w-5 h-5"></i></button>
+            <div class="relative bg-white w-full max-w-2xl rounded-2xl shadow-2xl max-h-[90vh] flex flex-col overflow-hidden">
+                <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0">
+                    <div>
+                        <h2 class="font-bold text-slate-900">Workflow preview</h2>
+                        <p class="text-xs text-slate-400 mt-0.5">
+                            {{ $workflows->firstWhere('id', $workflowId)?->name }} ·
+                            {{ $stages->where('is_active', true)->count() }} active stages · a claim travels top to bottom
+                        </p>
+                    </div>
+                    <button wire:click="$set('showPreview', false)" class="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
                 </div>
-                <ol class="space-y-1">
-                    @foreach ($stages->where('is_active', true) as $stage)
-                        <li>
-                            <div class="flex items-center gap-2">
-                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ring-1 {{ $stage->badgeClasses() }}">
-                                    <i data-lucide="{{ $stage->icon }}" class="w-3.5 h-3.5"></i> {{ $stage->name }}
+                <div class="p-6 overflow-y-auto">
+                    <ol class="relative">
+                        <span class="absolute left-5 top-3 bottom-3 w-px bg-slate-200" aria-hidden="true"></span>
+                        @foreach ($stages->where('is_active', true) as $stage)
+                            <li class="relative pl-14 {{ $loop->last ? '' : 'pb-4' }}">
+                                <span class="absolute left-0 top-0 w-10 h-10 rounded-xl flex items-center justify-center ring-1 {{ $stage->badgeClasses() }}">
+                                    <i data-lucide="{{ $stage->icon }}" class="w-[18px] h-[18px]"></i>
                                 </span>
-                                @if ($stage->auto_next_stage)
-                                    <span class="text-[10px] font-bold text-slate-400">{{ $stage->auto_delay_days === 0 ? 'auto' : $stage->auto_delay_days . 'd' }} ⏱</span>
-                                @endif
-                            </div>
-                            @if (!empty($stage->next_stages))
-                                <div class="ml-3 my-1 text-[11px] text-slate-400">↓ {{ collect($stage->next_stages)->map(fn ($k) => \App\Models\ClaimLifecycleStage::byKey($k, $workflowId)?->name)->filter()->implode(' | ') }}</div>
-                            @endif
-                        </li>
-                    @endforeach
-                </ol>
+                                <div class="rounded-xl border border-slate-200 px-4 py-3 hover:border-slate-300 transition-colors">
+                                    <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                        <span class="font-bold text-slate-900 text-sm">{{ $stage->name }}</span>
+                                        @if ($stage->is_initial)
+                                            <span class="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-slate-900 text-white">Start</span>
+                                        @endif
+                                        @if ($stage->is_final)
+                                            <span class="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 ring-1 ring-slate-200">End</span>
+                                        @endif
+                                        @if ($stage->is_system)
+                                            <i data-lucide="lock" class="w-3 h-3 text-slate-300" title="System stage"></i>
+                                        @endif
+                                        @if ($stage->auto_next_stage)
+                                            <span class="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 ring-1 ring-amber-200 px-2 py-0.5 rounded-full">
+                                                <i data-lucide="timer" class="w-3 h-3"></i>
+                                                {{ $stage->auto_delay_days === 0 ? 'auto-advances immediately' : "auto-advances after {$stage->auto_delay_days} days" }}
+                                            </span>
+                                        @endif
+                                    </div>
+                                    @if ($stage->description)
+                                        <p class="text-xs text-slate-500 mt-1 leading-relaxed">{{ $stage->description }}</p>
+                                    @endif
+                                    @php
+                                        $meta = collect([
+                                            $stage->customer_visible
+                                                ? ['eye', 'Customer sees: "' . ($stage->customer_label ?: $stage->name) . '"']
+                                                : ['eye-off', 'Hidden from customer'],
+                                            $stage->notify_admin ? ['bell-ring', 'Alerts admins'] : null,
+                                            $stage->notify_customer ? ['mail', 'Emails customer'] : null,
+                                            $stage->ai_action ? ['sparkles', 'AI drafts: ' . str_replace('_', ' ', $stage->ai_action)] : null,
+                                            $stage->airline_contact_purpose ? ['at-sign', 'Routes to airline "' . $stage->airline_contact_purpose . '" contact'] : null,
+                                        ])->filter();
+                                    @endphp
+                                    <div class="flex flex-wrap gap-1.5 mt-2">
+                                        @foreach ($meta as [$icon, $label])
+                                            <span class="inline-flex items-center gap-1 text-[10px] font-bold text-slate-500 bg-slate-50 ring-1 ring-slate-200 px-2 py-0.5 rounded-full">
+                                                <i data-lucide="{{ $icon }}" class="w-3 h-3"></i> {{ $label }}
+                                            </span>
+                                        @endforeach
+                                    </div>
+                                    @if (!empty($stage->next_stages))
+                                        <div class="flex flex-wrap items-center gap-1.5 mt-2.5 pt-2.5 border-t border-slate-100">
+                                            <span class="text-[9px] uppercase tracking-wider font-black text-slate-400">Next</span>
+                                            @foreach ($stage->next_stages as $nextKey)
+                                                @php $next = \App\Models\ClaimLifecycleStage::byKey($nextKey, $workflowId); @endphp
+                                                @if ($next)
+                                                    <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full ring-1
+                                                        {{ $stage->auto_next_stage === $nextKey ? 'bg-amber-50 text-amber-700 ring-amber-200' : 'bg-white text-slate-600 ring-slate-200' }}">
+                                                        <i data-lucide="corner-down-right" class="w-3 h-3"></i>
+                                                        {{ $next->name }}
+                                                        @if ($stage->auto_next_stage === $nextKey)
+                                                            <i data-lucide="timer" class="w-3 h-3"></i>
+                                                        @endif
+                                                    </span>
+                                                @endif
+                                            @endforeach
+                                        </div>
+                                    @endif
+                                </div>
+                            </li>
+                        @endforeach
+                    </ol>
+                </div>
             </div>
         </div>
     @endif
+
+    <x-admin.confirm />
 </div>
