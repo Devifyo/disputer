@@ -335,6 +335,18 @@ importer runs:
 ## Changelog
 
 ### 2026-07-21
+- Smooth scrolling on the marketing site (`resources/js/marketing.js`, Lenis
+  via Vite - the layout now loads a bundle where it previously had none).
+  Lenis eases the NATIVE scroll position; a transform-based scroller
+  (ASScroll / older locomotive) was rejected because a transformed ancestor
+  becomes the containing block for `position:fixed`, which would break the
+  fixed navbar, the scroll-progress bar and the flight-check modal.
+  Disabled for touch (native momentum is better) and for
+  prefers-reduced-motion. `html { scroll-behavior: smooth }` is kept as the
+  no-Lenis fallback but switched off when Lenis runs - two animators on one
+  scroll position fight frame by frame (this was the cause of the
+  stuck-then-snap bug in the first hand-rolled attempt). Modal opts out with
+  `data-lenis-prevent`, and Lenis stops while `body` is overflow-hidden.
 - Public flight check (`App\Services\Marketing\PublicFlightLookupService`,
   `POST /api/flight-lookup`, throttle 10/min + CSRF): a "Search your flight"
   button sits immediately left of the LIVE badge on the landing page and

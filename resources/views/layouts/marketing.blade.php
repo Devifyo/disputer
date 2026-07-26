@@ -42,7 +42,14 @@
             --danger:#C0392B;
         }
         *, *::before, *::after { box-sizing: border-box; }
+        /* Anchors: CSS smoothing is the fallback when Lenis is not running
+           (touch, reduced motion). Lenis switches it off for itself, since
+           two animators on one scroll position fight each other. */
         html { scroll-behavior: smooth; }
+        html.lenis, html.lenis body { height: auto; }
+        .lenis.lenis-smooth { scroll-behavior: auto !important; }
+        .lenis.lenis-smooth [data-lenis-prevent] { overscroll-behavior: contain; }
+        .lenis.lenis-stopped { overflow: hidden; }
         /* Slim, themed scrollbar for panels that scroll inside the page. */
         .uj-scroll { scrollbar-width: thin; scrollbar-color: rgba(63,203,148,.45) transparent; }
         .uj-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -90,6 +97,8 @@
             #ujNavLinks { display:none !important; }
         }
     </style>
+
+    @vite('resources/js/marketing.js')
 
     @stack('styles')
 </head>

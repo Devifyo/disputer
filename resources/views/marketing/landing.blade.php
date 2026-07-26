@@ -386,7 +386,7 @@
   <!-- FLIGHT CHECK: value before signup -->
   <div id="ujSearch" role="dialog" aria-modal="true" aria-labelledby="ujSearchTitle"
        style="display:none;position:fixed;inset:0;z-index:120;align-items:center;justify-content:center;padding:20px;background:rgba(4,8,12,.78);backdrop-filter:blur(6px);">
-    <div class="uj-scroll" style="width:100%;max-width:520px;background:#0B0F15;border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:28px;box-shadow:0 50px 120px -40px rgba(0,0,0,.9);max-height:90vh;overflow-y:auto;overscroll-behavior:contain;">
+    <div class="uj-scroll" data-lenis-prevent style="width:100%;max-width:520px;background:#0B0F15;border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:28px;box-shadow:0 50px 120px -40px rgba(0,0,0,.9);max-height:90vh;overflow-y:auto;overscroll-behavior:contain;">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:6px;">
         <h3 id="ujSearchTitle" style="margin:0;font-family:'Bricolage Grotesque',sans-serif;font-size:24px;font-weight:700;letter-spacing:-.02em;color:#fff;">Check your flight</h3>
         <button type="button" onclick="ujCloseSearch()" aria-label="Close"
