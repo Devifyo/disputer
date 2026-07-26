@@ -4,7 +4,8 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\{MarketingController, SupportController};
-use App\Http\Controllers\{CheckoutController, StripeWebhookController};
+use App\Http\Controllers\CheckoutController;
+use App\Http\Controllers\Webhook\StripeWebhookController;
 // 1. Put the root route OUTSIDE the auth middleware
 Route::get('/', [MarketingController::class, 'index'])->name('home');
 Route::get('/api/live-disruptions', [MarketingController::class, 'liveDisruptions'])

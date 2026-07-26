@@ -10,6 +10,7 @@ use App\Models\ClaimSigner;
 use App\Models\Itinerary;
 use App\Models\Setting;
 use App\Models\SuccessStory;
+use App\Services\Billing\SubscriptionGate;
 use App\Services\Claims\ClaimLegalDocumentService;
 use App\Services\Claims\ClaimSignatureService;
 use App\Services\Claims\ClaimWorkflowService;
@@ -41,6 +42,8 @@ class ClaimApiController extends Controller
 
     public function store(Request $request)
     {
+        SubscriptionGate::authorize($request->user(), 'flight_claims');
+
         $data = $request->validate([
             'departure_city'    => ['nullable', 'string', 'max:120'],
             'departure_airport' => ['required', 'string', 'max:8'],

@@ -26,6 +26,11 @@ Route::middleware(['auth', 'verified', 'role_access:user'])->name('user.')->grou
         Route::post('api/claims/{claim}/info', [\App\Http\Controllers\User\Api\ClaimApiController::class, 'updateInfo'])->name('api.claims.info');
         Route::post('api/claims/{claim}/documents', [\App\Http\Controllers\User\Api\ClaimApiController::class, 'addDocuments'])->name('api.claims.documents');
 
+        // Unjamm Plus billing (Stripe Checkout + Customer Portal)
+        Route::get('api/billing', [\App\Http\Controllers\User\Api\BillingApiController::class, 'overview'])->name('api.billing.overview');
+        Route::post('api/billing/checkout', [\App\Http\Controllers\User\Api\BillingApiController::class, 'checkout'])->name('api.billing.checkout');
+        Route::post('api/billing/portal', [\App\Http\Controllers\User\Api\BillingApiController::class, 'portal'])->name('api.billing.portal');
+
         // Out-of-pocket expense receipts
         Route::post('api/claims/{claim}/expenses', [\App\Http\Controllers\User\Api\ClaimApiController::class, 'addExpense'])->name('api.claims.expenses.store');
         Route::delete('api/claims/{claim}/expenses/{expense}', [\App\Http\Controllers\User\Api\ClaimApiController::class, 'removeExpense'])->whereNumber('expense')->name('api.claims.expenses.destroy');

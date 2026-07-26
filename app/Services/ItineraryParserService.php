@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Claim;
 use App\Models\Itinerary;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
@@ -293,7 +294,7 @@ PROMPT;
 
         // One claim placeholder per passenger, linked to this itinerary.
         $itinerary->load('passengers');
-        \App\Models\Claim::ensureForItinerary($itinerary);
+        Claim::ensureForItinerary($itinerary);
     }
 
     private function fail(Itinerary $itinerary, string $message, ?string $rawText = null): bool

@@ -17,6 +17,18 @@ const http = axios.create({
     },
 });
 
+// A 402 means the feature needs Unjamm Plus - send the user to the upgrade
+// page instead of leaving each view to handle it.
+http.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        if (error.response?.status === 402 && error.response.data?.code === 'subscription_required') {
+            window.location.href = `${BASE}/plus`;
+        }
+        return Promise.reject(error);
+    }
+);
+
 export default {
     claims: {
         list() {
@@ -111,6 +123,19 @@ export default {
         // Passenger-reported disruption: answers + supporting documents (FormData).
         report(id, form) {
             return http.post(`/trips/${id}/report`, form).then((r) => r.data);
+        },
+    },
+
+    // Unjamm Plus membership - plans, checkout, billing portal.
+    billing: {
+        overview() {
+            return http.get('/billing').then((r) => r.data.data);
+        },
+        checkout(plan, interval) {
+            return http.post('/billing/checkout', { plan, interval }).then((r) => r.data.data);
+        },
+        portal() {
+            return http.post('/billing/portal').then((r) => r.data.data);
         },
     },
 };

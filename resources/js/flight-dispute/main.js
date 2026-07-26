@@ -9,6 +9,7 @@ import SignClaim from './views/SignClaim.vue';
 import TripsList from './views/TripsList.vue';
 import AddTrip from './views/AddTrip.vue';
 import TripDetail from './views/TripDetail.vue';
+import PlusMembership from './views/PlusMembership.vue';
 
 const el = document.getElementById('flight-dispute-app');
 
@@ -28,6 +29,7 @@ if (el) {
             { path: '/trips', name: 'trips', component: TripsList },
             { path: '/trips/new', name: 'add-trip', component: AddTrip },
             { path: '/trips/:id', name: 'trip', component: TripDetail, props: true },
+            { path: '/plus', name: 'plus', component: PlusMembership },
         ],
         scrollBehavior() {
             return { top: 0 };

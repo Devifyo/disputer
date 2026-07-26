@@ -56,6 +56,23 @@ class User extends Authenticatable
         return $this->hasMany(Cases::class);
     }
 
+    public function subscriptions()
+    {
+        return $this->hasMany(Subscription::class)->latest('id');
+    }
+
+    /** The subscription currently granting Plus access, if any. */
+    public function activeSubscription(): ?Subscription
+    {
+        return $this->subscriptions
+            ->first(fn (Subscription $subscription) => $subscription->grantsAccess());
+    }
+
+    public function hasActiveSubscription(): bool
+    {
+        return $this->activeSubscription() !== null;
+    }
+
     public function trips()
     {
         return $this->hasMany(Trip::class);

@@ -8,6 +8,7 @@ use App\Models\Claim;
 use App\Models\Itinerary;
 use App\Models\Trip;
 use App\Models\TripEvent;
+use App\Services\Billing\SubscriptionGate;
 use App\Services\Claims\ClaimWorkflowService;
 use App\Services\Eligibility\ClaimEligibilityService;
 use App\Services\Eligibility\EligibilityEngine;
@@ -48,6 +49,8 @@ class TripApiController extends Controller
     /** Manual funnel: route → flight → passengers → ticket upload. */
     public function store(Request $request)
     {
+        SubscriptionGate::authorize($request->user(), 'flight_monitoring');
+
         $data = $request->validate([
             'departure_airport' => ['required', 'string', 'max:8'],
             'arrival_airport'   => ['required', 'string', 'max:8'],
@@ -239,6 +242,7 @@ class TripApiController extends Controller
     public function createClaim(Trip $trip)
     {
         abort_unless($trip->user_id === Auth::id(), 403);
+        SubscriptionGate::authorize(Auth::user(), 'flight_claims');
 
         if ($trip->eligibility_status !== 'eligible') {
             return response()->json([

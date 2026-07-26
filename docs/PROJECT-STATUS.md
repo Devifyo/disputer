@@ -1,6 +1,6 @@
 # Unjamm - project status
 
-**Last updated: 2026-07-21**
+**Last updated: 2026-07-22**
 
 Living delivery tracker: what is built, what is partial, what is not started,
 and what is blocked on someone else. Claude Code updates this file at the end
@@ -43,6 +43,20 @@ Status keys: **Done** (built, tested, verified in production) ·
 | AI claims reimbursement when receipts exist | Done | Separate head of claim with per-receipt breakdown |
 | Track claimed vs reimbursed | Done | Per receipt + per-currency totals on the claim detail |
 | No success fee on expense reimbursement | Done | Fee applies to statutory compensation only |
+
+## 2b. Unjamm Plus subscriptions
+
+| Item | Status | Notes |
+|---|---|---|
+| Master enable/disable switch | Done | Off (default) = everything free; stored subscriptions kept |
+| Plan management (prices, trials) | Done | Admin CRUD; Stripe product/prices auto-created and re-minted on save - no IDs to manage |
+| Per-feature paywall | Done | 7 gateable features; unticked = free |
+| Stripe Checkout / Portal / webhooks | Done | Unified pipeline on the dashboard-registered `/stripe/webhook` URL; signature-verified; serves BOTH billing products |
+| Admin dashboard + subscriber management | Done | Stats, MRR/ARR, cancel/reactivate, invoices |
+| Customer upgrade page (/plus) | Done | Monthly/annual toggle, post-checkout polling |
+| Gate enforcement | Done | ALL claim-creation paths (manual funnel, ticket upload, trip->claim, inbound email via the ensureForItinerary chokepoint) + trip protection |
+| Coupons / promo codes | Partial | Stripe promotion codes allowed at checkout; no admin UI for creating them (use Stripe dashboard) |
+| Live Stripe keys | Blocked | Test keys configured; client flips STRIPE_* for launch |
 
 ## 3. E-signatures
 
@@ -159,6 +173,25 @@ Status keys: **Done** (built, tested, verified in production) ·
 ## Session log
 
 Newest first. One line per session: what changed, what it unblocked.
+
+- **2026-07-26** - Gate bypass fixed: a free user created a claim by ticket
+  upload while flight claims were Plus-only - only the manual funnel was
+  gated. The gate now lives in the ensureForItinerary chokepoint (covers
+  upload, itinerary view, inbound email) plus the upload and trip->claim
+  endpoints. Regression test walks all three paths. NOTE: inbound EMAIL from
+  a gated free user now stores the itinerary but silently creates no claim -
+  needs a product decision on an upgrade-reply email.
+- **2026-07-22** - Subscription hardening: plan pricing switched to USD, then to the final product definition - CAD C$9.99/month (real prices created in Stripe test mode each time), webhook unified onto the
+  dashboard-registered `/stripe/webhook` URL - one verified pipeline
+  dispatching to both the legacy /admin/plans product and Unjamm Plus
+  (handler-per-product, metadata-discriminated so neither claims the
+  other's events; handler failure returns 500 for Stripe retry, idempotent
+  syncs). 14 pipeline tests covering replays, out-of-order delivery,
+  cross-product isolation and signatures.
+- **2026-07-22** - Unjamm Plus subscription module: admin-configurable plans
+  (Stripe IDs included), master switch, per-feature paywall, Stripe
+  Checkout/Portal/webhook sync, subscriber management + revenue stats under
+  Flight Claims -> Subscriptions, customer /plus upgrade page. 15 tests.
 
 - **2026-07-21** - Public flight check on the landing page: visitors search a
   flight without an account and see status + provisional eligibility + an

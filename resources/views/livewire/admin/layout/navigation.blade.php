@@ -142,6 +142,10 @@
                         <i data-lucide="plane-takeoff" class="w-4 h-4 {{ $iconClass('admin.flight-claims.airlines') }}"></i>
                         Airlines
                     </a>
+                    <a href="{{ route('admin.flight-claims.subscriptions') }}" wire:navigate class="{{ $subClass('admin.flight-claims.subscriptions') }} group flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all duration-200 border-l border-white/10" @click="mobileSidebarOpen = false">
+                        <i data-lucide="crown" class="w-4 h-4 {{ $iconClass('admin.flight-claims.subscriptions') }}"></i>
+                        Subscriptions
+                    </a>
                 </div>
             </div>
             <div class="px-3 mt-6 mb-2 text-[10px] uppercase tracking-wider font-bold text-slate-600">Institutes</div>

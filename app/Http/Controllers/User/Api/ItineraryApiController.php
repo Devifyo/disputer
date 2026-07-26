@@ -5,6 +5,7 @@ namespace App\Http\Controllers\User\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Claim;
 use App\Models\Itinerary;
+use App\Services\Billing\SubscriptionGate;
 use App\Services\ItineraryParserService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -27,6 +28,8 @@ class ItineraryApiController extends Controller
 
     public function store(Request $request, ItineraryParserService $parser)
     {
+        SubscriptionGate::authorize($request->user(), 'flight_claims');
+
         $request->validate([
             'file' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,webp,heic,heif', 'max:12288'],
         ], [

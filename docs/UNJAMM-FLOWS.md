@@ -3,7 +3,7 @@
 Living documentation of the flight-dispute module: how the flows work, where
 the code lives, and what changed. **Update this file whenever a flow changes.**
 
-Last updated: 2026-07-18
+Last updated: 2026-07-22
 
 ---
 
@@ -257,6 +257,63 @@ importer runs:
 - Customers never see airline correspondence (communication-visibility rule).
 - Env: CLAIMS_REPLY_DOMAIN (default claims.unjamm.com).
 
+## 6b. Unjamm Plus subscriptions
+
+Completely independent of claim compensation, success fees and payouts.
+
+- **Master switch** (Setting `subscriptions.enabled`, default OFF): while off
+  the platform is fully free - every gate passes, checkout refuses, stored
+  subscriptions are kept but ignored. Launch free, enable later, no deploy.
+- **Plans** (`subscription_plans`, seeded with "Unjamm Plus" CAD 9.99/mo):
+  admin-managed name/description/monthly/annual/currency/trial/sort/active.
+  Stripe is managed automatically: saving a plan calls
+  `StripeBillingService::syncPlan()` - creates the product on first save,
+  renames it with the plan, and (since Stripe prices are immutable) archives
+  and re-mints prices whenever the amount/currency changes, storing the IDs
+  itself. Unchanged prices are reused. Price changes apply to EXISTING
+  subscribers as well: every live subscription on the replaced price is
+  moved to the new one (proration none - the new amount bills from the next
+  cycle). Currency changes cannot be migrated by Stripe; those subscribers
+  stay on the old price and the admin is told. Admins never see or touch a
+  Stripe ID. Deactivating
+  hides a plan from customers; existing subscribers keep it.
+- **Feature gates** (Setting `subscriptions.features`):
+  `SubscriptionGate::FEATURES` lists what can require Plus (flight_claims,
+  flight_monitoring, ai_claim_drafting, ai_follow_up_drafts,
+  ai_regulator_drafts, priority_processing, multi_passenger). Unticked =
+  free for everyone. `SubscriptionGate::authorize()` guards endpoints
+  (claim creation, trip protection) with a 402 + `subscription_required`
+  payload; the SPA intercepts 402 and routes to /flight-disputes/plus.
+- **Stripe billing** (`StripeBillingService`, stripe-php): Checkout session
+  (customer reused via users.stripe_customer_id, promotion codes allowed,
+  trial days honoured), Customer Portal, cancel-at-period-end, reactivate,
+  plan/interval change with proration, invoice listing. Pricing in CAD (C$9.99/month; perks: priority filing queue, multi-passenger / family accounts, fully automatic claim filing on consent).
+- **Webhook pipeline**: BOTH `/stripe/webhook` (the URL registered in the
+  Stripe dashboard - kept so the already-working delivery keeps working) and
+  `/api/webhooks/stripe` land on `StripeWebhookDispatcher`: verify the
+  signature once, then offer the event to every registered
+  `StripeEventHandler` (open/closed - products plug in via
+  AppServiceProvider). `LegacyPlanEventHandler` routes exactly what the old
+  controller routed to the untouched legacy `SubscriptionService`
+  (/admin/plans product); `PlusSubscriptionEventHandler` funnels
+  subscription-bearing events into the one `syncFromStripe()` mirror.
+  Product separation: Plus checkouts/subscriptions carry
+  `metadata.product=unjamm_plus`; the Plus sync refuses anything without the
+  marker, a matching plan price, or an existing mirror row, and the legacy
+  handler skips marked events. A handler failure returns 500 so Stripe
+  retries (all syncs idempotent); one product's failure never blocks the
+  other. Access = status in active/trialing/past_due, minus expired
+  cancel-at-period-end.
+- **Admin module** Flight Claims -> Subscriptions: master switch, stats
+  (total/active/cancelled/failed/expired, MRR + ARR from live plan prices),
+  plan CRUD modal, feature checkboxes, subscriber list (search, status,
+  invoices modal, Stripe dashboard link, cancel/reactivate via styled
+  confirm).
+- **Customer** `/flight-disputes/plus` (Vue): member card + Manage billing
+  (portal), or plan cards with monthly/annual toggle -> Stripe Checkout;
+  after success the page polls briefly while the webhook lands. When the
+  system is off it says everything is free.
+
 ## 7. Admin
 
 - Settings -> Trip Eligibility: confidence threshold.
@@ -333,6 +390,14 @@ importer runs:
 ---
 
 ## Changelog
+
+### 2026-07-22
+- Unjamm Plus subscription module (see section 6b): master enable/disable
+  switch (off = everything free), admin-managed plans with Stripe IDs,
+  per-feature paywall config, Stripe Checkout/Portal/webhook sync, admin
+  dashboard + subscriber management under Flight Claims -> Subscriptions,
+  customer /plus page. Gates enforced on claim creation and trip protection;
+  fully independent of compensation and success fees.
 
 ### 2026-07-21
 - Smooth scrolling on the marketing site (`resources/js/marketing.js`, Lenis

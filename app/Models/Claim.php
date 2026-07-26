@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Jobs\EvaluateClaim;
 use App\Services\Claims\ClaimWorkflowService;
+use App\Services\Billing\SubscriptionGate;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -279,6 +280,13 @@ class Claim extends Model
     {
         // Itineraries registered to protect a future trip are not disputes.
         if ($itinerary->purpose === Itinerary::PURPOSE_TRIP) {
+            return;
+        }
+
+        // Every claim-creation path funnels through here (SPA upload, the
+        // itinerary view, inbound email) - the subscription gate applies to
+        // all of them, not just the manual funnel.
+        if (!SubscriptionGate::allows($itinerary->user, 'flight_claims')) {
             return;
         }
 
