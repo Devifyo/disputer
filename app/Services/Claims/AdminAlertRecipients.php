@@ -18,11 +18,13 @@ class AdminAlertRecipients
 {
     public const TYPE_ESCALATION    = 'escalation';
     public const TYPE_AIRLINE_REPLY = 'airline_reply';
+    public const TYPE_PAYMENTS      = 'payments';
 
     /** Alert types a recipient can subscribe to. */
     public const TYPES = [
         self::TYPE_ESCALATION    => 'Escalation decisions needed',
         self::TYPE_AIRLINE_REPLY => 'New airline replies',
+        self::TYPE_PAYMENTS      => 'Payments and payouts (received, failed, large amounts)',
     ];
 
     private const SETTING = 'claims.alert_recipients';

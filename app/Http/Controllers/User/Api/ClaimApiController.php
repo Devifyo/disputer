@@ -279,6 +279,43 @@ class ClaimApiController extends Controller
         return Storage::disk('local')->response($record->file_path, $record->original_filename);
     }
 
+    /** The customer's read-only view of their money. Internal notes never ship. */
+    private function paymentBlock(Claim $c): ?array
+    {
+        $payment = $c->payments()->with('payouts')->first();
+
+        if (!$payment) {
+            return null;
+        }
+
+        $payout = $payment->latestPayout();
+
+        return [
+            'status'        => $payment->status,
+            'status_label'  => $payment->statusLabel(),
+            'currency'      => $payment->currency,
+            'gross'         => $payment->money($payment->gross_amount),
+            'fee'           => $payment->money($payment->fee_amount),
+            'fee_percent'   => rtrim(rtrim(number_format((float) $payment->fee_percent, 2), '0'), '.'),
+            'net'           => $payment->money($payment->net_amount),
+            'payment_date'  => $payment->payment_date->format('d M Y'),
+            'payout'        => $payout ? [
+                'status'    => $payout->status,
+                'amount'    => $payout->money(),
+                'reference' => $payout->transfer_reference,
+                'method'    => $payout->method,
+                'sent_at'   => $payout->transferred_at?->format('d M Y'),
+            ] : null,
+            'timeline'      => $payment->transactions
+                ->reject(fn ($tx) => $tx->type === 'fee_deducted')
+                ->map(fn ($tx) => [
+                    'label' => $tx->typeLabel(),
+                    'at'    => $tx->created_at->format('d M Y H:i'),
+                    'amount' => $tx->amount !== null ? trim(($tx->currency ?? '') . ' ' . number_format(abs((float) $tx->amount), 2)) : null,
+                ])->values()->all(),
+        ];
+    }
+
     // ── Helpers ─────────────────────────────────────────────
 
     private function authorizeOwner(Claim $claim): void
@@ -391,6 +428,9 @@ class ClaimApiController extends Controller
         }
 
         return array_merge($this->summary($c), [
+            // Read-only payout picture: what the airline paid, our fee, what
+            // the passenger gets, and where the transfer stands.
+            'payment'           => $this->paymentBlock($c),
             'expenses'          => $c->expenses->map(fn (ClaimExpense $e) => [
                 'id'          => $e->id,
                 'category'    => $e->category,

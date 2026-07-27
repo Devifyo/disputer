@@ -16,6 +16,7 @@ use App\Livewire\Admin\FlightClaims\Claims as FlightClaimsClaims;
 use App\Livewire\Admin\FlightClaims\ClaimDetail as FlightClaimsClaimDetail;
 use App\Livewire\Admin\FlightClaims\Lifecycle as FlightClaimsLifecycle;
 use App\Livewire\Admin\FlightClaims\Airlines as FlightClaimsAirlines;
+use App\Livewire\Admin\FlightClaims\Payments as FlightClaimsPayments;
 use App\Livewire\Admin\FlightClaims\Subscriptions as FlightClaimsSubscriptions;
 use App\Livewire\Admin\CmsPages\Index as CmsPagesIndex;
 
@@ -36,6 +37,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role_access:admin']
     Route::get('/flight-claims/lifecycle', FlightClaimsLifecycle::class)->name('flight-claims.lifecycle');
     Route::get('/flight-claims/airlines', FlightClaimsAirlines::class)->name('flight-claims.airlines');
     Route::get('/flight-claims/subscriptions', FlightClaimsSubscriptions::class)->name('flight-claims.subscriptions');
+    Route::get('/flight-claims/payments', FlightClaimsPayments::class)->name('flight-claims.payments');
     Route::get('/flight-claims/claims/{claim}', FlightClaimsClaimDetail::class)->whereNumber('claim')->name('flight-claims.claims.show');
     Route::get('/flight-claims/claims/{claim}/document/{key}', function (\App\Models\Claim $claim, string $key) {
         $path = $claim->documentPath($key);

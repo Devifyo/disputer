@@ -126,6 +126,22 @@ export default {
         },
     },
 
+    // Payout bank accounts - full numbers in, masked tails out.
+    payoutAccounts: {
+        list() {
+            return http.get('/payout-accounts').then((r) => r.data.data);
+        },
+        save(payload) {
+            return http.post('/payout-accounts', payload).then((r) => r.data.data);
+        },
+        remove(currency) {
+            return http.delete(`/payout-accounts/${currency}`).then((r) => r.data.data);
+        },
+        makeDefault(currency) {
+            return http.post(`/payout-accounts/${currency}/default`).then((r) => r.data.data);
+        },
+    },
+
     // Unjamm Plus membership - plans, checkout, billing portal.
     billing: {
         overview() {

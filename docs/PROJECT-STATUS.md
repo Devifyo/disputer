@@ -1,6 +1,6 @@
 # Unjamm - project status
 
-**Last updated: 2026-07-22**
+**Last updated: 2026-07-27**
 
 Living delivery tracker: what is built, what is partial, what is not started,
 and what is blocked on someone else. Claude Code updates this file at the end
@@ -57,6 +57,22 @@ Status keys: **Done** (built, tested, verified in production) ·
 | Gate enforcement | Done | 7 of 8 gates enforced: claim paths, monitoring, multi-passenger (at confirmation), priority queue (admin list ordering + badge), AI drafting (template fallback). auto_filing labelled config-only until auto-filing ships |
 | Coupons / promo codes | Partial | Stripe promotion codes allowed at checkout; no admin UI for creating them (use Stripe dashboard) |
 | Live Stripe keys | Blocked | Test keys configured; client flips STRIPE_* for launch |
+
+## 2c. Payments & payouts
+
+| Item | Status | Notes |
+|---|---|---|
+| Record airline payments + fee split | Done | 25% from settings; net auto-calculated |
+| Fee override with permission + history | Done | `payments.override_fee`; ledger + audit keep every recalculation |
+| Wise payout integration | Done | Queued job, retries, webhook sync, sandbox-ready; blocked on WISE_* keys for live |
+| Manual payouts | Done | Amount/currency/FX/reference; settles immediately |
+| Multi-currency + historical FX | Done | CAD/USD/EUR/GBP; conversions append-only |
+| Transaction history + CSV export | Done | Filter by date/passenger/claim/type/currency |
+| Payment audit log | Done | Immutable; actor, IP, old/new values |
+| Admin dashboard | Done | Collected, fees, paid out, pending/processing/failed |
+| Customer payment view | Done | Read-only card + timeline on the claim |
+| Notifications (email + in-app) | Done | 5 customer templates + admin alerts + bells both sides |
+| Wise live credentials | Done | LIVE token + business profile 103329747 configured; webhook subscription registered with Wise (transfers#state-change). Balance currently 0 - top up before first payout |
 
 ## 3. E-signatures
 
@@ -132,8 +148,6 @@ Status keys: **Done** (built, tested, verified in production) ·
 
 ## 9a. Not yet started
 
-- **Payouts to customers** - success fee is configured and displayed, but there
-  is no payment-out flow (how the client pays customers after an airline pays).
 - **Customer-facing correspondence summary** - customers deliberately never see
   airline emails; no decision yet on whether they should see a summary.
 - **Success-fee freeze at confirmation time** - the percentage is read live from
@@ -173,6 +187,27 @@ Status keys: **Done** (built, tested, verified in production) ·
 ## Session log
 
 Newest first. One line per session: what changed, what it unblocked.
+
+- **2026-07-27** - Payout destination made customer-owned: default bank
+  account (auto on first save, switchable by the customer), admin drafter
+  shows it read-only, "Request bank details" button notifies customers who
+  have none (templated email + bell + timeline + audit). One-click "Send
+  Wise payout" behind a confirm popup (draft + queue in one action;
+  two-step Prepare kept for admins without payouts.send). Payment modal
+  polish: aligned destination row, card-style transaction history,
+  human-readable audit diffs, Wise brand icon on payout buttons.
+  Regression tests added. Sandbox testing then caught a real race: webhook
+  + simulate completing the same transfer concurrently sent the customer
+  two "payout completed" emails and doubled the ledger row - fixed with an
+  atomic status claim (completion AND failure paths), ledger writing moved
+  out of the generic state machine so each money event has exactly one
+  row. Full suite 265 passing.
+
+- **2026-07-27** - Payments & notifications module: airline payments in with
+  automatic fee split, Wise + manual payouts out, append-only ledger with
+  historical FX, immutable audit, per-action permissions, dashboards, CSV,
+  queued template emails and in-app notification bells (admin + customer).
+  Payouts no longer "Not started".
 
 - **2026-07-26** - Gate bypass fixed: a free user created a claim by ticket
   upload while flight claims were Plus-only - only the manual funnel was

@@ -75,6 +75,23 @@ return [
         'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
     ],
 
+    // WISE_SANDBOX=true flips the WHOLE integration to Wise's sandbox -
+    // separate URL and separate credentials, because sandbox is its own
+    // Wise account (a live token is invalid there and vice versa).
+    'wise' => [
+        'sandbox'            => (bool) env('WISE_SANDBOX', false),
+        'token'              => env('WISE_SANDBOX', false) ? env('WISE_SANDBOX_API_TOKEN') : env('WISE_API_TOKEN'),
+        'profile_id'         => env('WISE_SANDBOX', false) ? env('WISE_SANDBOX_PROFILE_ID') : env('WISE_PROFILE_ID'),
+        'base_url'           => env('WISE_SANDBOX', false)
+            ? env('WISE_SANDBOX_BASE_URL', 'https://api.wise-sandbox.com')
+            : env('WISE_BASE_URL', 'https://api.transferwise.com'),
+        'webhook_public_key' => env('WISE_WEBHOOK_PUBLIC_KEY'),
+        // RSA private key for SCA request signing (balance payments return a
+        // 403 + x-2fa-approval challenge until the matching PUBLIC key is
+        // registered in the Wise account's API settings).
+        'sca_private_key'    => env('WISE_SCA_PRIVATE_KEY', storage_path('app/keys/wise-sca.pem')),
+    ],
+
     'google' => [
         'client_id'     => env('GOOGLE_CLIENT_ID'),
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),

@@ -154,6 +154,50 @@
                 </div>
             </a>
 
+            {{-- In-app notifications: payment + payout events --}}
+            <div x-data="{
+                    open: false, unread: 0, items: [],
+                    async load() {
+                        try {
+                            const r = await fetch('{{ route('user.itineraries.api.notifications') }}', { headers: { Accept: 'application/json' } });
+                            const d = (await r.json()).data;
+                            this.unread = d.unread; this.items = d.notifications;
+                        } catch (e) {}
+                    },
+                    async toggle() {
+                        this.open = !this.open;
+                        if (this.open && this.unread > 0) {
+                            await fetch('{{ route('user.itineraries.api.notifications.read') }}', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+                                body: '{}',
+                            });
+                            this.unread = 0;
+                        }
+                    },
+                }" x-init="load()" @click.outside="open = false" class="relative">
+                <button @click="toggle" class="relative p-2.5 text-slate-500 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors" title="Notifications">
+                    <i data-lucide="bell" class="w-4.5 h-4.5"></i>
+                    <span x-show="unread > 0" x-cloak x-text="unread > 9 ? '9+' : unread"
+                          class="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center"></span>
+                </button>
+                <div x-show="open" x-cloak class="absolute bottom-12 right-0 w-80 bg-white rounded-2xl border border-slate-200 shadow-2xl z-50 overflow-hidden text-left">
+                    <div class="px-4 py-3 border-b border-slate-100 text-sm font-bold text-slate-900">Notifications</div>
+                    <ul class="max-h-80 overflow-y-auto divide-y divide-slate-50">
+                        <template x-for="n in items" :key="n.id">
+                            <li>
+                                <a :href="n.url || '#'" class="block px-4 py-3 hover:bg-slate-50 transition-colors">
+                                    <span class="block text-[13px] font-bold text-slate-800" x-text="n.title"></span>
+                                    <span class="block text-[12px] text-slate-500 mt-0.5" x-text="n.description"></span>
+                                    <span class="block text-[10px] text-slate-400 mt-1" x-text="n.at"></span>
+                                </a>
+                            </li>
+                        </template>
+                        <li x-show="!items.length" class="px-4 py-8 text-center text-[12px] text-slate-400">No notifications yet.</li>
+                    </ul>
+                </div>
+            </div>
+
             <form method="POST" action="{{ route('logout') }}">
                 @csrf
                 <button type="submit" class="p-2.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors" title="Log Out">

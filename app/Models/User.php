@@ -61,6 +61,11 @@ class User extends Authenticatable
         return $this->hasMany(Subscription::class)->latest('id');
     }
 
+    public function payoutAccounts()
+    {
+        return $this->hasMany(UserPayoutAccount::class);
+    }
+
     /** The subscription currently granting Plus access, if any. */
     public function activeSubscription(): ?Subscription
     {

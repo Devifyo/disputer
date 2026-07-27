@@ -3,7 +3,7 @@
 Living documentation of the flight-dispute module: how the flows work, where
 the code lives, and what changed. **Update this file whenever a flow changes.**
 
-Last updated: 2026-07-22
+Last updated: 2026-07-27
 
 ---
 
@@ -314,6 +314,100 @@ Completely independent of claim compensation, success fees and payouts.
   after success the page polls briefly while the webhook lands. When the
   system is off it says everything is free.
 
+## 6c. Payments & payouts
+
+Airline money in -> success fee -> passenger money out. Fully independent of
+subscriptions; permissioned beyond the admin role.
+
+- **Tables**: `payments` (gross / fee% / fee / net per claim+passenger),
+  `payouts` (one transfer attempt, Wise or manual), `payout_transactions`
+  (append-only ledger incl. currency conversions - model throws on
+  update/delete), `payment_logs` (immutable audit: actor, IP, old/new).
+- **Flow**: admin records the airline payment (Flight Claims -> Payments ->
+  Record) - fee auto-calculated from Setting `claims.success_fee_percent`
+  (25%); net = gross - fee. Overriding the fee (at record time or later)
+  requires the `payments.override_fee` permission and keeps calculation
+  history (ledger row per recalculation + old/new in the audit).
+  Status machine: pending -> received -> ready_for_payout -> processing ->
+  paid, with failed/cancelled/refunded branches - illegal jumps throw.
+- **Wise payouts** (`WisePayoutService`): `WISE_SANDBOX=true` flips the
+  whole integration to Wise's sandbox (own URL + own credentials
+  WISE_SANDBOX_API_TOKEN / WISE_SANDBOX_PROFILE_ID - sandbox is a separate
+  Wise account, live tokens are invalid there). Profile auto-resolves from
+  the token (business preferred) when not set; `php artisan wise:setup`
+  verifies the active environment and registers the webhook. The admin
+  Payments page shows a violet "Wise sandbox" badge while in sandbox.
+  Live: WISE_API_TOKEN / WISE_PROFILE_ID.
+- **Customer payout bank accounts** (`user_payout_accounts`): the customer
+  saves where their money should go - one account per currency
+  (EUR IBAN / GBP sort code / CAD institution+transit / USD ACH+address),
+  per-currency validation with forgiving input (spaces/dashes stripped).
+  Details are ENCRYPTED at rest (encrypted:array cast); only the masked
+  tail (····3000) ever leaves the server - including to the owner and to
+  admins. SPA: "Payout bank details" card on the claim Compensation tab -
+  RED urgent state while missing, neutral once saved. Accounts belong to
+  the USER, so they reuse across all their claims.
+  **The destination is the CUSTOMER's choice, never the admin's**: the
+  first saved account becomes the payout default (`is_default`);
+  with multiple accounts the customer switches via "Use for payouts"
+  (badge "PAYOUTS GO HERE"), deleting the default promotes the newest
+  remaining account. The admin's payout drafter shows the default
+  account READ-ONLY (it pins the payout currency); when the customer has
+  no account the drafter shows a red "No bank details yet" panel with a
+  **Request bank details** button (templated email `payout-details-request`
+  + in-app bell + claim timeline step + audit `bank_details_requested`)
+  and a secondary "ask via Wise email" fallback.
+  **One-click send**: for admins with payouts.send the button is "Send
+  Wise payout" - a styled confirm popup (amount, destination, conversion
+  note) then draft + queue in one action, so payouts never sit forgotten
+  in draft. Admins without the send permission keep the two-step
+  "Prepare" flow (drafts for a senior to send). Existing drafts keep
+  their separate Send/Cancel actions.
+  Recipient priority in WisePayoutService: account pinned at draft time >
+  customer's default/currency-matching saved account > sandbox test
+  details > Wise email request.
+  PSD2 constraint: Wise no longer permits API funding (SCA key signing) on
+  PERSONAL accounts - transfers from a personal profile are created as
+  drafts and must be funded from the Wise website/app. BUSINESS profiles
+  (the live devifyo profile) still support key signing: register the public
+  key from storage/app/keys/wise-sca.pub under the business account's API
+  settings before live payouts. wise:setup warns when the active profile is
+  personal. admin drafts a payout
+  (choice of CAD/USD/EUR/GBP), reviews, sends - the transfer runs in the
+  queued `ProcessWisePayout` job (3 tries, backoff). Quote fixes the
+  exchange rate (stored on the payout AND as a ledger conversion row - a
+  re-quote on retry appends a new row, never overwrites). Recipients are
+  Wise "email" type: Wise asks the passenger for bank details, Unjamm never
+  stores account numbers. Retry failed / cancel draft / refresh from Wise;
+  webhook `/api/webhooks/wise` treats the payload as a
+  PING only - the state acted on is re-fetched from Wise's API with our own
+  token, so a forged webhook can never inject a status (tested). RSA
+  signature verification additionally applies when WISE_WEBHOOK_PUBLIC_KEY
+  is set (Wise's live PEM is no longer published in their docs; the
+  fetch-back design removes the dependency). outgoing_payment_sent
+  completes the payout + marks the payment paid.
+  Manual payouts (bank/Interac) can be recorded with amount, currency, FX
+  rate and reference and settle the payment immediately.
+- **Permissions**: payments.view / payments.manage / payments.override_fee /
+  payouts.send - seeded to the admin role, revocable per admin for
+  four-eyes setups. Customers see only their own payment (read-only block
+  in the claim API; internal notes never ship).
+- **Notifications**: customer gets queued template emails
+  (payment-received, payout-initiated, payout-completed, payout-failed,
+  payment-refunded - all admin-editable) + in-app database notifications
+  (bell in the user sidebar; endpoints under /flight-disputes/api/
+  notifications). Admin alerts (new payment, large payment >= Setting
+  payments.large_payment_threshold, Wise transfer failed/retry required) go
+  to AdminAlertRecipients type "payments" + in-app bell in the admin
+  sidebar. Claim timeline gets customer-visible payout events.
+- **Admin UI** Flight Claims -> Payments: dashboard (collected / fees /
+  paid out / pending / processing / failed), payments list and full
+  transaction history with date/passenger/claim/status/currency filters and
+  CSV export, payment detail (split, fee override, payout actions, ledger +
+  audit side by side).
+- **Customer UI**: claim Compensation tab shows the payout card (gross /
+  fee / you-receive, transfer status + reference, event timeline).
+
 ## 7. Admin
 
 - Settings -> Trip Eligibility: confidence threshold.
@@ -390,6 +484,33 @@ Completely independent of claim compensation, success fees and payouts.
 ---
 
 ## Changelog
+
+### 2026-07-27
+- Race fix (caught in sandbox: the customer got TWO "payout completed"
+  emails): the Wise webhook and wise:simulate/refresh could complete the
+  same transfer concurrently - each process's stale model passed the
+  "not yet completed" check. Completion and failure in WisePayoutService
+  now use an atomic conditional UPDATE (status != completed) as the claim;
+  only the winning process writes the ledger row and notifies. Also
+  removed transition()'s generic no-amount ledger rows (completed/failed/
+  refund) - every ledger row is now written once by the business action
+  itself with its amount; refund() writes its own row. Duplicate rows and
+  bell notifications cleaned from the test data.
+- Payout destination is now customer-owned: first saved bank account
+  auto-becomes the default, customer switches it with "Use for payouts",
+  admin sees it read-only in the payout drafter and gets a
+  "Request bank details" nudge button (email + bell + timeline + audit)
+  when the customer has none; Wise-email request demoted to an explicit
+  fallback.
+- Payments & notifications module (see section 6c): airline payments with
+  automatic 25% fee split, permissioned fee override with history, Wise
+  payouts (queued, retried, webhook-synced, append-only FX history, email
+  recipients so no bank details are stored) + manual payouts, immutable
+  ledger and audit log, CSV export, admin dashboard + filters, customer
+  payout card + timeline, queued template emails and in-app notification
+  bells for both admins and customers. Closes the "payouts" gap in
+  PROJECT-STATUS.
+
 
 ### 2026-07-22
 - Unjamm Plus subscription module (see section 6b): master enable/disable

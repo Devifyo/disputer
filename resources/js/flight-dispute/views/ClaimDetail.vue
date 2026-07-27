@@ -97,7 +97,7 @@
                         </div>
 
                         <!-- Missing info banner -->
-                        <div v-if="(claim.missing || []).length" class="bg-rose-50 border border-rose-100 rounded-xl px-4 py-3 text-sm">
+                        <div v-if="(claim.missing || []).length || needsBank" class="bg-rose-50 border border-rose-100 rounded-xl px-4 py-3 text-sm">
                             <div class="flex items-center gap-2 font-bold text-rose-700 mb-1.5">
                                 <span class="relative flex w-2.5 h-2.5">
                                     <span class="absolute inline-flex w-full h-full rounded-full bg-rose-400 opacity-75 animate-ping"></span>
@@ -109,6 +109,10 @@
                                 <li v-for="m in claim.missing" :key="m.key" class="flex items-center gap-2 flex-wrap text-rose-800/90">
                                     <span><strong>{{ m.label }}</strong> - {{ m.hint }}</span>
                                     <button @click="activeTab = m.tab" class="text-xs font-bold text-rose-700 underline underline-offset-2 hover:text-rose-900">Add it now</button>
+                                </li>
+                                <li v-if="needsBank" class="flex items-center gap-2 flex-wrap text-rose-800/90">
+                                    <span><strong>Payout bank details</strong> - we can't pay you directly without your account.</span>
+                                    <button @click="goToBank" class="text-xs font-bold text-rose-700 underline underline-offset-2 hover:text-rose-900">Add it now</button>
                                 </li>
                             </ul>
                         </div>
@@ -153,6 +157,139 @@
 
                         <!-- Tab: Compensation -->
                         <div v-else-if="activeTab === 'compensation'" class="bg-white rounded-2xl ring-1 ring-slate-900/5 p-6 sm:p-8">
+                            <!-- The money has moved: the airline paid - show the payout picture first -->
+                            <div v-if="claim.payment" class="mb-8 rounded-2xl bg-slate-900 text-white p-5 sm:p-6">
+                                <div class="flex items-center justify-between gap-3 flex-wrap mb-4">
+                                    <h2 class="font-bold">Your payout</h2>
+                                    <span class="inline-flex px-2.5 py-1 rounded-full text-[10px] font-black"
+                                          :class="claim.payment.status === 'paid' ? 'bg-emerald-400/20 text-emerald-300'
+                                                : claim.payment.status === 'failed' ? 'bg-rose-400/20 text-rose-300' : 'bg-amber-400/20 text-amber-300'">
+                                        {{ claim.payment.status_label.toUpperCase() }}
+                                    </span>
+                                </div>
+                                <div class="grid grid-cols-3 gap-3 text-center">
+                                    <div class="rounded-xl bg-white/5 px-3 py-2.5">
+                                        <p class="text-[10px] uppercase font-black text-slate-400">Airline paid</p>
+                                        <p class="text-sm sm:text-base font-bold">{{ claim.payment.gross }}</p>
+                                    </div>
+                                    <div class="rounded-xl bg-white/5 px-3 py-2.5">
+                                        <p class="text-[10px] uppercase font-black text-slate-400">Fee ({{ claim.payment.fee_percent }}%)</p>
+                                        <p class="text-sm sm:text-base font-bold">{{ claim.payment.fee }}</p>
+                                    </div>
+                                    <div class="rounded-xl bg-emerald-400/15 px-3 py-2.5">
+                                        <p class="text-[10px] uppercase font-black text-emerald-300">You receive</p>
+                                        <p class="text-sm sm:text-base font-bold text-emerald-300">{{ claim.payment.net }}</p>
+                                    </div>
+                                </div>
+                                <p v-if="claim.payment.payout" class="text-[12px] text-slate-400 mt-3">
+                                    Transfer {{ claim.payment.payout.status }} · reference <span class="font-mono text-slate-300">{{ claim.payment.payout.reference }}</span>
+                                    <template v-if="claim.payment.payout.sent_at"> · sent {{ claim.payment.payout.sent_at }}</template>
+                                </p>
+                                <ul v-if="(claim.payment.timeline || []).length" class="mt-4 space-y-1.5 border-t border-white/10 pt-3">
+                                    <li v-for="(step, i) in claim.payment.timeline" :key="i" class="flex items-center gap-2 text-[12px] text-slate-300">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
+                                        {{ step.label }}<span v-if="step.amount" class="text-slate-400">· {{ step.amount }}</span>
+                                        <span class="ml-auto text-slate-500">{{ step.at }}</span>
+                                    </li>
+                                </ul>
+                            </div>
+
+                            <!-- Payout bank details: where the money should land -->
+                            <div v-if="claim.eligibility && claim.eligibility.status !== 'rejected'" id="bank-details-card" class="mb-8 rounded-2xl border p-5 scroll-mt-24"
+                                 :class="savedAccount ? 'border-slate-200' : 'border-rose-300 bg-rose-50/60 ring-1 ring-rose-100'">
+                                <div class="flex items-center justify-between gap-3 flex-wrap">
+                                    <div class="flex items-start gap-2.5">
+                                        <span v-if="!savedAccount" class="shrink-0 mt-0.5 w-5 h-5 rounded-full bg-rose-500 text-white text-[11px] font-black flex items-center justify-center animate-pulse">!</span>
+                                        <div>
+                                            <h3 class="text-sm font-bold" :class="savedAccount ? 'text-slate-900' : 'text-rose-800'">
+                                                {{ savedAccount ? 'Payout bank details' : 'Bank details needed for your payout' }}
+                                            </h3>
+                                            <p class="text-[12px] mt-0.5" :class="savedAccount ? 'text-slate-500' : 'text-rose-700'">
+                                                <template v-if="savedAccount">We'll send your payout to <span class="font-mono font-bold">{{ savedAccount.masked }}</span> ({{ savedAccount.currency }}, {{ savedAccount.holder }}).</template>
+                                                <template v-else>Without your account we can't pay you directly - add it now so your money isn't held up.</template>
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <button @click="bankOpen = !bankOpen"
+                                            class="text-[12px] font-bold shrink-0 px-4 py-2 rounded-xl transition-colors"
+                                            :class="savedAccount ? 'text-primary-600 hover:underline' : 'bg-rose-600 hover:bg-rose-700 text-white'">
+                                        {{ bankOpen ? 'Close' : (savedAccount ? 'Change' : 'Add bank account') }}
+                                    </button>
+                                </div>
+
+                                <div v-if="bankOpen && bankAccounts.length" class="mt-4 space-y-2">
+                                    <p class="text-[11px] uppercase tracking-wider font-bold text-slate-400">Your saved accounts</p>
+                                    <div v-for="a in bankAccounts" :key="a.currency"
+                                         class="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border px-3.5 py-2.5"
+                                         :class="a.is_default ? 'border-emerald-300 bg-emerald-50/60' : 'border-slate-200'">
+                                        <span class="font-mono text-sm font-bold text-slate-700">{{ a.currency }} {{ a.masked }}</span>
+                                        <span class="text-[12px] text-slate-500">{{ a.holder }}</span>
+                                        <span v-if="a.is_default"
+                                              class="ml-auto text-[10px] font-black text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">PAYOUTS GO HERE</span>
+                                        <span v-else class="ml-auto flex items-center gap-3">
+                                            <button @click="makeDefaultBank(a.currency)" class="text-[11px] font-bold text-primary-600 hover:underline">Use for payouts</button>
+                                            <button @click="removeBank(a.currency)" class="text-[11px] font-bold text-slate-400 hover:text-rose-600">Remove</button>
+                                        </span>
+                                    </div>
+                                    <p class="text-[11px] text-slate-400">Saved accounts work for all your claims - payouts always go to the one marked above.</p>
+                                </div>
+
+                                <div v-if="bankOpen" class="mt-4 grid sm:grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">Currency</label>
+                                        <select v-model="bank.currency" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm outline-none">
+                                            <option v-for="c in ['CAD', 'USD', 'EUR', 'GBP']" :key="c" :value="c">{{ c }}</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">Account holder name</label>
+                                        <input v-model="bank.account_holder_name" type="text" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm outline-none" />
+                                    </div>
+
+                                    <template v-if="bank.currency === 'EUR'">
+                                        <div class="sm:col-span-2">
+                                            <label class="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">IBAN</label>
+                                            <input v-model="bank.iban" type="text" placeholder="DE89 3704 0044 0532 0130 00" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-mono outline-none" />
+                                        </div>
+                                    </template>
+                                    <template v-else-if="bank.currency === 'GBP'">
+                                        <div><label class="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">Sort code</label>
+                                            <input v-model="bank.sort_code" type="text" placeholder="231470" maxlength="6" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-mono outline-none" /></div>
+                                        <div><label class="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">Account number</label>
+                                            <input v-model="bank.account_number" type="text" maxlength="8" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-mono outline-none" /></div>
+                                    </template>
+                                    <template v-else-if="bank.currency === 'CAD'">
+                                        <div><label class="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">Institution (3)</label>
+                                            <input v-model="bank.institution_number" type="text" maxlength="3" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-mono outline-none" /></div>
+                                        <div><label class="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">Transit (5)</label>
+                                            <input v-model="bank.transit_number" type="text" maxlength="5" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-mono outline-none" /></div>
+                                        <div class="sm:col-span-2"><label class="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">Account number</label>
+                                            <input v-model="bank.account_number" type="text" maxlength="12" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-mono outline-none" /></div>
+                                    </template>
+                                    <template v-else>
+                                        <div><label class="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">Routing number (9)</label>
+                                            <input v-model="bank.routing_number" type="text" maxlength="9" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-mono outline-none" /></div>
+                                        <div><label class="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">Account number</label>
+                                            <input v-model="bank.account_number" type="text" maxlength="17" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-mono outline-none" /></div>
+                                        <div><label class="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">City</label>
+                                            <input v-model="bank.city" type="text" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm outline-none" /></div>
+                                        <div><label class="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">ZIP code</label>
+                                            <input v-model="bank.post_code" type="text" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm outline-none" /></div>
+                                        <div class="sm:col-span-2"><label class="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">Street address</label>
+                                            <input v-model="bank.address" type="text" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm outline-none" /></div>
+                                    </template>
+
+                                    <p v-if="bankError" class="sm:col-span-2 text-[12px] font-bold text-rose-600">{{ bankError }}</p>
+                                    <div class="sm:col-span-2 flex items-center gap-3">
+                                        <button :disabled="bankSaving" @click="saveBank"
+                                                class="bg-slate-900 hover:bg-slate-800 disabled:opacity-60 text-white text-sm font-bold px-6 py-2.5 rounded-xl transition-colors">
+                                            {{ bankSaving ? 'Saving…' : 'Save account' }}
+                                        </button>
+                                        <span class="text-[11px] text-slate-400">Stored encrypted. We only ever display the last 4 digits.</span>
+                                    </div>
+                                </div>
+                            </div>
+
                             <template v-if="claim.eligibility">
                                 <!-- Not eligible: evaluation result only - no compensation figures -->
                                 <template v-if="claim.eligibility.status === 'rejected'">
@@ -596,7 +733,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue';
+import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import api from '../api';
 import { formatDateTime } from '../datetime';
 import HelpPanel from '../components/HelpPanel.vue';
@@ -740,6 +877,62 @@ async function deleteExpense(expenseId) {
     }
 }
 
+// ── Payout bank details ─────────────────────────────────────
+const bankOpen = ref(false);
+const bankSaving = ref(false);
+const bankError = ref('');
+const bankAccounts = ref([]);
+const bank = ref({ currency: 'CAD', account_holder_name: '' });
+
+const needsBank = computed(() =>
+    !bankAccounts.value.length
+    && claim.value?.eligibility
+    && claim.value.eligibility.status !== 'rejected');
+
+const savedAccount = computed(() =>
+    bankAccounts.value.find((a) => a.is_default) || bankAccounts.value[0] || null);
+
+async function loadBankAccounts() {
+    try {
+        bankAccounts.value = (await api.payoutAccounts.list()).accounts;
+    } catch (e) { /* non-blocking */ }
+}
+
+function goToBank() {
+    activeTab.value = 'compensation';
+    bankOpen.value = true;
+    // Wait for the tab to render, then bring the card into view.
+    nextTick(() => {
+        document.getElementById('bank-details-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+}
+
+async function removeBank(currency) {
+    try {
+        bankAccounts.value = (await api.payoutAccounts.remove(currency)).accounts;
+    } catch (e) { /* non-blocking */ }
+}
+
+async function makeDefaultBank(currency) {
+    try {
+        bankAccounts.value = (await api.payoutAccounts.makeDefault(currency)).accounts;
+    } catch (e) { /* non-blocking */ }
+}
+
+async function saveBank() {
+    bankSaving.value = true;
+    bankError.value = '';
+    try {
+        bankAccounts.value = (await api.payoutAccounts.save(bank.value)).accounts;
+        bankOpen.value = false;
+    } catch (e) {
+        const errors = e.response?.data?.errors;
+        bankError.value = errors ? Object.values(errors)[0][0] : (e.response?.data?.message || 'Could not save the account.');
+    } finally {
+        bankSaving.value = false;
+    }
+}
+
 const detailRows = computed(() => claim.value ? [
     { label: 'Route', value: `${claim.value.departure_airport || '-'} → ${claim.value.arrival_airport || '-'}` },
     { label: 'Airline', value: claim.value.airline },
@@ -826,5 +1019,8 @@ async function load() {
 }
 
 watch(() => props.id, load);
-onMounted(load);
+onMounted(() => {
+    load();
+    loadBankAccounts();
+});
 </script>

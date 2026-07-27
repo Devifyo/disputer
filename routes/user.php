@@ -26,6 +26,16 @@ Route::middleware(['auth', 'verified', 'role_access:user'])->name('user.')->grou
         Route::post('api/claims/{claim}/info', [\App\Http\Controllers\User\Api\ClaimApiController::class, 'updateInfo'])->name('api.claims.info');
         Route::post('api/claims/{claim}/documents', [\App\Http\Controllers\User\Api\ClaimApiController::class, 'addDocuments'])->name('api.claims.documents');
 
+        // Payout bank accounts (encrypted at rest, masked on the way out)
+        Route::get('api/payout-accounts', [\App\Http\Controllers\User\Api\PayoutAccountApiController::class, 'index'])->name('api.payout-accounts');
+        Route::post('api/payout-accounts', [\App\Http\Controllers\User\Api\PayoutAccountApiController::class, 'store'])->name('api.payout-accounts.store');
+        Route::post('api/payout-accounts/{currency}/default', [\App\Http\Controllers\User\Api\PayoutAccountApiController::class, 'makeDefault'])->name('api.payout-accounts.default');
+        Route::delete('api/payout-accounts/{currency}', [\App\Http\Controllers\User\Api\PayoutAccountApiController::class, 'destroy'])->name('api.payout-accounts.destroy');
+
+        // In-app notifications
+        Route::get('api/notifications', [\App\Http\Controllers\User\Api\NotificationApiController::class, 'index'])->name('api.notifications');
+        Route::post('api/notifications/read', [\App\Http\Controllers\User\Api\NotificationApiController::class, 'markRead'])->name('api.notifications.read');
+
         // Unjamm Plus billing (Stripe Checkout + Customer Portal)
         Route::get('api/billing', [\App\Http\Controllers\User\Api\BillingApiController::class, 'overview'])->name('api.billing.overview');
         Route::post('api/billing/checkout', [\App\Http\Controllers\User\Api\BillingApiController::class, 'checkout'])->name('api.billing.checkout');

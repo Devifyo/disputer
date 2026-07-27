@@ -146,6 +146,10 @@
                         <i data-lucide="crown" class="w-4 h-4 {{ $iconClass('admin.flight-claims.subscriptions') }}"></i>
                         Subscriptions
                     </a>
+                    <a href="{{ route('admin.flight-claims.payments') }}" wire:navigate class="{{ $subClass('admin.flight-claims.payments') }} group flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all duration-200 border-l border-white/10" @click="mobileSidebarOpen = false">
+                        <i data-lucide="banknote" class="w-4 h-4 {{ $iconClass('admin.flight-claims.payments') }}"></i>
+                        Payments
+                    </a>
                 </div>
             </div>
             <div class="px-3 mt-6 mb-2 text-[10px] uppercase tracking-wider font-bold text-slate-600">Institutes</div>
@@ -199,6 +203,8 @@
                         </div>
                     </div>
                 </a>
+
+                @livewire('admin.layout.notification-bell')
 
                 <button wire:click="logout" class="p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-all" title="Log Out">
                     <i data-lucide="log-out" class="w-4 h-4"></i>

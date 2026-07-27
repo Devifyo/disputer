@@ -133,6 +133,11 @@ class Claim extends Model
         return $this->hasMany(ClaimExpense::class)->orderBy('id');
     }
 
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class)->latest('id');
+    }
+
     /**
      * Approved out-of-pocket expenses, totalled per currency - what the
      * airline is asked to reimburse on top of compensation.
