@@ -36,13 +36,15 @@ class Payment extends Model
     public const CURRENCIES = ['CAD', 'USD', 'EUR', 'GBP'];
 
     protected $fillable = [
-        'claim_id', 'user_id', 'airline', 'currency', 'gross_amount', 'fee_percent',
-        'fee_amount', 'net_amount', 'status', 'payment_date', 'reference', 'notes',
-        'created_by', 'updated_by',
+        'claim_id', 'user_id', 'airline', 'currency', 'gross_amount', 'expenses_amount',
+        'expense_fee_percent', 'fee_percent', 'fee_amount', 'net_amount', 'status',
+        'payment_date', 'reference', 'notes', 'created_by', 'updated_by',
     ];
 
     protected $casts = [
-        'gross_amount' => 'decimal:2',
+        'gross_amount'        => 'decimal:2',
+        'expenses_amount'     => 'decimal:2',
+        'expense_fee_percent' => 'decimal:2',
         'fee_percent'  => 'decimal:2',
         'fee_amount'   => 'decimal:2',
         'net_amount'   => 'decimal:2',

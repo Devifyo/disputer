@@ -3,6 +3,7 @@
 namespace App\Services\Payments;
 
 use App\Models\Claim;
+use App\Models\ClaimExpense;
 use App\Models\Payment;
 use App\Models\Setting;
 use App\Models\User;
@@ -46,34 +47,51 @@ class PaymentService
             $feePercent = (float) $data['fee_percent'];
         }
 
-        $gross = round((float) $data['gross_amount'], 2);
-        $fee   = round($gross * $feePercent / 100, 2);
+        $gross    = round((float) $data['gross_amount'], 2);
+        // Out-of-pocket expense reimbursements pass through fee-free by
+        // default: the success fee is charged on the compensation portion.
+        // An admin may explicitly charge a (separate) fee on expenses too.
+        $expenses      = min(round((float) ($data['expenses_amount'] ?? 0), 2), $gross);
+        $expenseFeePct = $expenses > 0 ? (float) ($data['expense_fee_percent'] ?? 0) : 0.0;
+        $fee           = round(($gross - $expenses) * $feePercent / 100 + $expenses * $expenseFeePct / 100, 2);
 
-        $payment = DB::transaction(function () use ($claim, $data, $admin, $feePercent, $gross, $fee) {
+        $payment = DB::transaction(function () use ($claim, $data, $admin, $feePercent, $gross, $expenses, $expenseFeePct, $fee) {
             $payment = Payment::create([
-                'claim_id'     => $claim->id,
-                'user_id'      => $claim->user_id,
-                'airline'      => $claim->airline,
-                'currency'     => strtoupper($data['currency']),
-                'gross_amount' => $gross,
-                'fee_percent'  => $feePercent,
-                'fee_amount'   => $fee,
-                'net_amount'   => round($gross - $fee, 2),
-                'status'       => Payment::STATUS_RECEIVED,
-                'payment_date' => $data['payment_date'],
-                'reference'    => $data['reference'] ?? null,
-                'notes'        => $data['notes'] ?? null,
-                'created_by'   => $admin->id,
-                'updated_by'   => $admin->id,
+                'claim_id'            => $claim->id,
+                'user_id'             => $claim->user_id,
+                'airline'             => $claim->airline,
+                'currency'            => strtoupper($data['currency']),
+                'gross_amount'        => $gross,
+                'expenses_amount'     => $expenses,
+                'expense_fee_percent' => $expenseFeePct,
+                'fee_percent'         => $feePercent,
+                'fee_amount'          => $fee,
+                'net_amount'          => round($gross - $fee, 2),
+                'status'              => Payment::STATUS_RECEIVED,
+                'payment_date'        => $data['payment_date'],
+                'reference'           => $data['reference'] ?? null,
+                'notes'               => $data['notes'] ?? null,
+                'created_by'          => $admin->id,
+                'updated_by'          => $admin->id,
             ]);
 
-            $this->ledger($payment, 'payment_received', $gross, $payment->currency, $admin->id, $data['reference'] ?? null);
-            $this->ledger($payment, 'fee_deducted', -$fee, $payment->currency, $admin->id, null,
-                sprintf('%s%% success fee', rtrim(rtrim(number_format($feePercent, 2), '0'), '.')));
+            $this->ledger($payment, 'payment_received', $gross, $payment->currency, $admin->id, $data['reference'] ?? null,
+                $expenses > 0 ? sprintf('Includes %s expense reimbursement', $payment->money($expenses)) : null);
+            $this->ledger($payment, 'fee_deducted', -$fee, $payment->currency, $admin->id, null, $this->feeNote($payment));
+
+            // The receipts this payment settles are marked reimbursed - the
+            // customer's Expenses tab reflects it immediately.
+            $expenseIds = array_filter((array) ($data['expense_ids'] ?? []));
+            if ($expenses > 0 && $expenseIds !== []) {
+                ClaimExpense::where('claim_id', $claim->id)
+                    ->where('status', ClaimExpense::STATUS_APPROVED)
+                    ->whereIn('id', $expenseIds)
+                    ->update(['reimbursed_amount' => DB::raw('amount'), 'reimbursed_at' => now()]);
+            }
 
             $this->audit($payment, 'created', $admin, null, $payment->only([
-                'currency', 'gross_amount', 'fee_percent', 'fee_amount', 'net_amount', 'status', 'payment_date',
-            ]));
+                'currency', 'gross_amount', 'expenses_amount', 'expense_fee_percent', 'fee_percent', 'fee_amount', 'net_amount', 'status', 'payment_date',
+            ]) + ($expenseIds !== [] ? ['reimbursed_expense_ids' => array_values($expenseIds)] : []));
 
             return $payment;
         });
@@ -110,7 +128,10 @@ class PaymentService
         return DB::transaction(function () use ($payment, $newPercent, $admin, $reason) {
             $old = $payment->only(['fee_percent', 'fee_amount', 'net_amount']);
 
-            $fee = round((float) $payment->gross_amount * $newPercent / 100, 2);
+            // Same basis as record(): the compensation fee changes, the
+            // expense-fee portion (usually zero) is preserved as recorded.
+            $fee = round(((float) $payment->gross_amount - (float) $payment->expenses_amount) * $newPercent / 100
+                + (float) $payment->expenses_amount * (float) $payment->expense_fee_percent / 100, 2);
             $payment->forceFill([
                 'fee_percent' => $newPercent,
                 'fee_amount'  => $fee,
@@ -126,6 +147,29 @@ class PaymentService
 
             return $payment->fresh();
         });
+    }
+
+    /** Human sentence for the fee ledger row - spells out both components. */
+    private function feeNote(Payment $payment): string
+    {
+        $pct      = rtrim(rtrim(number_format((float) $payment->fee_percent, 2), '0'), '.');
+        $expenses = (float) $payment->expenses_amount;
+
+        if ($expenses <= 0) {
+            return sprintf('%s%% success fee', $pct);
+        }
+
+        $compPortion = $payment->money((float) $payment->gross_amount - $expenses);
+
+        if ((float) $payment->expense_fee_percent > 0) {
+            return sprintf('%s%% success fee on the %s compensation portion + %s%% fee on the %s expenses',
+                $pct, $compPortion,
+                rtrim(rtrim(number_format((float) $payment->expense_fee_percent, 2), '0'), '.'),
+                $payment->money($expenses));
+        }
+
+        return sprintf('%s%% success fee on the %s compensation portion - %s expenses fee-free',
+            $pct, $compPortion, $payment->money($expenses));
     }
 
     /** Guarded status move + ledger + audit. */

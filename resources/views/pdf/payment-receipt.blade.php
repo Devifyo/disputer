@@ -104,7 +104,7 @@
             <td>
                 <div class="k">Success fee ({{ rtrim(rtrim(number_format((float) $payment->fee_percent, 2), '0'), '.') }}%)</div>
                 <div class="v">{{ $payment->currency }} {{ number_format((float) $payment->fee_amount, 2) }}</div>
-                <div class="s">Unjamm service fee</div>
+                <div class="s">{{ (float) $payment->expenses_amount > 0 ? 'on the compensation portion only' : 'Unjamm service fee' }}</div>
             </td>
             <td class="net">
                 <div class="k">Net payout</div>
@@ -151,12 +151,34 @@
                 <td>{{ $payment->payment_date?->format('d M Y') }}</td>
                 <td class="r strong">{{ $payment->currency }} {{ number_format((float) $payment->gross_amount, 2) }}</td>
             </tr>
+            @php
+                $expenseFee = round((float) $payment->expenses_amount * (float) $payment->expense_fee_percent / 100, 2);
+                $compFee    = round((float) $payment->fee_amount - $expenseFee, 2);
+            @endphp
+            @if ((float) $payment->expenses_amount > 0)
+                <tr class="alt">
+                    <td>of which out-of-pocket expenses{{ $expenseFee > 0 ? '' : ' - reimbursed in full, no fee charged' }}</td>
+                    <td class="mono">-</td>
+                    <td>{{ $payment->payment_date?->format('d M Y') }}</td>
+                    <td class="r">{{ $payment->currency }} {{ number_format((float) $payment->expenses_amount, 2) }}</td>
+                </tr>
+            @endif
             <tr class="alt">
-                <td>Unjamm success fee ({{ rtrim(rtrim(number_format((float) $payment->fee_percent, 2), '0'), '.') }}%)</td>
+                <td>
+                    Unjamm success fee ({{ rtrim(rtrim(number_format((float) $payment->fee_percent, 2), '0'), '.') }}%@if ((float) $payment->expenses_amount > 0) of the {{ $payment->currency }} {{ number_format((float) $payment->gross_amount - (float) $payment->expenses_amount, 2) }} compensation portion @endif)
+                </td>
                 <td class="mono">-</td>
                 <td>{{ $payment->payment_date?->format('d M Y') }}</td>
-                <td class="r neg">&minus; {{ $payment->currency }} {{ number_format((float) $payment->fee_amount, 2) }}</td>
+                <td class="r neg">&minus; {{ $payment->currency }} {{ number_format($compFee, 2) }}</td>
             </tr>
+            @if ($expenseFee > 0)
+                <tr>
+                    <td>Expense handling fee ({{ rtrim(rtrim(number_format((float) $payment->expense_fee_percent, 2), '0'), '.') }}% of expenses)</td>
+                    <td class="mono">-</td>
+                    <td>{{ $payment->payment_date?->format('d M Y') }}</td>
+                    <td class="r neg">&minus; {{ $payment->currency }} {{ number_format($expenseFee, 2) }}</td>
+                </tr>
+            @endif
             <tr class="total-row">
                 <td colspan="3">Net payout to passenger</td>
                 <td class="r">{{ $payment->currency }} {{ number_format((float) $payment->net_amount, 2) }}</td>

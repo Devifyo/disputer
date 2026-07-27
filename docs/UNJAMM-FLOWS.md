@@ -501,6 +501,59 @@ subscriptions; permissioned beyond the admin role.
   cards stay clean at any volume.
   Admin sidebar bell icon inlined as SVG (the lucide JS replacement was
   lost inside the nested Livewire component).
+- Expense reimbursements are fee-free (business rule from the client):
+  payments carry expenses_amount - the part of the gross that reimburses
+  out-of-pocket receipts. The success fee is computed on
+  (gross - expenses) at record time AND on fee override.
+  Record modal is built around ADDITION (the client found "gross, of
+  which expenses" confusing): "Compensation the airline paid" plus an
+  "Airline also paid back the passenger's expenses" TOGGLE. Enabling it
+  (auto-enabled when the claim has approved receipts) reveals the claim's
+  APPROVED ClaimExpense rows, each pre-ticked with category, date and
+  amount - untick anything the airline did not cover; receipts in another
+  currency are shown disabled with a hint, and an "Other / unlisted
+  expenses" box covers the rest. Optional "Charge a fee on expenses too"
+  checkbox + percent (payments.expense_fee_percent, default 0) - expenses
+  stay fee-free unless the admin opts in. Live receipt-style preview:
+  Compensation + Expenses (NO FEE badge) = Total received, minus success
+  fee (% of compensation only), minus expense fee when charged, =
+  Customer receives. The gross is the sum, computed on save.
+  The whole record form runs CLIENT-SIDE (Alpine + deferred @entangle):
+  ticking a receipt or typing an amount never round-trips, and the totals
+  recompute instantly; Livewire receives the state with the save request
+  and recomputes the amounts server-side from the database, so a tampered
+  client cannot inflate a payout. Receipts in a currency other than the
+  payment's are shown disabled and are neither counted NOR marked
+  reimbursed (regression-tested).
+  Recording a payment marks the ticked receipts reimbursed
+  (reimbursed_amount / reimbursed_at, ids captured in the audit log);
+  the customer's Expenses tab then shows a green PAID BACK badge and
+  "Reimbursed to you on {date}". Ledger fee row spells the split out;
+  customer card shows "Includes X for your out-of-pocket expenses -
+  reimbursed in full, no fee charged"; the PDF receipt breaks out the
+  expense row and labels the fee "of the X compensation portion".
+- Estimate vs payouts disambiguated: once a claim has real payments, the
+  eligibility/estimate block ("Estimated compensation", entitlements,
+  how-the-amount-is-set) folds into a collapsed "How this claim was
+  assessed" panel with an explicit note that the airline has since paid -
+  it can no longer be mistaken for additional money coming. Claims
+  without payments still show the full estimate as before.
+- Customer payout cards decluttered + customer receipts: the per-payment
+  timeline now shows only the steps that moved the money (received /
+  payout created / conversion / transfer / completed) - internal retry
+  churn (failed/cancelled attempts) never reaches the customer, and
+  repeated attempts collapse to the one that counted. Timelines are
+  collapsed behind "View history (N)". Each card has a "Receipt" button:
+  route /flight-disputes/payments/{payment}/receipt (owner-only), same
+  branded PDF minus failed/cancelled ledger rows. Receipt generation
+  refactored into PaymentReceiptService (admin + customer share it;
+  admin keeps the full ledger).
+- Multi-instalment fix (client question exposed it): the customer claim
+  API returned only the FIRST payment (->first()) - extra instalments,
+  including paid ones, were invisible to the customer. show() now returns
+  'payments' (all, newest first) and the SPA Compensation tab renders one
+  dark payout card per instalment ("Payout 2 of 3" + airline payment
+  date), each with its own split, transfer status and timeline.
 - PDF receipt per payment: "PDF receipt" button in the payment detail
   modal downloads RCPT-{claim}-{id}.pdf (dompdf, view
   pdf/payment-receipt): branded dark header with the real logo, passenger

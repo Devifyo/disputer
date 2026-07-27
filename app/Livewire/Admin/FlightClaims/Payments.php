@@ -3,6 +3,7 @@
 namespace App\Livewire\Admin\FlightClaims;
 
 use App\Models\Claim;
+use App\Models\ClaimExpense;
 use App\Models\Payment;
 use App\Models\Payout;
 use App\Models\PayoutTransaction;
@@ -10,6 +11,7 @@ use App\Models\UserPayoutAccount;
 use App\Services\Payments\PaymentService;
 use App\Services\Payments\WisePayoutService;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -38,6 +40,7 @@ class Payments extends Component
     public string $claimSearch = '';
     public ?int $recordClaimId = null;
     public array $form = [];
+    public array $expenseChecks = [];
 
     // Detail modal.
     public ?int $paymentId = null;
@@ -69,15 +72,24 @@ class Payments extends Component
         $this->recordClaimId = $claimId;
         $this->claimSearch   = '';
         $this->form = [
-            'gross_amount' => null,
-            'currency'     => 'CAD',
-            'fee_percent'  => PaymentService::defaultFeePercent(),
-            'payment_date' => now()->toDateString(),
-            'reference'    => '',
-            'notes'        => '',
+            'compensation_amount' => null,
+            'currency'            => 'CAD',
+            'fee_percent'         => PaymentService::defaultFeePercent(),
+            'has_expenses'        => false,
+            'extra_expenses'      => null,
+            'charge_expense_fee'  => false,
+            'expense_fee_percent' => null,
+            'payment_date'        => now()->toDateString(),
+            'reference'           => '',
+            'notes'               => '',
         ];
+        $this->expenseChecks = [];
         $this->showRecordModal = true;
         $this->resetErrorBag();
+
+        if ($claimId) {
+            $this->chooseClaim($claimId);
+        }
     }
 
     public function chooseClaim(int $claimId): void
@@ -86,9 +98,53 @@ class Payments extends Component
         $claim = Claim::find($claimId);
         if ($claim?->compensation_amount) {
             $paxCount = max(1, count($claim->passengerNames()));
-            $this->form['gross_amount'] = round((float) $claim->compensation_amount * $paxCount, 2);
-            $this->form['currency']     = $claim->compensation_currency ?: 'CAD';
+            $this->form['compensation_amount'] = round((float) $claim->compensation_amount * $paxCount, 2);
+            $this->form['currency']            = $claim->compensation_currency ?: 'CAD';
         }
+
+        // Approved receipts pre-select themselves; the toggle pre-opens when
+        // there is anything to reimburse.
+        $expenses = $this->recordExpenses();
+        $this->expenseChecks = $expenses->mapWithKeys(fn ($e) => [$e->id => true])->all();
+        $this->form['has_expenses'] = $expenses->isNotEmpty();
+    }
+
+    /** Approved receipts on the claim being recorded (once per request). */
+    private ?Collection $recordExpenses = null;
+
+    private function recordExpenses(): Collection
+    {
+        return $this->recordExpenses ??= $this->recordClaimId
+            ? ClaimExpense::where('claim_id', $this->recordClaimId)
+                ->where('status', ClaimExpense::STATUS_APPROVED)
+                ->orderBy('expense_date')->get()
+            : collect();
+    }
+
+    /**
+     * The receipts this payment actually settles: ticked AND in the payment's
+     * currency. A receipt in another currency is shown but never counted -
+     * so it must not be marked reimbursed either.
+     */
+    private function includedExpenses(): Collection
+    {
+        if (!($this->form['has_expenses'] ?? false)) {
+            return collect();
+        }
+
+        return $this->recordExpenses()
+            ->filter(fn ($e) => ($this->expenseChecks[$e->id] ?? false) && $e->currency === ($this->form['currency'] ?? ''))
+            ->values();
+    }
+
+    /** Sum of the included receipts + the manual extra. */
+    private function expensesTotal(): float
+    {
+        if (!($this->form['has_expenses'] ?? false)) {
+            return 0.0;
+        }
+
+        return round((float) $this->includedExpenses()->sum('amount') + (float) ($this->form['extra_expenses'] ?? 0), 2);
     }
 
     public function saveRecord(PaymentService $payments): void
@@ -96,17 +152,31 @@ class Payments extends Component
         $this->authorizeManage();
 
         $data = $this->validate([
-            'recordClaimId'       => 'required|integer|exists:claims,id',
-            'form.gross_amount'   => 'required|numeric|min:0.01|max:999999',
-            'form.currency'       => ['required', Rule::in(Payment::CURRENCIES)],
-            'form.fee_percent'    => 'required|numeric|min:0|max:100',
-            'form.payment_date'   => 'required|date|before_or_equal:today',
-            'form.reference'      => 'nullable|string|max:120',
-            'form.notes'          => 'nullable|string|max:2000',
-        ], [], ['recordClaimId' => 'claim', 'form.gross_amount' => 'gross amount']);
+            'recordClaimId'             => 'required|integer|exists:claims,id',
+            'form.compensation_amount'  => 'required|numeric|min:0.01|max:999999',
+            'form.currency'             => ['required', Rule::in(Payment::CURRENCIES)],
+            'form.fee_percent'          => 'required|numeric|min:0|max:100',
+            'form.has_expenses'         => 'boolean',
+            'form.extra_expenses'       => 'nullable|numeric|min:0|max:999999',
+            'form.charge_expense_fee'   => 'boolean',
+            'form.expense_fee_percent'  => 'nullable|numeric|min:0|max:100',
+            'form.payment_date'         => 'required|date|before_or_equal:today',
+            'form.reference'            => 'nullable|string|max:120',
+            'form.notes'                => 'nullable|string|max:2000',
+        ], [], ['recordClaimId' => 'claim', 'form.compensation_amount' => 'compensation amount']);
+
+        // The admin enters the parts; the gross is their sum - no mental
+        // subtraction anywhere. Expenses come from the ticked receipts.
+        $payload             = $data['form'];
+        $expenses            = $this->expensesTotal();
+        $payload['expenses_amount']     = $expenses;
+        $payload['gross_amount']        = round((float) $payload['compensation_amount'] + $expenses, 2);
+        $payload['expense_fee_percent'] = ($payload['has_expenses'] ?? false) && ($payload['charge_expense_fee'] ?? false)
+            ? (float) ($payload['expense_fee_percent'] ?? 0) : 0;
+        $payload['expense_ids']         = $this->includedExpenses()->pluck('id')->all();
 
         try {
-            $payment = $payments->record(Claim::findOrFail($this->recordClaimId), $data['form'], auth()->user());
+            $payment = $payments->record(Claim::findOrFail($this->recordClaimId), $payload, auth()->user());
         } catch (\Throwable $e) {
             $this->dispatch('toast', ['type' => 'error', 'message' => $e->getMessage()]);
 
@@ -406,6 +476,8 @@ class Payments extends Component
         return view('livewire.admin.flight-claims.payments', [
                 'stats'         => $this->stats(),
                 'statLabels'    => self::STAT_LABELS,
+                'claimExpenses' => $this->showRecordModal ? $this->recordExpenses() : collect(),
+                'expensesTotal' => $this->expensesTotal(),
                 'payments'      => $payments,
                 'transactions'  => $this->tab === 'transactions' ? $this->transactionQuery()->paginate(20) : null,
                 'detail'        => $this->payment(),

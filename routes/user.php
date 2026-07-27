@@ -30,6 +30,7 @@ Route::middleware(['auth', 'verified', 'role_access:user'])->name('user.')->grou
         Route::get('api/payout-accounts', [\App\Http\Controllers\User\Api\PayoutAccountApiController::class, 'index'])->name('api.payout-accounts');
         Route::post('api/payout-accounts', [\App\Http\Controllers\User\Api\PayoutAccountApiController::class, 'store'])->name('api.payout-accounts.store');
         Route::post('api/payout-accounts/{currency}/default', [\App\Http\Controllers\User\Api\PayoutAccountApiController::class, 'makeDefault'])->name('api.payout-accounts.default');
+        Route::get('payments/{payment}/receipt', \App\Http\Controllers\User\PaymentReceiptController::class)->name('payments.receipt');
         Route::delete('api/payout-accounts/{currency}', [\App\Http\Controllers\User\Api\PayoutAccountApiController::class, 'destroy'])->name('api.payout-accounts.destroy');
 
         // In-app notifications

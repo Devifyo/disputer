@@ -203,7 +203,14 @@ Newest first. One line per session: what changed, what it unblocked.
   out of the generic state machine so each money event has exactly one
   row. Dashboard money cards now headline a single base-currency
   equivalent (Wise mid-market rate, cached, display-only) with the
-  per-currency truth as a subline. Full suite 267 passing.
+  per-currency truth as a subline, each opening a per-currency breakdown
+  popup. Multi-instalment claims now show every payment to the customer
+  (was: only the first), with decluttered timelines, per-payment PDF
+  receipts on both sides, and the eligibility estimate folded away once
+  real payouts exist. Expense reimbursements are fee-free by default:
+  record modal has an expenses toggle with auto-populated approved
+  receipts, optional expense fee, and settles those receipts
+  (PAID BACK on the customer's Expenses tab). Full suite 274 passing.
 
 - **2026-07-27** - Payments & notifications module: airline payments in with
   automatic fee split, Wise + manual payouts out, append-only ledger with

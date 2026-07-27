@@ -8,6 +8,7 @@ use App\Models\Claim;
 use App\Models\ClaimExpense;
 use App\Models\ClaimSigner;
 use App\Models\Itinerary;
+use App\Models\Payment;
 use App\Models\Setting;
 use App\Models\SuccessStory;
 use App\Services\Billing\SubscriptionGate;
@@ -280,40 +281,52 @@ class ClaimApiController extends Controller
     }
 
     /** The customer's read-only view of their money. Internal notes never ship. */
-    private function paymentBlock(Claim $c): ?array
+    /**
+     * A claim can be paid in several instalments - every payment gets its
+     * own card on the customer's Compensation tab, newest first.
+     */
+    private function paymentBlocks(Claim $c): array
     {
-        $payment = $c->payments()->with('payouts')->first();
+        return $c->payments()->with(['payouts', 'transactions'])
+            ->latest('payment_date')->latest('id')->get()
+            ->map(function (Payment $payment) {
+                $payout = $payment->latestPayout();
 
-        if (!$payment) {
-            return null;
-        }
-
-        $payout = $payment->latestPayout();
-
-        return [
-            'status'        => $payment->status,
-            'status_label'  => $payment->statusLabel(),
-            'currency'      => $payment->currency,
-            'gross'         => $payment->money($payment->gross_amount),
-            'fee'           => $payment->money($payment->fee_amount),
-            'fee_percent'   => rtrim(rtrim(number_format((float) $payment->fee_percent, 2), '0'), '.'),
-            'net'           => $payment->money($payment->net_amount),
-            'payment_date'  => $payment->payment_date->format('d M Y'),
-            'payout'        => $payout ? [
-                'status'    => $payout->status,
-                'amount'    => $payout->money(),
-                'reference' => $payout->transfer_reference,
-                'method'    => $payout->method,
-                'sent_at'   => $payout->transferred_at?->format('d M Y'),
-            ] : null,
-            'timeline'      => $payment->transactions
-                ->reject(fn ($tx) => $tx->type === 'fee_deducted')
-                ->map(fn ($tx) => [
-                    'label' => $tx->typeLabel(),
-                    'at'    => $tx->created_at->format('d M Y H:i'),
-                    'amount' => $tx->amount !== null ? trim(($tx->currency ?? '') . ' ' . number_format(abs((float) $tx->amount), 2)) : null,
-                ])->values()->all(),
-        ];
+                return [
+                    'status'        => $payment->status,
+                    'status_label'  => $payment->statusLabel(),
+                    'currency'      => $payment->currency,
+                    'gross'         => $payment->money($payment->gross_amount),
+                    'fee'           => $payment->money($payment->fee_amount),
+                    'fee_percent'   => rtrim(rtrim(number_format((float) $payment->fee_percent, 2), '0'), '.'),
+                    'expenses'      => (float) $payment->expenses_amount > 0 ? $payment->money($payment->expenses_amount) : null,
+                    'expenses_fee_free' => (float) $payment->expense_fee_percent <= 0,
+                    'net'           => $payment->money($payment->net_amount),
+                    'payment_date'  => $payment->payment_date->format('d M Y'),
+                    'receipt_url'   => route('user.itineraries.payments.receipt', $payment->id),
+                    'payout'        => $payout ? [
+                        'status'    => $payout->status,
+                        'amount'    => $payout->money(),
+                        'reference' => $payout->transfer_reference,
+                        'method'    => $payout->method,
+                        'sent_at'   => $payout->transferred_at?->format('d M Y'),
+                    ] : null,
+                    // The customer's view of the journey: only the steps that
+                    // moved their money. Internal retry churn (failed and
+                    // cancelled attempts) stays in the admin ledger, and
+                    // repeated attempts collapse to the one that counted.
+                    'timeline'      => $payment->transactions
+                        ->filter(fn ($tx) => in_array($tx->type, ['payment_received', 'payout_created', 'conversion', 'wise_transfer', 'completed'], true))
+                        ->sortBy('id')
+                        ->groupBy('type')->map->last()
+                        ->sortBy('id')
+                        ->map(fn ($tx) => [
+                            'label' => $tx->typeLabel(),
+                            'at'    => $tx->created_at->format('d M Y H:i'),
+                            'amount' => $tx->amount !== null ? trim(($tx->currency ?? '') . ' ' . number_format(abs((float) $tx->amount), 2)) : null,
+                        ])->values()->all(),
+                ];
+            })->values()->all();
     }
 
     // ── Helpers ─────────────────────────────────────────────
@@ -428,9 +441,9 @@ class ClaimApiController extends Controller
         }
 
         return array_merge($this->summary($c), [
-            // Read-only payout picture: what the airline paid, our fee, what
-            // the passenger gets, and where the transfer stands.
-            'payment'           => $this->paymentBlock($c),
+            // Read-only payout picture: every payment the airline made, our
+            // fee, what the passenger gets, and where each transfer stands.
+            'payments'          => $this->paymentBlocks($c),
             'expenses'          => $c->expenses->map(fn (ClaimExpense $e) => [
                 'id'          => $e->id,
                 'category'    => $e->category,
@@ -446,6 +459,7 @@ class ClaimApiController extends Controller
                 'reason'      => $e->review_reason,
                 'url'         => route('user.itineraries.api.claims.expense', ['claim' => encrypt_id($c->id), 'expense' => $e->id]),
                 'locked'      => $e->status !== ClaimExpense::STATUS_PENDING,
+                'reimbursed'  => $e->reimbursed_at?->format('d M Y'),
             ])->values()->all(),
             'expense_categories' => ClaimExpense::CATEGORIES,
             'passenger_name'    => $c->passenger_name,

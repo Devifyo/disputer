@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Jobs\ProcessWisePayout;
 use App\Livewire\Admin\FlightClaims\Payments as AdminPayments;
 use App\Models\Claim;
+use App\Models\ClaimExpense;
 use App\Models\Payment;
 use App\Models\PaymentLog;
 use App\Models\Payout;
@@ -121,6 +122,133 @@ class PaymentModuleTest extends TestCase
         $log = $payment->logs()->where('action', 'fee_changed')->first();
         $this->assertSame('10.00', $log->old_values['fee_percent']);
         $this->assertSame(20.0, (float) $log->new_values['fee_percent']);
+    }
+
+    public function test_expense_reimbursements_are_fee_free(): void
+    {
+        // Gross 1000 of which 200 reimburses receipts: fee is 25% of the
+        // 800 compensation portion only.
+        $payment = $this->payment(['expenses_amount' => 200]);
+
+        $this->assertSame('200.00', $payment->expenses_amount);
+        $this->assertSame('200.00', $payment->fee_amount);
+        $this->assertSame('800.00', $payment->net_amount);
+
+        // The ledger says so, out loud.
+        $feeRow = $payment->transactions()->where('type', 'fee_deducted')->first();
+        $this->assertStringContainsString('fee-free', $feeRow->notes);
+
+        // A fee override keeps the exemption: 10% of 800, never of 1000.
+        app(PaymentService::class)->overrideFee($payment, 10, $this->admin);
+        $this->assertSame('80.00', $payment->fresh()->fee_amount);
+        $this->assertSame('920.00', $payment->fresh()->net_amount);
+
+        // The customer is told their expenses came back in full.
+        $expenses = $this->actingAs($this->customer)
+            ->getJson(route('user.itineraries.api.claims.show', encrypt_id($payment->claim_id)))
+            ->json('data.payments.0.expenses');
+        $this->assertSame('CAD 200.00', $expenses);
+    }
+
+    /** @return array{0: Claim, 1: ClaimExpense, 2: ClaimExpense} */
+    private function claimWithReceipts(): array
+    {
+        $claim = $this->claim();
+
+        $hotel = $claim->expenses()->create([
+            'uploaded_by' => $this->customer->id, 'category' => 'hotel', 'description' => 'Airport hotel',
+            'amount' => 180, 'currency' => 'CAD', 'expense_date' => now()->subDays(3)->toDateString(),
+            'status' => ClaimExpense::STATUS_APPROVED, 'file_path' => 'receipts/hotel.pdf',
+            'original_filename' => 'hotel.pdf', 'mime' => 'application/pdf', 'size_bytes' => 1024,
+        ]);
+        $meal = $claim->expenses()->create([
+            'uploaded_by' => $this->customer->id, 'category' => 'meal', 'description' => 'Dinner',
+            'amount' => 35, 'currency' => 'CAD', 'expense_date' => now()->subDays(3)->toDateString(),
+            'status' => ClaimExpense::STATUS_APPROVED, 'file_path' => 'receipts/meal.pdf',
+            'original_filename' => 'meal.pdf', 'mime' => 'application/pdf', 'size_bytes' => 1024,
+        ]);
+        // A rejected receipt must never be offered for reimbursement.
+        $claim->expenses()->create([
+            'uploaded_by' => $this->customer->id, 'category' => 'taxi', 'description' => 'Joyride',
+            'amount' => 500, 'currency' => 'CAD', 'expense_date' => now()->subDays(3)->toDateString(),
+            'status' => ClaimExpense::STATUS_REJECTED, 'file_path' => 'receipts/taxi.pdf',
+            'original_filename' => 'taxi.pdf', 'mime' => 'application/pdf', 'size_bytes' => 1024,
+        ]);
+
+        return [$claim, $hotel, $meal];
+    }
+
+    public function test_approved_receipts_auto_populate_and_are_marked_reimbursed(): void
+    {
+        [$claim, $hotel, $meal] = $this->claimWithReceipts();
+
+        $component = Livewire::actingAs($this->admin)->test(AdminPayments::class)
+            ->call('openRecord', $claim->id);
+
+        // The toggle opens itself and every APPROVED receipt is pre-ticked -
+        // the rejected one is not even listed.
+        $component->assertSet('form.has_expenses', true);
+        $this->assertSame([$hotel->id => true, $meal->id => true], $component->get('expenseChecks'));
+        $this->assertSame(215.0, $component->viewData('expensesTotal'));
+
+        $component->set('form.compensation_amount', 400)->call('saveRecord')->assertHasNoErrors();
+
+        // 400 compensation + 215 receipts, fee only on the 400.
+        $payment = Payment::first();
+        $this->assertSame('615.00', $payment->gross_amount);
+        $this->assertSame('215.00', $payment->expenses_amount);
+        $this->assertSame('100.00', $payment->fee_amount);
+        $this->assertSame('515.00', $payment->net_amount);
+
+        // The receipts this payment settled are now reimbursed.
+        $this->assertSame('180.00', $hotel->fresh()->reimbursed_amount);
+        $this->assertNotNull($meal->fresh()->reimbursed_at);
+    }
+
+    public function test_receipts_in_another_currency_are_neither_counted_nor_settled(): void
+    {
+        [$claim, $hotel, $meal] = $this->claimWithReceipts();   // both CAD
+
+        Livewire::actingAs($this->admin)->test(AdminPayments::class)
+            ->call('openRecord', $claim->id)
+            ->set('form.compensation_amount', 400)
+            ->set('form.currency', 'EUR')       // the airline paid in euros
+            ->call('saveRecord')
+            ->assertHasNoErrors();
+
+        // The CAD receipts stay out of a EUR payment - amount AND settlement.
+        $payment = Payment::first();
+        $this->assertSame('400.00', $payment->gross_amount);
+        $this->assertSame('0.00', $payment->expenses_amount);
+        $this->assertNull($hotel->fresh()->reimbursed_at);
+        $this->assertNull($meal->fresh()->reimbursed_at);
+    }
+
+    public function test_admin_can_deselect_a_receipt_and_optionally_charge_an_expense_fee(): void
+    {
+        [$claim, $hotel, $meal] = $this->claimWithReceipts();
+
+        Livewire::actingAs($this->admin)->test(AdminPayments::class)
+            ->call('openRecord', $claim->id)
+            ->set('form.compensation_amount', 400)
+            ->set('expenseChecks.' . $meal->id, false)      // airline did not cover the meal
+            ->set('form.charge_expense_fee', true)
+            ->set('form.expense_fee_percent', 10)
+            ->call('saveRecord')
+            ->assertHasNoErrors();
+
+        // Only the hotel counts: 400 + 180 = 580 gross.
+        $payment = Payment::first();
+        $this->assertSame('580.00', $payment->gross_amount);
+        $this->assertSame('180.00', $payment->expenses_amount);
+        // 25% of 400 + 10% of 180 = 100 + 18.
+        $this->assertSame('118.00', $payment->fee_amount);
+        $this->assertSame('462.00', $payment->net_amount);
+
+        // The unticked receipt stays unreimbursed, and the ledger explains both fees.
+        $this->assertNull($meal->fresh()->reimbursed_at);
+        $this->assertNotNull($hotel->fresh()->reimbursed_at);
+        $this->assertStringContainsString('10% fee on the', $payment->transactions()->where('type', 'fee_deducted')->first()->notes);
     }
 
     public function test_illegal_status_jumps_are_refused(): void
@@ -409,15 +537,22 @@ class PaymentModuleTest extends TestCase
     {
         $claim = $this->claim();
 
+        // The admin enters compensation and expenses separately - the gross
+        // is their sum, the fee bites only the compensation.
         Livewire::actingAs($this->admin)->test(AdminPayments::class)
             ->call('openRecord', $claim->id)
-            ->set('form.gross_amount', 800)
+            ->set('form.compensation_amount', 800)
             ->set('form.currency', 'CAD')
+            ->set('form.has_expenses', true)
+            ->set('form.extra_expenses', 150)
             ->call('saveRecord')
             ->assertHasNoErrors();
 
         $payment = Payment::first();
-        $this->assertSame('600.00', $payment->net_amount);
+        $this->assertSame('950.00', $payment->gross_amount);
+        $this->assertSame('150.00', $payment->expenses_amount);
+        $this->assertSame('200.00', $payment->fee_amount);
+        $this->assertSame('750.00', $payment->net_amount);
         $this->assertSame($this->admin->id, $payment->created_by);
     }
 
@@ -540,23 +675,72 @@ class PaymentModuleTest extends TestCase
         $response->assertFileDownloaded();
     }
 
-    public function test_customer_sees_their_payout_but_never_internal_notes(): void
+    public function test_customer_sees_every_payout_but_never_internal_notes(): void
     {
         $payment = $this->payment(['notes' => 'INTERNAL: negotiated settlement, do not disclose']);
+
+        // A second instalment on the SAME claim - both must reach the customer.
+        app(PaymentService::class)->record($payment->claim, [
+            'gross_amount' => 200, 'currency' => 'EUR',
+            'payment_date' => now()->addDay()->toDateString(), 'reference' => 'AC-REMIT-2',
+        ], $this->admin);
 
         $payload = $this->actingAs($this->customer)
             ->getJson(route('user.itineraries.api.claims.show', encrypt_id($payment->claim_id)))
             ->assertOk()
-            ->json('data.payment');
+            ->json('data.payments');
 
-        $this->assertSame('CAD 1,000.00', $payload['gross']);
-        $this->assertSame('CAD 250.00', $payload['fee']);
-        $this->assertSame('CAD 750.00', $payload['net']);
-        $this->assertSame('Payment received', $payload['status_label']);
+        $this->assertCount(2, $payload);
+
+        // Newest first: the EUR instalment leads, the original follows.
+        $this->assertSame('EUR 200.00', $payload[0]['gross']);
+        $this->assertSame('CAD 1,000.00', $payload[1]['gross']);
+        $this->assertSame('CAD 250.00', $payload[1]['fee']);
+        $this->assertSame('CAD 750.00', $payload[1]['net']);
+        $this->assertSame('Payment received', $payload[1]['status_label']);
 
         $raw = json_encode($payload);
         $this->assertStringNotContainsString('INTERNAL', $raw);
         $this->assertStringNotContainsString('do not disclose', $raw);
+    }
+
+    public function test_customer_downloads_their_own_receipt_but_not_anothers(): void
+    {
+        $payment = $this->payment();
+
+        $response = $this->actingAs($this->customer)->get(route('user.itineraries.payments.receipt', $payment));
+        $response->assertOk();
+        $this->assertStringStartsWith('%PDF', $response->getContent());
+
+        $intruder = User::factory()->create();
+        $intruder->assignRole('user');
+        $this->actingAs($intruder)->get(route('user.itineraries.payments.receipt', $payment))->assertStatus(403);
+    }
+
+    public function test_customer_timeline_hides_internal_retry_churn(): void
+    {
+        $payment  = $this->payment();
+        $payments = app(PaymentService::class);
+
+        // A retry storm: two dead attempts before the transfer that stuck.
+        $payments->ledger($payment, 'wise_transfer', 100, 'EUR');
+        $payments->ledger($payment, 'failed', null, 'EUR', null, null, 'attempt 1 died');
+        $payments->ledger($payment, 'wise_transfer', 100, 'EUR');
+        $payments->ledger($payment, 'cancelled', null, 'EUR');
+        $payments->ledger($payment, 'wise_transfer', 101, 'EUR');
+        $payments->ledger($payment, 'completed', 101, 'EUR');
+
+        $timeline = collect($this->actingAs($this->customer)
+            ->getJson(route('user.itineraries.api.claims.show', encrypt_id($payment->claim_id)))
+            ->json('data.payments.0.timeline'));
+
+        $labels = $timeline->pluck('label');
+        $this->assertFalse($labels->contains('Failed'));
+        $this->assertFalse($labels->contains('Cancelled'));
+
+        // Retries collapse to the attempt that counted (the EUR 101 one).
+        $this->assertSame(1, $labels->filter(fn ($l) => $l === 'Wise transfer')->count());
+        $this->assertSame('EUR 101.00', $timeline->firstWhere('label', 'Wise transfer')['amount']);
     }
 
     public function test_another_customer_cannot_see_the_payment(): void

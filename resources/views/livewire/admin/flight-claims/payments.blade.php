@@ -225,56 +225,148 @@
                         <button wire:click="$set('recordClaimId', null)" class="text-[11px] font-bold text-primary-600 hover:underline">Change</button>
                     </div>
 
+                    {{-- The whole form computes in the browser: ticking a receipt or
+                         typing an amount never waits on the server. State is entangled
+                         (deferred), so Livewire receives it with the save request, and
+                         the totals are recomputed server-side from the database. --}}
+                    <div x-data="{
+                            form: @entangle('form'),
+                            checks: @entangle('expenseChecks'),
+                            receipts: {{ Js::from($claimExpenses->map(fn ($e) => ['id' => $e->id, 'amount' => (float) $e->amount, 'currency' => $e->currency])->values()) }},
+                            get comp() { return parseFloat(this.form.compensation_amount) || 0 },
+                            get expenses() {
+                                if (! this.form.has_expenses) return 0;
+                                const ticked = this.receipts
+                                    .filter(r => this.checks[r.id] && r.currency === this.form.currency)
+                                    .reduce((total, r) => total + r.amount, 0);
+                                return Math.round((ticked + (parseFloat(this.form.extra_expenses) || 0)) * 100) / 100;
+                            },
+                            get feePercent() { return parseFloat(this.form.fee_percent) || 0 },
+                            get expenseFeePercent() { return this.form.charge_expense_fee ? (parseFloat(this.form.expense_fee_percent) || 0) : 0 },
+                            get fee() { return Math.round(this.comp * this.feePercent) / 100 },
+                            get expenseFee() { return Math.round(this.expenses * this.expenseFeePercent) / 100 },
+                            get net() { return Math.round((this.comp + this.expenses - this.fee - this.expenseFee) * 100) / 100 },
+                            pct(value) { return (Math.round(value * 100) / 100).toString() },
+                            money(value) {
+                                return (this.form.currency || '') + ' ' + Number(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                            },
+                        }">
                     <div class="grid sm:grid-cols-2 gap-3">
                         <div>
-                            <label class="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">Gross amount received</label>
-                            <input type="number" step="0.01" min="0" wire:model.live="form.gross_amount" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:border-primary-500 outline-none">
-                            @error('form.gross_amount') <span class="text-rose-500 text-[10px] font-bold">{{ $message }}</span> @enderror
+                            <label class="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">Compensation the airline paid</label>
+                            <input type="number" step="0.01" min="0" x-model="form.compensation_amount" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:border-primary-500 outline-none">
+                            @error('form.compensation_amount') <span class="text-rose-500 text-[10px] font-bold">{{ $message }}</span> @enderror
                         </div>
                         <div>
                             <label class="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">Currency</label>
-                            <select wire:model.live="form.currency" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm outline-none">
+                            <select x-model="form.currency" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm outline-none">
                                 @foreach ($currencies as $c) <option value="{{ $c }}">{{ $c }}</option> @endforeach
                             </select>
                         </div>
                         <div>
                             <label class="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">Success fee %</label>
-                            <input type="number" step="0.5" min="0" max="100" wire:model.live="form.fee_percent" @disabled(!$canOverride)
+                            <input type="number" step="0.5" min="0" max="100" x-model="form.fee_percent" @disabled(!$canOverride)
                                    class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:border-primary-500 outline-none disabled:bg-slate-50 disabled:text-slate-400">
                             @unless ($canOverride) <span class="text-[10px] text-slate-400">Fixed - you don't have the override permission.</span> @endunless
                         </div>
                         <div>
                             <label class="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">Payment date</label>
-                            <input type="date" wire:model="form.payment_date" max="{{ now()->toDateString() }}" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm outline-none">
+                            <input type="date" x-model="form.payment_date" max="{{ now()->toDateString() }}" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm outline-none">
                         </div>
+
+                        {{-- Expenses: toggle + auto-populated approved receipts --}}
+                        <div class="sm:col-span-2 rounded-xl border border-slate-200 p-3.5">
+                            <label class="flex items-center gap-2.5 cursor-pointer">
+                                <input type="checkbox" x-model="form.has_expenses" class="w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900">
+                                <span class="text-sm font-bold text-slate-800">Airline also paid back the passenger's expenses</span>
+                            </label>
+
+                            <div x-show="form.has_expenses" x-cloak class="mt-3 space-y-2">
+                                @forelse ($claimExpenses as $expense)
+                                    <label class="flex items-center gap-2.5 rounded-lg border px-3 py-2 text-sm"
+                                           :class="form.currency === '{{ $expense->currency }}' ? 'border-slate-200 cursor-pointer' : 'border-slate-100 bg-slate-50 opacity-60'">
+                                        <input type="checkbox" x-model="checks[{{ $expense->id }}]"
+                                               :disabled="form.currency !== '{{ $expense->currency }}'"
+                                               class="w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900">
+                                        <span class="text-slate-700">{{ $expense->categoryLabel() }}</span>
+                                        <span class="text-[11px] text-slate-400">{{ $expense->expense_date?->format('d M Y') }}</span>
+                                        @if ($expense->reimbursed_at)
+                                            <span class="text-[9px] font-black text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">ALREADY REIMBURSED</span>
+                                        @endif
+                                        <span class="ml-auto font-mono font-bold text-slate-800">{{ $expense->currency }} {{ number_format((float) $expense->amount, 2) }}</span>
+                                        <span x-show="form.currency !== '{{ $expense->currency }}'" x-cloak class="text-[9px] font-bold text-amber-600">DIFFERENT CURRENCY - add below</span>
+                                    </label>
+                                @empty
+                                    <p class="text-[11px] text-slate-400">No approved receipts on this claim - enter the amount below.</p>
+                                @endforelse
+
+                                <div class="flex items-center gap-2.5">
+                                    <label class="text-[11px] font-bold text-slate-400 uppercase shrink-0">Other / unlisted expenses</label>
+                                    <input type="number" step="0.01" min="0" x-model="form.extra_expenses" placeholder="0.00"
+                                           class="w-32 px-3 py-2 rounded-lg border border-slate-200 text-sm focus:border-primary-500 outline-none">
+                                    <span class="ml-auto text-[11px] text-slate-500">Expenses total: <span class="font-mono font-bold text-slate-800" x-text="money(expenses)"></span></span>
+                                </div>
+
+                                <div class="flex items-center gap-2.5 border-t border-slate-100 pt-2.5">
+                                    <label class="flex items-center gap-2 cursor-pointer">
+                                        <input type="checkbox" x-model="form.charge_expense_fee" class="w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900">
+                                        <span class="text-[12px] text-slate-600">Charge a fee on expenses too <span class="text-[10px] text-slate-400">(default: expenses are fee-free)</span></span>
+                                    </label>
+                                    <template x-if="form.charge_expense_fee">
+                                        <span class="flex items-center gap-1.5">
+                                            <input type="number" step="0.5" min="0" max="100" x-model="form.expense_fee_percent" placeholder="%"
+                                                   class="w-20 px-3 py-1.5 rounded-lg border border-slate-200 text-sm focus:border-primary-500 outline-none">
+                                            <span class="text-[11px] text-slate-400">%</span>
+                                        </span>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="sm:col-span-2">
                             <label class="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">Airline payment reference</label>
-                            <input type="text" wire:model="form.reference" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:border-primary-500 outline-none">
+                            <input type="text" x-model="form.reference" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:border-primary-500 outline-none">
                         </div>
                         <div class="sm:col-span-2">
                             <label class="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">Notes</label>
-                            <textarea wire:model="form.notes" rows="2" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:border-primary-500 outline-none"></textarea>
+                            <textarea x-model="form.notes" rows="2" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:border-primary-500 outline-none"></textarea>
                         </div>
                     </div>
 
-                    @php
-                        $g = (float) ($form['gross_amount'] ?? 0);
-                        $p = (float) ($form['fee_percent'] ?? 25);
-                        $f = round($g * $p / 100, 2);
-                    @endphp
-                    <div class="grid grid-cols-3 gap-2 mt-4">
-                        <div class="rounded-xl bg-slate-50 border border-slate-100 px-3 py-2 text-center">
-                            <p class="text-[10px] uppercase font-black text-slate-400">Gross</p>
-                            <p class="text-sm font-bold text-slate-800">{{ $form['currency'] ?? '' }} {{ number_format($g, 2) }}</p>
+                    <div class="mt-4 rounded-xl border border-slate-200 divide-y divide-slate-100 text-sm">
+                        <div class="flex items-center justify-between px-4 py-2.5">
+                            <span class="text-slate-600">Compensation</span>
+                            <span class="font-mono font-bold text-slate-800" x-text="money(comp)"></span>
                         </div>
-                        <div class="rounded-xl bg-slate-50 border border-slate-100 px-3 py-2 text-center">
-                            <p class="text-[10px] uppercase font-black text-slate-400">Fee {{ rtrim(rtrim(number_format($p, 2), '0'), '.') }}%</p>
-                            <p class="text-sm font-bold text-slate-800">{{ $form['currency'] ?? '' }} {{ number_format($f, 2) }}</p>
+                        <template x-if="expenses > 0">
+                            <div>
+                                <div class="flex items-center justify-between px-4 py-2.5 border-b border-slate-100">
+                                    <span class="text-slate-600">Expenses paid back
+                                        <span x-show="expenseFeePercent <= 0" class="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded ml-1">NO FEE</span>
+                                    </span>
+                                    <span class="font-mono font-bold text-slate-800">+ <span x-text="money(expenses)"></span></span>
+                                </div>
+                                <div class="flex items-center justify-between px-4 py-2.5 bg-slate-50/70">
+                                    <span class="font-bold text-slate-700">Total received from airline</span>
+                                    <span class="font-mono font-bold text-slate-800" x-text="money(comp + expenses)"></span>
+                                </div>
+                            </div>
+                        </template>
+                        <div class="flex items-center justify-between px-4 py-2.5">
+                            <span class="text-slate-600">Success fee · <span x-text="pct(feePercent)"></span>% of compensation only</span>
+                            <span class="font-mono font-bold text-rose-600">&minus; <span x-text="money(fee)"></span></span>
                         </div>
-                        <div class="rounded-xl bg-emerald-50 border border-emerald-100 px-3 py-2 text-center">
-                            <p class="text-[10px] uppercase font-black text-emerald-600">Net payout</p>
-                            <p class="text-sm font-bold text-emerald-800">{{ $form['currency'] ?? '' }} {{ number_format($g - $f, 2) }}</p>
+                        <template x-if="expenseFee > 0">
+                            <div class="flex items-center justify-between px-4 py-2.5">
+                                <span class="text-slate-600">Expense fee · <span x-text="pct(expenseFeePercent)"></span>% of expenses</span>
+                                <span class="font-mono font-bold text-rose-600">&minus; <span x-text="money(expenseFee)"></span></span>
+                            </div>
+                        </template>
+                        <div class="flex items-center justify-between px-4 py-3 bg-emerald-50/70">
+                            <span class="font-bold text-emerald-800">Customer receives</span>
+                            <span class="font-mono font-black text-emerald-700" x-text="money(net)"></span>
                         </div>
+                    </div>
                     </div>
 
                     <button wire:click="saveRecord" wire:loading.attr="disabled" class="mt-4 w-full bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold px-5 py-3 rounded-xl transition-colors disabled:opacity-60">

@@ -157,41 +157,59 @@
 
                         <!-- Tab: Compensation -->
                         <div v-else-if="activeTab === 'compensation'" class="bg-white rounded-2xl ring-1 ring-slate-900/5 p-6 sm:p-8">
-                            <!-- The money has moved: the airline paid - show the payout picture first -->
-                            <div v-if="claim.payment" class="mb-8 rounded-2xl bg-slate-900 text-white p-5 sm:p-6">
+                            <!-- The money has moved: one card per airline payment, newest first -->
+                            <div v-for="(payment, pi) in (claim.payments || [])" :key="pi" class="mb-8 rounded-2xl bg-slate-900 text-white p-5 sm:p-6">
                                 <div class="flex items-center justify-between gap-3 flex-wrap mb-4">
-                                    <h2 class="font-bold">Your payout</h2>
-                                    <span class="inline-flex px-2.5 py-1 rounded-full text-[10px] font-black"
-                                          :class="claim.payment.status === 'paid' ? 'bg-emerald-400/20 text-emerald-300'
-                                                : claim.payment.status === 'failed' ? 'bg-rose-400/20 text-rose-300' : 'bg-amber-400/20 text-amber-300'">
-                                        {{ claim.payment.status_label.toUpperCase() }}
+                                    <h2 class="font-bold">
+                                        {{ claim.payments.length > 1 ? `Payout ${claim.payments.length - pi} of ${claim.payments.length}` : 'Your payout' }}
+                                        <span class="block text-[11px] font-medium text-slate-400 mt-0.5">Airline paid on {{ payment.payment_date }}</span>
+                                    </h2>
+                                    <span class="flex items-center gap-2">
+                                        <a v-if="payment.receipt_url" :href="payment.receipt_url" target="_blank"
+                                           class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-[10px] font-bold text-slate-200 transition-colors">
+                                            <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>
+                                            Receipt
+                                        </a>
+                                        <span class="inline-flex px-2.5 py-1 rounded-full text-[10px] font-black"
+                                              :class="payment.status === 'paid' ? 'bg-emerald-400/20 text-emerald-300'
+                                                    : payment.status === 'failed' ? 'bg-rose-400/20 text-rose-300' : 'bg-amber-400/20 text-amber-300'">
+                                            {{ payment.status_label.toUpperCase() }}
+                                        </span>
                                     </span>
                                 </div>
                                 <div class="grid grid-cols-3 gap-3 text-center">
                                     <div class="rounded-xl bg-white/5 px-3 py-2.5">
                                         <p class="text-[10px] uppercase font-black text-slate-400">Airline paid</p>
-                                        <p class="text-sm sm:text-base font-bold">{{ claim.payment.gross }}</p>
+                                        <p class="text-sm sm:text-base font-bold">{{ payment.gross }}</p>
                                     </div>
                                     <div class="rounded-xl bg-white/5 px-3 py-2.5">
-                                        <p class="text-[10px] uppercase font-black text-slate-400">Fee ({{ claim.payment.fee_percent }}%)</p>
-                                        <p class="text-sm sm:text-base font-bold">{{ claim.payment.fee }}</p>
+                                        <p class="text-[10px] uppercase font-black text-slate-400">Fee ({{ payment.fee_percent }}%)</p>
+                                        <p class="text-sm sm:text-base font-bold">{{ payment.fee }}</p>
                                     </div>
                                     <div class="rounded-xl bg-emerald-400/15 px-3 py-2.5">
                                         <p class="text-[10px] uppercase font-black text-emerald-300">You receive</p>
-                                        <p class="text-sm sm:text-base font-bold text-emerald-300">{{ claim.payment.net }}</p>
+                                        <p class="text-sm sm:text-base font-bold text-emerald-300">{{ payment.net }}</p>
                                     </div>
                                 </div>
-                                <p v-if="claim.payment.payout" class="text-[12px] text-slate-400 mt-3">
-                                    Transfer {{ claim.payment.payout.status }} · reference <span class="font-mono text-slate-300">{{ claim.payment.payout.reference }}</span>
-                                    <template v-if="claim.payment.payout.sent_at"> · sent {{ claim.payment.payout.sent_at }}</template>
+                                <p v-if="payment.expenses" class="text-[12px] text-emerald-300/90 mt-3">
+                                    Includes {{ payment.expenses }} for your out-of-pocket expenses{{ payment.expenses_fee_free ? ' - reimbursed in full, no fee charged on them.' : '.' }}
                                 </p>
-                                <ul v-if="(claim.payment.timeline || []).length" class="mt-4 space-y-1.5 border-t border-white/10 pt-3">
-                                    <li v-for="(step, i) in claim.payment.timeline" :key="i" class="flex items-center gap-2 text-[12px] text-slate-300">
-                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
-                                        {{ step.label }}<span v-if="step.amount" class="text-slate-400">· {{ step.amount }}</span>
-                                        <span class="ml-auto text-slate-500">{{ step.at }}</span>
-                                    </li>
-                                </ul>
+                                <p v-if="payment.payout" class="text-[12px] text-slate-400 mt-3">
+                                    Transfer {{ payment.payout.status }} · reference <span class="font-mono text-slate-300">{{ payment.payout.reference }}</span>
+                                    <template v-if="payment.payout.sent_at"> · sent {{ payment.payout.sent_at }}</template>
+                                </p>
+                                <div v-if="(payment.timeline || []).length" class="mt-4 border-t border-white/10 pt-3">
+                                    <button @click="toggleTimeline(pi)" class="text-[11px] font-bold text-slate-400 hover:text-slate-200 transition-colors">
+                                        {{ openTimelines[pi] ? 'Hide history' : `View history (${payment.timeline.length})` }}
+                                    </button>
+                                    <ul v-if="openTimelines[pi]" class="mt-2.5 space-y-1.5">
+                                        <li v-for="(step, i) in payment.timeline" :key="i" class="flex items-center gap-2 text-[12px] text-slate-300">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
+                                            {{ step.label }}<span v-if="step.amount" class="text-slate-400">· {{ step.amount }}</span>
+                                            <span class="ml-auto text-slate-500">{{ step.at }}</span>
+                                        </li>
+                                    </ul>
+                                </div>
                             </div>
 
                             <!-- Payout bank details: where the money should land -->
@@ -316,6 +334,18 @@
                                 </template>
 
                                 <template v-else>
+                                <!-- Once real payouts exist above, the original assessment is
+                                     background reading - folded away so it can't be mistaken
+                                     for more money on the way. -->
+                                <div :class="hasPayments ? 'rounded-2xl border border-slate-200 bg-slate-50/60 p-4 sm:p-5' : ''">
+                                <button v-if="hasPayments" @click="showEstimate = !showEstimate" class="w-full flex items-center justify-between gap-3 text-left">
+                                    <span>
+                                        <span class="text-sm font-bold text-slate-800">How this claim was assessed</span>
+                                        <span class="block text-[11px] text-slate-500 mt-0.5">The legal basis and the original estimate we filed with. The airline has since paid - the money you receive is shown in the payouts above.</span>
+                                    </span>
+                                    <svg class="w-4 h-4 text-slate-400 shrink-0 transition-transform" :class="showEstimate ? 'rotate-180' : ''" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                                </button>
+                                <div v-show="!hasPayments || showEstimate" :class="hasPayments ? 'mt-4 border-t border-slate-200 pt-4' : ''">
                                 <div class="grid sm:grid-cols-3 gap-4 mb-5">
                                     <div class="rounded-xl bg-slate-50 p-4">
                                         <div class="text-[11px] uppercase tracking-wider font-bold text-slate-400 mb-1">Regulation</div>
@@ -426,6 +456,8 @@
                                     <svg class="w-3.5 h-3.5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                                     Flight facts verified against live flight-tracking records.
                                 </p>
+                                </div>
+                                </div>
                                 </template>
                             </template>
 
@@ -532,9 +564,10 @@
                                 <li v-for="e in claim.expenses" :key="e.id"
                                     class="flex items-start gap-3 rounded-xl border border-slate-200 p-3">
                                     <span class="inline-flex px-2 py-0.5 rounded-full text-[9px] font-black shrink-0 mt-0.5"
-                                          :class="e.status === 'approved' ? 'bg-emerald-100 text-emerald-700'
+                                          :class="e.reimbursed ? 'bg-emerald-600 text-white'
+                                                : e.status === 'approved' ? 'bg-emerald-100 text-emerald-700'
                                                 : e.status === 'rejected' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'">
-                                        {{ e.status === 'approved' ? 'APPROVED' : e.status === 'rejected' ? 'NOT ACCEPTED' : 'IN REVIEW' }}
+                                        {{ e.reimbursed ? 'PAID BACK' : e.status === 'approved' ? 'APPROVED' : e.status === 'rejected' ? 'NOT ACCEPTED' : 'IN REVIEW' }}
                                     </span>
                                     <div class="min-w-0 flex-1">
                                         <p class="text-sm font-bold text-slate-800 truncate">
@@ -544,6 +577,7 @@
                                         <p class="text-[11px] text-slate-400 truncate">
                                             <span v-if="e.date">{{ e.date }} · </span>{{ e.filename }}
                                         </p>
+                                        <p v-if="e.reimbursed" class="text-[11px] font-bold text-emerald-600 mt-0.5">Reimbursed to you on {{ e.reimbursed }}</p>
                                         <p v-if="e.description" class="text-[11px] text-slate-500 mt-0.5">{{ e.description }}</p>
                                         <p v-if="e.status === 'rejected' && e.reason" class="text-[11px] text-rose-600 mt-1">{{ e.reason }}</p>
                                     </div>
@@ -891,6 +925,14 @@ const needsBank = computed(() =>
 
 const savedAccount = computed(() =>
     bankAccounts.value.find((a) => a.is_default) || bankAccounts.value[0] || null);
+
+const openTimelines = ref({});
+function toggleTimeline(i) {
+    openTimelines.value[i] = !openTimelines.value[i];
+}
+
+const hasPayments = computed(() => (claim.value?.payments || []).length > 0);
+const showEstimate = ref(false);
 
 async function loadBankAccounts() {
     try {
