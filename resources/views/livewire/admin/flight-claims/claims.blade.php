@@ -57,7 +57,12 @@
                                 <div class="text-xs text-slate-400">{{ $claim->departure_airport }} → {{ $claim->arrival_airport }} · {{ $claim->flight_date?->format('d M Y') }}</div>
                             </td>
                             <td class="px-5 py-3.5">
-                                <div class="font-bold text-slate-800">{{ $claim->user?->name ?? $claim->passenger_name ?? '-' }}</div>
+                                <div class="font-bold text-slate-800 flex items-center gap-1.5">
+                                    {{ $claim->user?->name ?? $claim->passenger_name ?? '-' }}
+                                    @if ($plusBadges && $claim->is_plus_member)
+                                        <span class="inline-flex items-center gap-0.5 bg-slate-900 text-amber-400 text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full shrink-0" title="Unjamm Plus member - priority queue">★ Plus</span>
+                                    @endif
+                                </div>
                                 <div class="text-xs text-slate-400">{{ $paxCount }} passenger{{ $paxCount > 1 ? 's' : '' }}</div>
                             </td>
                             <td class="px-5 py-3.5">

@@ -5,6 +5,8 @@ namespace App\Livewire\Admin\FlightClaims;
 use App\Models\Claim;
 use App\Models\ClaimLifecycleStage;
 use App\Models\ClaimSigner;
+use App\Models\Subscription;
+use App\Services\Billing\SubscriptionGate;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -103,6 +105,17 @@ class Claims extends Component
                 'rejected'   => $q->where('status', Claim::STATUS_REJECTED),
                 default      => $q,
             })
+            // Priority filing queue: when the admin makes it a Plus perk,
+            // members' claims surface first; otherwise pure date order.
+            ->select('claims.*')
+            ->addSelect(['is_plus_member' => Subscription::selectRaw('1')
+                ->whereColumn('subscriptions.user_id', 'claims.user_id')
+                ->whereIn('status', Subscription::GOOD_STANDING)
+                ->limit(1)])
+            ->when(
+                SubscriptionGate::requiresSubscription('priority_processing'),
+                fn ($q) => $q->orderByRaw('is_plus_member IS NULL')
+            )
             ->latest()
             ->paginate(15);
 
@@ -110,6 +123,7 @@ class Claims extends Component
                 'claims'      => $claims,
                 'filters'     => self::FILTERS,
                 'reviewCount' => Claim::where('status', Claim::STATUS_PENDING_ELIGIBILITY)->count(),
+                'plusBadges'  => SubscriptionGate::enabled(),
             ])
             ->extends('layouts.admin')
             ->section('content');

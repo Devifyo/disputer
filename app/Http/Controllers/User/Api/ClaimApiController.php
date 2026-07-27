@@ -505,6 +505,10 @@ class ClaimApiController extends Controller
                 'actual_arrival'      => $this->localTime($snapshot['actual_arrival'] ?? null, $arrTz),
             ],
             'passengers' => $passengers,
+            // The SPA warns BEFORE the confirm button does: a free user with
+            // a multi-passenger booking needs Plus when the admin gates it.
+            'multi_passenger_locked' => count($model->passengerNames()) > 1
+                && !SubscriptionGate::allows($model->user, 'multi_passenger'),
             'disruption' => [
                 'headline' => $this->disruptionHeadline($model),
                 'verified' => (bool) $model->flight_verified_at,
@@ -599,6 +603,14 @@ class ClaimApiController extends Controller
         ], [
             'consents.*.accepted' => 'All confirmations are required before we can proceed.',
         ]);
+
+        // Family/multi-passenger claims: confirmation is the one door every
+        // claim passes through (manual funnel, ticket upload, emailed
+        // ticket), so the gate catches all of them. Single-passenger claims
+        // are unaffected; the admin toggle decides whether this runs at all.
+        if (count($model->passengerNames()) > 1) {
+            SubscriptionGate::authorize($request->user(), 'multi_passenger');
+        }
 
         if (!$model->confirmed_at) {
             $model->forceFill([

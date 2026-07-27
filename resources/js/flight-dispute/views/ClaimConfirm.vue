@@ -56,6 +56,16 @@
                                 </div>
                             </div>
 
+                            <div v-if="c.multi_passenger_locked" class="flex flex-col sm:flex-row sm:items-center gap-3 bg-slate-900 text-white rounded-2xl px-5 py-4 mb-4">
+                                <div class="flex-1 text-sm">
+                                    <span class="font-bold text-amber-400">★ This booking has {{ c.passengers?.length }} passengers.</span>
+                                    Family claims are part of Unjamm Plus - upgrade to claim for everyone in one go.
+                                </div>
+                                <router-link :to="{ name: 'plus' }" class="shrink-0 bg-emerald-400 hover:bg-emerald-300 text-slate-950 text-sm font-bold px-5 py-2.5 rounded-xl transition-colors text-center">
+                                    See Unjamm Plus
+                                </router-link>
+                            </div>
+
                             <div class="flex flex-wrap items-center gap-2">
                                 <span class="text-[11px] uppercase tracking-wider font-bold text-slate-400 mr-1">Passengers</span>
                                 <span v-for="p in c.passengers" :key="p.name" class="inline-flex items-center gap-1.5 bg-slate-100 text-slate-700 text-xs font-bold px-3 py-1 rounded-full">

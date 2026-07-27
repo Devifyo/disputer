@@ -153,6 +153,9 @@
                                 <span>
                                     <span class="block text-sm font-bold text-slate-800">{{ \Illuminate\Support\Str::of($label)->before(' - ') }}</span>
                                     <span class="block text-[11px] text-slate-400">{{ \Illuminate\Support\Str::of($label)->contains(' - ') ? \Illuminate\Support\Str::of($label)->after(' - ') : '' }}</span>
+                                    @if ($feature === 'auto_filing')
+                                        <span class="inline-flex items-center gap-1 mt-1 text-[10px] font-bold text-amber-600"><i data-lucide="clock" class="w-3 h-3"></i> Takes effect when automatic filing ships - saved now, enforced then.</span>
+                                    @endif
                                 </span>
                                 <span class="ml-auto shrink-0 inline-flex px-2 py-0.5 rounded-full text-[10px] font-black ring-1 {{ ($features[$feature] ?? false) ? 'bg-violet-50 text-violet-700 ring-violet-200' : 'bg-emerald-50 text-emerald-700 ring-emerald-200' }}">
                                     {{ ($features[$feature] ?? false) ? 'PLUS ONLY' : 'FREE' }}

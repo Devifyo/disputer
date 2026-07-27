@@ -5,6 +5,7 @@ namespace App\Services\Claims;
 use App\Models\Claim;
 use App\Models\ClaimDraft;
 use App\Models\ClaimExpense;
+use App\Services\Billing\SubscriptionGate;
 use App\Services\Eligibility\RegulationCitation;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -67,10 +68,21 @@ class ClaimLetterService
     {
         $claim->loadMissing('itinerary.passengers', 'user', 'signers');
 
+        // AI drafting can be an Unjamm Plus perk (admin-configured per draft
+        // type). Gated free customers get the deterministic template - the
+        // letter still goes out, just not AI-personalised.
+        $aiFeature = match ($type) {
+            ClaimDraft::TYPE_FOLLOW_UP => 'ai_follow_up_drafts',
+            ClaimDraft::TYPE_REGULATOR => 'ai_regulator_drafts',
+            default                    => 'ai_claim_drafting',
+        };
+
+        $aiAllowed = SubscriptionGate::allows($claim->user, $aiFeature);
+
         // A draft that cites unauthorised law is rejected and redrafted once;
         // the deterministic template (canonical citations by construction)
         // is the backstop, so a bad citation can never reach an airline.
-        for ($attempt = 1; $attempt <= 2; $attempt++) {
+        for ($attempt = 1; $attempt <= 2 && $aiAllowed; $attempt++) {
             try {
                 if (!config('services.gemini.api_key')) {
                     break;

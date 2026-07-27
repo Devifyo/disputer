@@ -54,7 +54,7 @@ Status keys: **Done** (built, tested, verified in production) ·
 | Stripe Checkout / Portal / webhooks | Done | Unified pipeline on the dashboard-registered `/stripe/webhook` URL; signature-verified; serves BOTH billing products |
 | Admin dashboard + subscriber management | Done | Stats, MRR/ARR, cancel/reactivate, invoices |
 | Customer upgrade page (/plus) | Done | Monthly/annual toggle, post-checkout polling |
-| Gate enforcement | Done | ALL claim-creation paths (manual funnel, ticket upload, trip->claim, inbound email via the ensureForItinerary chokepoint) + trip protection |
+| Gate enforcement | Done | 7 of 8 gates enforced: claim paths, monitoring, multi-passenger (at confirmation), priority queue (admin list ordering + badge), AI drafting (template fallback). auto_filing labelled config-only until auto-filing ships |
 | Coupons / promo codes | Partial | Stripe promotion codes allowed at checkout; no admin UI for creating them (use Stripe dashboard) |
 | Live Stripe keys | Blocked | Test keys configured; client flips STRIPE_* for launch |
 

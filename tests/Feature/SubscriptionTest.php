@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Livewire\Admin\FlightClaims\Claims as AdminClaims;
 use App\Livewire\Admin\FlightClaims\Subscriptions;
 use App\Models\Claim;
 use App\Models\Itinerary;
@@ -12,8 +13,10 @@ use App\Models\Trip;
 use App\Models\User;
 use App\Services\Billing\StripeBillingService;
 use App\Services\Billing\SubscriptionGate;
+use App\Services\Claims\ClaimLetterService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -185,6 +188,106 @@ class SubscriptionTest extends TestCase
         ]);
         Claim::ensureForItinerary($memberItinerary);
         $this->assertSame(1, Claim::where('user_id', $member->id)->count());
+    }
+
+    public function test_multi_passenger_confirmation_requires_plus_when_gated(): void
+    {
+        $this->gateOn(['multi_passenger']);
+        $consents = ['consents' => ['accuracy' => 1, 'authorization' => 1, 'terms' => 1, 'privacy' => 1]];
+
+        $family = function (User $user) {
+            $itinerary = Itinerary::create([
+                'user_id' => $user->id, 'original_filename' => 'family.pdf', 'file_path' => 'x/f.pdf',
+                'file_size' => 1, 'mime_type' => 'application/pdf', 'status' => Itinerary::STATUS_PARSED,
+            ]);
+            $itinerary->passengers()->create(['full_name' => 'Parent One', 'type' => 'ADT']);
+            $itinerary->passengers()->create(['full_name' => 'Child One', 'type' => 'CHD']);
+
+            return Claim::create([
+                'user_id' => $user->id, 'itinerary_id' => $itinerary->id, 'status' => Claim::STATUS_ELIGIBLE,
+                'workflow_state' => 'draft', 'airline' => 'Air Canada', 'flight_number' => 'AC1540',
+                'departure_airport' => 'YYZ', 'arrival_airport' => 'IAD', 'flight_date' => '2026-07-10',
+                'passenger_name' => 'Parent One',
+            ]);
+        };
+
+        // Free user + 2-passenger booking (uploaded or emailed ticket): 402.
+        $free = $this->customer();
+        $this->actingAs($free)
+            ->postJson(route('user.itineraries.api.claims.confirm', encrypt_id($family($free)->id)), $consents)
+            ->assertStatus(402)
+            ->assertJsonPath('code', 'subscription_required');
+
+        // A single-passenger claim confirms fine for the same free user.
+        $solo = Claim::create([
+            'user_id' => $free->id, 'status' => Claim::STATUS_ELIGIBLE, 'workflow_state' => 'draft',
+            'airline' => 'Air Canada', 'flight_number' => 'AC1541', 'departure_airport' => 'YYZ',
+            'arrival_airport' => 'IAD', 'flight_date' => '2026-07-11', 'passenger_name' => 'Solo Traveller',
+        ]);
+        $this->actingAs($free)
+            ->postJson(route('user.itineraries.api.claims.confirm', encrypt_id($solo->id)), $consents)
+            ->assertOk();
+
+        // A Plus member confirms the whole family.
+        $member = $this->plusMember();
+        $this->actingAs($member)
+            ->postJson(route('user.itineraries.api.claims.confirm', encrypt_id($family($member)->id)), $consents)
+            ->assertOk();
+    }
+
+    public function test_priority_queue_floats_plus_claims_when_the_admin_gates_it(): void
+    {
+        $free   = $this->customer();
+        $member = $this->plusMember();
+
+        $make = fn (User $user, string $flight, $when) => Claim::forceCreate([
+            'user_id' => $user->id, 'status' => Claim::STATUS_ELIGIBLE, 'workflow_state' => 'draft',
+            'airline' => 'Air Canada', 'flight_number' => $flight, 'departure_airport' => 'YYZ',
+            'arrival_airport' => 'IAD', 'flight_date' => '2026-07-10', 'passenger_name' => 'P',
+            'created_at' => $when, 'updated_at' => $when,
+        ]);
+
+        // The free user's claim is NEWER - normally it lists first.
+        $make($member, 'AC100', now()->subDay());
+        $make($free, 'AC200', now());
+
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+
+        // Not gated: date order wins, no reordering.
+        $this->gateOn(['flight_claims']);
+        $first = Livewire::actingAs($admin)->test(AdminClaims::class)
+            ->viewData('claims')->first();
+        $this->assertSame('AC200', $first->flight_number);
+
+        // Gated as a Plus perk: the member's older claim jumps the queue.
+        $this->gateOn(['priority_processing']);
+        $first = Livewire::actingAs($admin)->test(AdminClaims::class)
+            ->viewData('claims')->first();
+        $this->assertSame('AC100', $first->flight_number);
+        $this->assertNotNull($first->is_plus_member);
+    }
+
+    public function test_gated_ai_drafting_falls_back_to_the_template_without_calling_gemini(): void
+    {
+        $this->gateOn(['ai_claim_drafting']);
+        config(['services.gemini.api_key' => 'test-key']);
+        Http::fake();
+
+        $claim = Claim::create([
+            'user_id' => $this->customer()->id, 'status' => Claim::STATUS_ELIGIBLE,
+            'workflow_state' => 'ready_to_file', 'airline' => 'Air Canada', 'flight_number' => 'AC1540',
+            'departure_airport' => 'YYZ', 'arrival_airport' => 'IAD', 'flight_date' => '2026-07-10',
+            'passenger_name' => 'T', 'flight_cancelled' => true, 'disruption_type' => 'cancelled',
+            'eligibility_regulation' => 'APPR', 'eligibility_article' => 'Section 19',
+            'compensation_amount' => '400.00', 'compensation_currency' => 'CAD',
+        ]);
+
+        $draft = app(ClaimLetterService::class)->generate($claim);
+
+        // Free customer's letter still goes out - via the template, no AI spend.
+        $this->assertSame('template', $draft['generated_by']);
+        Http::assertNothingSent();
     }
 
     public function test_trip_monitoring_gate_is_independent_of_the_claims_gate(): void
