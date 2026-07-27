@@ -486,6 +486,34 @@ subscriptions; permissioned beyond the admin role.
 ## Changelog
 
 ### 2026-07-27
+- Dashboard totals readable: the three money cards (collected / fees /
+  paid out) now headline ONE number - the base-currency equivalent
+  (WISE_DASHBOARD_CURRENCY - set to USD on this box, default CAD) via
+  Wise mid-market rates cached 6h - with the true per-currency figures as
+  a small breakdown line. The rates call sends source/target as real
+  query params AND matches the returned pair - Wise returns its full rate
+  list when it does not recognise the filter, which briefly produced
+  garbage totals (caught by the client in sandbox).
+  Each money card is clickable and opens a breakdown popup: per-currency
+  table (payment count, amount, mid-market rate, converted value), total
+  row, rates-are-estimates footnote. The card subline collapses to
+  "N currencies - click for the breakdown" beyond two currencies, so the
+  cards stay clean at any volume.
+  Admin sidebar bell icon inlined as SVG (the lucide JS replacement was
+  lost inside the nested Livewire component).
+- PDF receipt per payment: "PDF receipt" button in the payment detail
+  modal downloads RCPT-{claim}-{id}.pdf (dompdf, view
+  pdf/payment-receipt): branded dark header with the real logo, passenger
+  + claim block, compensation/fee table with net total, payouts table
+  with Wise transaction numbers and FX rates, full transaction history,
+  reference note and footer. Route
+  admin/flight-claims/payments/{payment}/receipt, gated by
+  payments.view. UX polish batch: instant tab switching (entangled tab +
+  wire:loading veil), tab switch resets pagination, KPI popup closes
+  optimistically, loaders on KPI cards.
+  "≈" marks converted totals; single-currency totals show exact with no
+  marker; no token/rate available falls back to the breakdown alone.
+  Rates are display-only - transfers always price from their live quote.
 - Race fix (caught in sandbox: the customer got TWO "payout completed"
   emails): the Wise webhook and wise:simulate/refresh could complete the
   same transfer concurrently - each process's stale model passed the

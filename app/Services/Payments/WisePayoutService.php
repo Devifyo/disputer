@@ -67,6 +67,36 @@ class WisePayoutService
         });
     }
 
+    /**
+     * Mid-market rate between two currencies, cached for 6 hours - used for
+     * the dashboard's approximate base-currency totals only, never to move
+     * money (transfers always price from their own live quote).
+     */
+    public function rate(string $from, string $to): ?float
+    {
+        if ($from === $to) {
+            return 1.0;
+        }
+
+        if (!config('services.wise.token')) {
+            return null;
+        }
+
+        return Cache::remember("wise.rate.{$from}.{$to}", now()->addHours(6), function () use ($from, $to) {
+            try {
+                $rates = $this->call('get', '/v1/rates', ['source' => $from, 'target' => $to]);
+
+                // Only trust the entry for OUR pair - Wise returns its full
+                // rate list when it does not recognise the filter.
+                $match = collect($rates)->first(fn ($r) => ($r['source'] ?? $from) === $from && ($r['target'] ?? $to) === $to);
+
+                return (float) ($match['rate'] ?? 0) ?: null;
+            } catch (\Throwable) {
+                return null;
+            }
+        });
+    }
+
     private function http(): PendingRequest
     {
         return Http::withToken(config('services.wise.token'))

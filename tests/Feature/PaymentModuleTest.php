@@ -14,6 +14,7 @@ use App\Notifications\PaymentEvent;
 use App\Services\Payments\PaymentService;
 use App\Services\Payments\WisePayoutService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Queue;
@@ -437,6 +438,79 @@ class PaymentModuleTest extends TestCase
         $this->assertSame(Payout::STATUS_PROCESSING, $payout->status);
         $this->assertSame(Payment::STATUS_PROCESSING, $payment->fresh()->status);
         Queue::assertPushed(ProcessWisePayout::class, 1);
+    }
+
+    public function test_dashboard_totals_convert_to_one_base_currency(): void
+    {
+        config(['services.wise.token' => 'wise-test', 'services.wise.profile_id' => '77', 'services.wise.sandbox' => false,
+                'services.wise.dashboard_currency' => 'CAD']);
+        Http::fake(['*/v1/rates*' => Http::response([['rate' => 1.5]], 200)]);
+
+        $this->payment();                                          // CAD 1000
+        $this->payment(['gross_amount' => 200, 'currency' => 'EUR']);
+
+        $stats = Livewire::actingAs($this->admin)->test(AdminPayments::class)
+            ->viewData('stats');
+
+        // CAD 1000 + EUR 200 * 1.5 = ~CAD 1300, with the true figures below.
+        $this->assertSame('≈ CAD 1,300.00', $stats['collected']['headline']);
+        $this->assertSame('CAD 1,000.00 + EUR 200.00', $stats['collected']['breakdown']);
+
+        // The popup's per-currency rows carry count, rate and converted value.
+        $eur = $stats['collected']['details']->firstWhere('currency', 'EUR');
+        $this->assertSame(1, $eur['count']);
+        $this->assertSame(1.5, $eur['rate']);
+        $this->assertSame(300.0, $eur['converted']);
+        $this->assertSame(1300.0, $stats['collected']['total']);
+
+        // Single-currency totals are exact - no approximation marker.
+        Cache::flush();
+        Payment::where('currency', 'EUR')->delete();
+        $stats = Livewire::actingAs($this->admin)->test(AdminPayments::class)->viewData('stats');
+        $this->assertSame('CAD 1,000.00', $stats['collected']['headline']);
+        $this->assertNull($stats['collected']['breakdown']);
+    }
+
+    public function test_dashboard_totals_fall_back_to_the_breakdown_without_rates(): void
+    {
+        config(['services.wise.token' => null]);
+
+        $this->payment();
+        $this->payment(['gross_amount' => 200, 'currency' => 'EUR']);
+
+        $stats = Livewire::actingAs($this->admin)->test(AdminPayments::class)->viewData('stats');
+
+        $this->assertSame('CAD 1,000.00 + EUR 200.00', $stats['collected']['headline']);
+        $this->assertNull($stats['collected']['breakdown']);
+    }
+
+    public function test_pdf_receipt_downloads_and_is_permission_gated(): void
+    {
+        $payment = $this->payment();
+
+        $response = $this->actingAs($this->admin)->get(route('admin.flight-claims.payments.receipt', $payment));
+        $response->assertOk();
+        $this->assertStringStartsWith('%PDF', $response->getContent());
+        $this->assertStringContainsString('RCPT-' . $payment->claim->number, (string) $response->headers->get('content-disposition'));
+
+        // Without payments.view the receipt is refused.
+        Role::findOrCreate('admin')->revokePermissionTo('payments.view');
+        app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+        $this->actingAs($this->admin)->get(route('admin.flight-claims.payments.receipt', $payment))->assertStatus(403);
+    }
+
+    public function test_switching_tabs_resets_pagination(): void
+    {
+        $payment = $this->payment();
+
+        // Deep in the transactions pages, then back to payments - the list
+        // must show page 1, not a page that only existed on the other tab.
+        Livewire::actingAs($this->admin)->test(AdminPayments::class)
+            ->set('tab', 'transactions')
+            ->call('setPage', 5)
+            ->set('tab', 'payments')
+            ->assertSee('#' . $payment->claim->number)
+            ->assertDontSee('No payments yet');
     }
 
     public function test_the_payments_page_is_permission_gated(): void

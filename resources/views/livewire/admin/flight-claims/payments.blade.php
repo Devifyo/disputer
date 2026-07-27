@@ -1,4 +1,7 @@
-<div class="h-full overflow-y-auto bg-slate-50/50">
+{{-- `t` mirrors the server tab but flips instantly on click - the tab bar
+     and section swap never wait on the request; the data streams in behind
+     a loading veil. --}}
+<div class="h-full overflow-y-auto bg-slate-50/50" x-data="{ t: @entangle('tab').live }">
     <div class="max-w-[1320px] mx-auto p-6 pb-24">
         <x-flash />
 
@@ -30,18 +33,26 @@
 
         {{-- Dashboard --}}
         <div class="grid sm:grid-cols-2 xl:grid-cols-3 gap-4 mb-6">
-            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-                <p class="text-[11px] uppercase tracking-wider font-bold text-slate-400">Compensation collected</p>
-                <p class="text-xl font-bold text-slate-900 mt-2">{{ $stats['collected'] }}</p>
-            </div>
-            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-                <p class="text-[11px] uppercase tracking-wider font-bold text-slate-400">Success fees earned</p>
-                <p class="text-xl font-bold text-slate-900 mt-2">{{ $stats['fees'] }}</p>
-            </div>
-            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-                <p class="text-[11px] uppercase tracking-wider font-bold text-slate-400">Paid out to passengers</p>
-                <p class="text-xl font-bold text-emerald-700 mt-2">{{ $stats['paid_out'] }}</p>
-            </div>
+            @foreach (['collected' => 'text-slate-900', 'fees' => 'text-slate-900', 'paid_out' => 'text-emerald-700'] as $key => $cls)
+                @php $stat = $stats[$key]; @endphp
+                <button wire:click="openStat('{{ $key }}')" wire:loading.attr="disabled" class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 text-left hover:border-slate-300 hover:shadow transition-all group disabled:opacity-70">
+                    <p class="text-[11px] uppercase tracking-wider font-bold text-slate-400 flex items-center justify-between">
+                        {{ $statLabels[$key] }}
+                        <svg wire:loading.remove wire:target="openStat('{{ $key }}')" class="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-500 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+                        <svg wire:loading wire:target="openStat('{{ $key }}')" class="w-3.5 h-3.5 text-slate-500 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                    </p>
+                    <p class="text-2xl font-bold mt-2 {{ $cls }}">{{ $stat['headline'] }}</p>
+                    @if ($stat['breakdown'])
+                        <p class="text-[11px] text-slate-400 mt-1 truncate">
+                            @if ($stat['details']->count() > 2)
+                                {{ $stat['details']->count() }} currencies · click for the breakdown
+                            @else
+                                {{ $stat['breakdown'] }}
+                            @endif
+                        </p>
+                    @endif
+                </button>
+            @endforeach
             @foreach ([['Pending payouts', $stats['pending'], 'text-amber-600'], ['Processing', $stats['processing'], 'text-violet-600'], ['Failed', $stats['failed'], $stats['failed'] ? 'text-rose-600' : 'text-slate-900']] as [$label, $value, $cls])
                 <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
                     <p class="text-[11px] uppercase tracking-wider font-bold text-slate-400">{{ $label }}</p>
@@ -54,8 +65,9 @@
         <div class="flex items-center justify-between gap-3 flex-wrap mb-4">
             <div class="inline-flex items-center gap-1 bg-white rounded-xl border border-slate-200 shadow-sm p-1">
                 @foreach (['payments' => 'Payments', 'transactions' => 'Transaction history'] as $key => $label)
-                    <button wire:click="$set('tab', '{{ $key }}')"
-                            class="px-4 py-2 rounded-lg text-sm font-bold transition-all {{ $tab === $key ? 'bg-slate-900 text-white shadow' : 'text-slate-500 hover:text-slate-800' }}">
+                    <button @click="t = '{{ $key }}'"
+                            class="px-4 py-2 rounded-lg text-sm font-bold transition-all"
+                            :class="t === '{{ $key }}' ? 'bg-slate-900 text-white shadow' : 'text-slate-500 hover:text-slate-800'">
                         {{ $label }}
                     </button>
                 @endforeach
@@ -81,9 +93,15 @@
             </div>
         </div>
 
+        {{-- Shown only while the clicked tab's data is still on its way. --}}
+        <div wire:loading.block wire:target="tab" class="bg-white rounded-2xl border border-slate-200 shadow-sm px-6 py-16 text-center">
+            <svg class="w-6 h-6 mx-auto text-slate-400 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+            <p class="text-[12px] text-slate-400 mt-3 font-bold">Loading…</p>
+        </div>
+
         {{-- PAYMENTS TAB --}}
         @if ($tab === 'payments')
-            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div x-show="t === 'payments'" class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                 @if ($payments->isEmpty())
                     <p class="px-6 py-12 text-sm text-slate-400 text-center">No payments yet. Record one when an airline pays a claim.</p>
                 @else
@@ -132,7 +150,7 @@
 
         {{-- TRANSACTIONS TAB --}}
         @if ($tab === 'transactions' && $transactions)
-            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div x-show="t === 'transactions'" class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                 @if ($transactions->isEmpty())
                     <p class="px-6 py-12 text-sm text-slate-400 text-center">No transactions match these filters.</p>
                 @else
@@ -279,6 +297,11 @@
                         <p class="text-[12px] text-slate-400">{{ $detail->user?->name }} · {{ $detail->airline }} · received {{ $detail->payment_date->format('d M Y') }}@if ($detail->reference) · ref {{ $detail->reference }}@endif</p>
                     </div>
                     <div class="flex items-center gap-2">
+                        <a href="{{ route('admin.flight-claims.payments.receipt', $detail) }}" target="_blank"
+                           class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 text-[11px] font-bold hover:border-slate-300 hover:text-slate-900 transition-colors" title="Download the PDF receipt">
+                            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>
+                            PDF receipt
+                        </a>
                         <span class="inline-flex px-2.5 py-1 rounded-full text-[10px] font-black ring-1 {{ $detail->badgeClasses() }}">{{ strtoupper($detail->statusLabel()) }}</span>
                         <button wire:click="$set('paymentId', null)" class="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"><i data-lucide="x" class="w-5 h-5"></i></button>
                     </div>
@@ -515,6 +538,67 @@
                         </ul>
                     </div>
                 </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- KPI breakdown popup --}}
+    @if ($statDetail && isset($stats[$statDetail]))
+        @php $stat = $stats[$statDetail]; @endphp
+        {{-- Closes optimistically: Alpine hides it instantly, the server state syncs behind. --}}
+        <div class="fixed inset-0 z-[60] flex items-center justify-center p-4" wire:key="stat-popup-{{ $statDetail }}"
+             x-data="{ shut() { $el.style.display = 'none'; $wire.closeStat(); } }"
+             @keydown.escape.window="shut()">
+            <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" @click="shut()"></div>
+            <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+                <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+                    <div>
+                        <h3 class="font-bold text-slate-900">{{ $statLabels[$statDetail] }}</h3>
+                        <p class="text-[11px] text-slate-400 mt-0.5">By currency, with the rate behind the {{ $stat['base'] }} estimate</p>
+                    </div>
+                    <button @click="shut()" class="p-2 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors" aria-label="Close">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                    </button>
+                </div>
+                <div class="max-h-[60vh] overflow-y-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="text-[10px] uppercase tracking-wider text-slate-400 border-b border-slate-100">
+                                <th class="text-left font-bold px-6 py-2.5">Currency</th>
+                                <th class="text-right font-bold px-3 py-2.5">Payments</th>
+                                <th class="text-right font-bold px-3 py-2.5">Amount</th>
+                                <th class="text-right font-bold px-3 py-2.5">Rate</th>
+                                <th class="text-right font-bold px-6 py-2.5">≈ {{ $stat['base'] }}</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-50">
+                            @forelse ($stat['details'] as $row)
+                                <tr>
+                                    <td class="px-6 py-3 font-bold text-slate-800">{{ $row['currency'] }}</td>
+                                    <td class="px-3 py-3 text-right text-slate-500">{{ $row['count'] }}</td>
+                                    <td class="px-3 py-3 text-right font-mono font-bold text-slate-800">{{ number_format($row['amount'], 2) }}</td>
+                                    <td class="px-3 py-3 text-right font-mono text-[12px] text-slate-400">
+                                        {{ $row['currency'] === $stat['base'] ? '-' : ($row['rate'] !== null ? number_format($row['rate'], 4) : 'n/a') }}
+                                    </td>
+                                    <td class="px-6 py-3 text-right font-mono text-slate-600">{{ $row['converted'] !== null ? number_format($row['converted'], 2) : '-' }}</td>
+                                </tr>
+                            @empty
+                                <tr><td colspan="5" class="px-6 py-8 text-center text-[12px] text-slate-400">Nothing recorded yet.</td></tr>
+                            @endforelse
+                        </tbody>
+                        @if ($stat['total'] !== null && $stat['details']->isNotEmpty())
+                            <tfoot>
+                                <tr class="border-t border-slate-200 bg-slate-50">
+                                    <td class="px-6 py-3 font-bold text-slate-900" colspan="4">Total</td>
+                                    <td class="px-6 py-3 text-right font-mono font-black text-slate-900">≈ {{ number_format($stat['total'], 2) }}</td>
+                                </tr>
+                            </tfoot>
+                        @endif
+                    </table>
+                </div>
+                <p class="px-6 py-3 text-[10px] text-slate-400 border-t border-slate-100 bg-slate-50/50">
+                    Mid-market rates from Wise, refreshed every 6 hours - estimates for reporting only. Transfers always use their own live quote.
+                </p>
             </div>
         </div>
     @endif

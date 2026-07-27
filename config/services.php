@@ -90,6 +90,8 @@ return [
         // 403 + x-2fa-approval challenge until the matching PUBLIC key is
         // registered in the Wise account's API settings).
         'sca_private_key'    => env('WISE_SCA_PRIVATE_KEY', storage_path('app/keys/wise-sca.pem')),
+        // Base currency the payments dashboard converts its totals into.
+        'dashboard_currency' => env('WISE_DASHBOARD_CURRENCY', 'CAD'),
     ],
 
     'google' => [

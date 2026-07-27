@@ -201,7 +201,9 @@ Newest first. One line per session: what changed, what it unblocked.
   two "payout completed" emails and doubled the ledger row - fixed with an
   atomic status claim (completion AND failure paths), ledger writing moved
   out of the generic state machine so each money event has exactly one
-  row. Full suite 265 passing.
+  row. Dashboard money cards now headline a single base-currency
+  equivalent (Wise mid-market rate, cached, display-only) with the
+  per-currency truth as a subline. Full suite 267 passing.
 
 - **2026-07-27** - Payments & notifications module: airline payments in with
   automatic fee split, Wise + manual payouts out, append-only ledger with

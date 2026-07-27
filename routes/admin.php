@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\PaymentReceiptController;
 use App\Livewire\Admin\Users\Index as UserIndex;
 use App\Livewire\Admin\Categories\Index as CategoriesIndex;
 use App\Livewire\Admin\Institutions\Index as InstitutionIndex;
@@ -38,6 +39,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role_access:admin']
     Route::get('/flight-claims/airlines', FlightClaimsAirlines::class)->name('flight-claims.airlines');
     Route::get('/flight-claims/subscriptions', FlightClaimsSubscriptions::class)->name('flight-claims.subscriptions');
     Route::get('/flight-claims/payments', FlightClaimsPayments::class)->name('flight-claims.payments');
+    Route::get('/flight-claims/payments/{payment}/receipt', PaymentReceiptController::class)->name('flight-claims.payments.receipt');
     Route::get('/flight-claims/claims/{claim}', FlightClaimsClaimDetail::class)->whereNumber('claim')->name('flight-claims.claims.show');
     Route::get('/flight-claims/claims/{claim}/document/{key}', function (\App\Models\Claim $claim, string $key) {
         $path = $claim->documentPath($key);

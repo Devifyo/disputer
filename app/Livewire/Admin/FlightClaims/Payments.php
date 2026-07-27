@@ -53,7 +53,10 @@ class Payments extends Component
 
     public function updating($name): void
     {
-        if (in_array($name, ['search', 'status', 'currency', 'from', 'to'], true)) {
+        // The two tabs share the paginator - page 3 of transactions does not
+        // exist on the payments list, so any tab or filter change restarts
+        // from page 1.
+        if (in_array($name, ['tab', 'search', 'status', 'currency', 'from', 'to'], true)) {
             $this->resetPage();
         }
     }
@@ -297,22 +300,80 @@ class Payments extends Component
             ->latest('id');
     }
 
+    /** KPI card titles - also the detail popup's heading. */
+    public const STAT_LABELS = [
+        'collected' => 'Compensation collected',
+        'fees'      => 'Success fees earned',
+        'paid_out'  => 'Paid out to passengers',
+    ];
+
+    public ?string $statDetail = null;
+
+    public function openStat(string $key): void
+    {
+        $this->statDetail = isset(self::STAT_LABELS[$key]) ? $key : null;
+    }
+
+    public function closeStat(): void
+    {
+        $this->statDetail = null;
+    }
+
     private function stats(): array
     {
-        $sum = fn ($query) => $query->selectRaw('currency, SUM(gross_amount) g, SUM(fee_amount) f, SUM(net_amount) n')
-            ->groupBy('currency')->get();
+        $sum = fn ($query) => $query->selectRaw('currency, SUM(gross_amount) g, SUM(fee_amount) f, SUM(net_amount) n, COUNT(*) c')
+            ->groupBy('currency')->orderBy('currency')->get();
 
         $collected = Payment::whereNotIn('status', [Payment::STATUS_CANCELLED, Payment::STATUS_REFUNDED]);
         $totals    = $sum(clone $collected);
-        $fmt       = fn ($rows, $col) => $rows->map(fn ($r) => $r->currency . ' ' . number_format((float) $r->{$col}, 2))->implode(' + ') ?: '-';
+        $paid      = $sum(Payment::where('status', Payment::STATUS_PAID));
 
         return [
-            'collected'  => $fmt($totals, 'g'),
-            'fees'       => $fmt($totals, 'f'),
-            'paid_out'   => $fmt($sum(Payment::where('status', Payment::STATUS_PAID)), 'n'),
+            'collected'  => $this->moneyStat($totals, 'g'),
+            'fees'       => $this->moneyStat($totals, 'f'),
+            'paid_out'   => $this->moneyStat($paid, 'n'),
             'pending'    => Payment::whereIn('status', [Payment::STATUS_RECEIVED, Payment::STATUS_READY_FOR_PAYOUT])->count(),
             'processing' => Payment::where('status', Payment::STATUS_PROCESSING)->count(),
             'failed'     => Payment::where('status', Payment::STATUS_FAILED)->count(),
+        ];
+    }
+
+    /**
+     * One readable number per card: the base-currency equivalent (Wise
+     * mid-market rate, cached) headlines; the true per-currency figures stay
+     * as the breakdown. Falls back to the breakdown alone when a rate is
+     * unavailable. Display only - money always moves on live quotes.
+     */
+    private function moneyStat($rows, string $col): array
+    {
+        $base = strtoupper(config('services.wise.dashboard_currency', 'CAD'));
+        $wise = app(WisePayoutService::class);
+
+        $details = $rows->map(function ($row) use ($wise, $base, $col) {
+            $rate = $wise->rate($row->currency, $base);
+
+            return [
+                'currency'  => $row->currency,
+                'amount'    => (float) $row->{$col},
+                'count'     => (int) $row->c,
+                'rate'      => $rate,
+                'converted' => $rate !== null ? round((float) $row->{$col} * $rate, 2) : null,
+            ];
+        })->values();
+
+        $exact = $details->every(fn ($d) => $d['currency'] === $base);
+        $total = $details->contains(fn ($d) => $d['converted'] === null) ? null : $details->sum('converted');
+
+        $breakdown = $details->map(fn ($d) => $d['currency'] . ' ' . number_format($d['amount'], 2))->implode(' + ');
+
+        return [
+            'headline'  => $total !== null && $details->isNotEmpty()
+                ? ($exact ? '' : '≈ ') . $base . ' ' . number_format($total, 2)
+                : ($breakdown ?: '-'),
+            'breakdown' => $total !== null && !$exact && $details->isNotEmpty() ? $breakdown : null,
+            'details'   => $details,
+            'total'     => $total,
+            'base'      => $base,
         ];
     }
 
@@ -344,6 +405,7 @@ class Payments extends Component
 
         return view('livewire.admin.flight-claims.payments', [
                 'stats'         => $this->stats(),
+                'statLabels'    => self::STAT_LABELS,
                 'payments'      => $payments,
                 'transactions'  => $this->tab === 'transactions' ? $this->transactionQuery()->paginate(20) : null,
                 'detail'        => $this->payment(),
