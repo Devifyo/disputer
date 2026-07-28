@@ -10,16 +10,41 @@ class ClaimCorrespondence extends Model
     public const DIRECTION_OUTBOUND = 'outbound';
     public const DIRECTION_INBOUND  = 'inbound';
 
+    public const STATUS_SENT      = 'sent';
+    public const STATUS_SCHEDULED = 'scheduled';
+    public const STATUS_FAILED    = 'failed';
+
     protected $table = 'claim_correspondence';
 
     protected $fillable = [
-        'claim_id', 'direction', 'from_email', 'from_name', 'to_email',
+        'claim_id', 'direction', 'from_email', 'from_name', 'to_email', 'cc', 'bcc',
         'subject', 'body', 'attachments', 'matched_by', 'sent_by',
+        'template_id', 'ai_generated', 'status', 'scheduled_at',
     ];
 
     protected $casts = [
-        'attachments' => 'array',
+        'attachments'  => 'array',
+        'cc'           => 'array',
+        'bcc'          => 'array',
+        'ai_generated' => 'boolean',
+        'scheduled_at' => 'datetime',
     ];
+
+    public function template(): BelongsTo
+    {
+        return $this->belongsTo(AirlineEmailTemplate::class, 'template_id');
+    }
+
+    /** How this letter was produced, for the history list. */
+    public function originLabel(): string
+    {
+        return match (true) {
+            $this->direction === self::DIRECTION_INBOUND => 'Received',
+            $this->ai_generated                          => 'AI draft',
+            (bool) $this->template_id                    => 'Template',
+            default                                      => 'Written by hand',
+        };
+    }
 
     public function claim(): BelongsTo
     {

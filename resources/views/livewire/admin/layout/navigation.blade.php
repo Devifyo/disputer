@@ -146,6 +146,10 @@
                         <i data-lucide="plane-takeoff" class="w-4 h-4 {{ $iconClass('admin.flight-claims.airlines') }}"></i>
                         Airlines
                     </a>
+                    <a href="{{ route('admin.flight-claims.templates') }}" wire:navigate class="{{ $subClass('admin.flight-claims.templates') }} group flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all duration-200 border-l border-white/10" @click="mobileSidebarOpen = false">
+                        <i data-lucide="mail-plus" class="w-4 h-4 {{ $iconClass('admin.flight-claims.templates') }}"></i>
+                        Claim Templates
+                    </a>
                     <a href="{{ route('admin.flight-claims.subscriptions') }}" wire:navigate class="{{ $subClass('admin.flight-claims.subscriptions') }} group flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all duration-200 border-l border-white/10" @click="mobileSidebarOpen = false">
                         <i data-lucide="crown" class="w-4 h-4 {{ $iconClass('admin.flight-claims.subscriptions') }}"></i>
                         Subscriptions

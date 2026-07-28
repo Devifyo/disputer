@@ -36,9 +36,51 @@
             </div>
         </div>
 
-        <div class="grid xl:grid-cols-5 gap-6 items-start">
+        {{-- The decision comes FIRST: it used to sit in the right rail, which
+             stacks under the whole composer on narrower screens - easy to miss. --}}
+        @if ($claim->status === \App\Models\Claim::STATUS_PENDING_ELIGIBILITY)
+            <div class="bg-amber-50 rounded-2xl border border-amber-200 shadow-sm p-5 mb-6" x-data="{ rejecting: false }">
+                <div class="flex items-start justify-between gap-4 flex-wrap">
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="alert-triangle" class="w-4.5 h-4.5 text-amber-500"></i>
+                            <h2 class="font-bold text-amber-900 text-sm">Your decision is needed</h2>
+                        </div>
+                        <p class="text-xs text-amber-800/80 mt-1">The engine couldn't settle this claim - the customer sees "Our team is reviewing your eligibility" until you decide.</p>
+                    </div>
+
+                    <div x-show="!rejecting" class="flex gap-2 shrink-0">
+                        <button wire:click="approve" wire:loading.attr="disabled"
+                                class="inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold px-5 py-2.5 rounded-xl transition-colors disabled:opacity-60">
+                            <span wire:loading.remove wire:target="approve" class="inline-flex items-center gap-2"><i data-lucide="check" class="w-4 h-4"></i> Approve claim</span>
+                            <span wire:loading wire:target="approve" class="inline-flex items-center gap-2"><svg class="inline w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg> Approving…</span>
+                        </button>
+                        <button @click="rejecting = true"
+                                class="inline-flex items-center justify-center gap-2 bg-white border border-amber-200 hover:border-rose-300 hover:text-rose-600 text-amber-900 text-sm font-bold px-5 py-2.5 rounded-xl transition-colors">
+                            <i data-lucide="x" class="w-4 h-4"></i> Reject
+                        </button>
+                    </div>
+                </div>
+
+                <div x-show="rejecting" x-cloak class="space-y-2 mt-3 max-w-xl">
+                    <textarea wire:model="rejection_reason" rows="3" placeholder="Reason shown and emailed to the customer (min 10 characters)…"
+                              class="w-full px-3.5 py-2.5 rounded-xl border border-amber-200 bg-white text-sm focus:border-rose-400 outline-none"></textarea>
+                    @error('rejection_reason') <p class="text-xs font-bold text-rose-600">{{ $message }}</p> @enderror
+                    <div class="flex gap-2">
+                        <button @click="rejecting = false" class="px-4 py-2 rounded-xl bg-white border border-amber-200 text-amber-900 text-sm font-bold">Cancel</button>
+                        <button wire:click="reject" wire:loading.attr="disabled"
+                                class="flex-1 bg-rose-600 hover:bg-rose-700 text-white text-sm font-bold px-4 py-2 rounded-xl transition-colors disabled:opacity-60">
+                            <span wire:loading.remove wire:target="reject">Reject &amp; notify customer</span>
+                            <span wire:loading wire:target="reject" class="inline-flex items-center gap-2"><svg class="inline w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg> Rejecting…</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        @endif
+
+        <div class="grid lg:grid-cols-5 gap-6 items-start">
             {{-- WORK AREA: tabbed - compose, correspondence with the airline, timeline --}}
-            <div class="xl:col-span-3 min-w-0" x-data="{ tab: 'email' }">
+            <div class="lg:col-span-3 min-w-0" x-data="{ tab: 'email' }">
                 <div class="inline-flex items-center gap-1 bg-white rounded-xl border border-slate-200 shadow-sm p-1 mb-4">
                     <button @click="tab = 'email'"
                             :class="tab === 'email' ? 'bg-slate-900 text-white shadow' : 'text-slate-500 hover:text-slate-800'"
@@ -87,35 +129,102 @@
                                 </button>
                                 <div x-show="more" x-cloak
                                      class="absolute right-0 top-full mt-1.5 w-80 bg-white rounded-xl border border-slate-200 shadow-xl p-2 z-20">
+                                    @php $lastReply = $this->latestAirlineReply(); @endphp
+
+                                    {{-- Every reason drafts straight away: the airline's reply is
+                                         already on the claim, so there is nothing to ask for. --}}
                                     <p class="px-2 pt-1 pb-1.5 text-[10px] uppercase tracking-wider font-bold text-slate-400">Follow-up to the airline</p>
                                     @foreach (\App\Models\ClaimDraft::FOLLOW_UP_REASONS as $reasonKey => $reasonLabel)
-                                        <button @click="fuReason = '{{ $reasonKey }}'; {{ in_array($reasonKey, ['no_response', 'manual']) ? "more = false; \$wire.generateFollowUp('{$reasonKey}')" : '' }}"
+                                        <button @click="more = false; $wire.generateFollowUp('{{ $reasonKey }}')"
                                                 class="w-full text-left px-2 py-1.5 rounded-lg text-sm text-slate-700 hover:bg-slate-50 font-medium transition-colors">
                                             {{ $reasonLabel }}
                                         </button>
                                     @endforeach
+
                                     <p class="px-2 pt-2 pb-1.5 text-[10px] uppercase tracking-wider font-bold text-slate-400 border-t border-slate-100 mt-1">Escalation</p>
-                                    <button @click="fuReason = 'regulator'"
+                                    <button @click="more = false; $wire.generateRegulator()"
                                             class="w-full text-left px-2 py-1.5 rounded-lg text-sm text-slate-700 hover:bg-slate-50 font-medium transition-colors">
                                         Regulator complaint ({{ ['CA' => 'CTA', 'US' => 'US DOT', 'UK' => 'CAA', 'EU' => 'NEB'][\App\Services\Claims\ClaimLegalDocumentService::jurisdiction($claim)] }})
                                     </button>
 
-                                    {{-- Airline-response context for the reasons that need it --}}
-                                    <div x-show="['info_request', 'partial', 'rejected', 'regulator'].includes(fuReason)" x-cloak class="border-t border-slate-100 mt-1 p-2 space-y-2">
-                                        <label class="text-[10px] uppercase tracking-wider font-bold text-slate-400">Paste the airline's response (context for the draft)</label>
-                                        <textarea wire:model="airline_response" rows="4" placeholder="Optional but recommended - the draft responds to it point by point…"
-                                                  class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs focus:border-primary-500 outline-none"></textarea>
-                                        <button @click="more = false; fuReason === 'regulator' ? $wire.generateRegulator() : $wire.generateFollowUp(fuReason); fuReason = null"
-                                                class="w-full bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-3 py-2 rounded-lg transition-colors">
-                                            Generate draft
+                                    {{-- What the draft will be written against - and the escape
+                                         hatch for a reply that arrived by phone or post. --}}
+                                    <div class="border-t border-slate-100 mt-1.5 pt-2 px-2 pb-1" x-data="{ manual: false }">
+                                        @if ($lastReply)
+                                            <p class="flex items-start gap-1.5 text-[10px] text-emerald-600 font-bold">
+                                                <svg class="w-3 h-3 mt-0.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                                                <span>Using {{ $lastReply->from_name ?: $lastReply->from_email }}'s reply of {{ $lastReply->created_at->format('d M Y') }}</span>
+                                            </p>
+                                        @else
+                                            <p class="text-[10px] text-slate-400">Drafts from this claim's facts and our previous letters.</p>
+                                        @endif
+
+                                        <button @click="manual = !manual" x-show="!manual"
+                                                class="text-[10px] font-bold text-slate-400 hover:text-slate-700 mt-1">
+                                            {{ $lastReply ? 'Use different context…' : 'Add the airline\'s response manually…' }}
                                         </button>
+
+                                        <div x-show="manual" x-cloak class="mt-2 space-y-1.5">
+                                            <textarea wire:model="airline_response" rows="4" placeholder="Paste what the airline said - the draft answers it point by point…"
+                                                      class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs focus:border-primary-500 outline-none"></textarea>
+                                            <div class="flex items-center gap-2">
+                                                <button @click="manual = false" class="text-[10px] font-bold text-slate-400 hover:text-slate-700">Done</button>
+                                                @if ($airline_response !== '')
+                                                    <button wire:click="$set('airline_response', '')" class="text-[10px] font-bold text-slate-400 hover:text-rose-600 ml-auto">Clear</button>
+                                                @endif
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
                             </div>
                         </div>
                     </div>
 
                     <div class="p-6 space-y-3" wire:loading.class="opacity-50" wire:target="generate">
+                        {{-- How this letter gets written: AI is the default, a saved
+                             template is the manual route. --}}
+                        <div class="rounded-xl border border-slate-200 p-3.5">
+                            <div class="flex items-center gap-1 bg-slate-100 rounded-lg p-1 w-fit">
+                                @foreach (['ai' => 'AI draft', 'template' => 'Use saved template'] as $mode => $label)
+                                    <button wire:click="$set('composeMode', '{{ $mode }}')"
+                                            class="px-3.5 py-1.5 rounded-md text-[12px] font-bold transition-all {{ $composeMode === $mode ? 'bg-white shadow text-slate-900' : 'text-slate-500 hover:text-slate-800' }}">
+                                        {{ $label }}@if ($mode === 'ai') <span class="text-[9px] font-black text-emerald-600 ml-1">DEFAULT</span>@endif
+                                    </button>
+                                @endforeach
+                            </div>
+
+                            @if ($composeMode === 'template')
+                                <div class="flex items-end gap-2 mt-3 flex-wrap">
+                                    <div class="flex-1 min-w-[240px]">
+                                        <label class="block text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-1">Template</label>
+                                        <select wire:model="templateId" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm outline-none">
+                                            <option value="">Choose a saved template…</option>
+                                            @foreach ($templates as $tpl)
+                                                <option value="{{ $tpl->id }}">{{ $tpl->name }} · {{ $tpl->typeLabel() }}@if ($tpl->is_default) (default)@endif</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <button wire:click="useTemplate" wire:loading.attr="disabled" class="px-4 py-2 rounded-lg bg-slate-900 text-white text-xs font-bold disabled:opacity-60">
+                                        <span wire:loading.remove wire:target="useTemplate">Load template</span>
+                                        <span wire:loading wire:target="useTemplate">Loading…</span>
+                                    </button>
+                                    <a href="{{ route('admin.flight-claims.templates') }}" wire:navigate class="text-[11px] font-bold text-primary-600 hover:underline pb-2">Manage templates</a>
+                                </div>
+                                @if ($templates->isEmpty())
+                                    <p class="text-[11px] font-bold text-amber-600 mt-2">
+                                        No templates for this airline yet -
+                                        <a href="{{ route('admin.flight-claims.templates') }}" wire:navigate class="underline">create one</a>, or use an AI draft.
+                                    </p>
+                                @else
+                                    <p class="text-[11px] text-slate-400 mt-2">Loaded exactly as written, with the template variables filled from this claim. No AI involved.</p>
+                                @endif
+                            @else
+                                @php $baseTpl = $templates->firstWhere('is_default', true); @endphp
+                                <p class="text-[11px] text-slate-400 mt-2.5">
+                                    The AI drafts from this claim's verified facts and the Eligibility Engine's verdict{{ $baseTpl ? ', using "' . $baseTpl->name . '" as its base' : '' }}. Every draft is editable before sending.
+                                </p>
+                            @endif
+                        </div>
+
                         <div class="grid sm:grid-cols-[70px_1fr] items-center gap-2">
                             <label class="text-[11px] uppercase tracking-wider font-bold text-slate-400">To</label>
                             <input type="email" wire:model="to" placeholder="Airline claims department email - set in the sending step"
@@ -123,23 +232,34 @@
                         </div>
                         @error('to') <p class="text-xs font-bold text-rose-600 sm:ml-[78px]">{{ $message }}</p> @enderror
                         <div class="sm:ml-[78px] -mt-1">
-                            @php $dirPurpose = $wfStage?->airline_contact_purpose ?: 'claims'; @endphp
+                            @php
+                                $dirPurpose  = $wfStage?->airline_contact_purpose ?: 'claims';
+                                $purposeName = strtolower(\App\Models\AirlineContact::PURPOSES[$dirPurpose] ?? $dirPurpose);
+                                $airlineName = trim((string) $claim->airline);
+                            @endphp
                             @if ($airlineRec && ($dirContact = $airlineRec->contactFor($dirPurpose)))
                                 <p class="flex items-center gap-1.5 text-[11px] text-slate-400">
                                     <i data-lucide="book-user" class="w-3.5 h-3.5 text-emerald-500"></i>
                                     Directory: {{ $airlineRec->name }} · {{ $dirContact->purposeLabel() }} · {{ $dirContact->email }}
                                 </p>
                             @elseif ($airlineRec)
-                                <p class="flex items-center gap-1.5 text-[11px] font-bold text-amber-600">
-                                    <i data-lucide="book-user" class="w-3.5 h-3.5"></i>
-                                    {{ $airlineRec->name }} has no "{{ \App\Models\AirlineContact::PURPOSES[$dirPurpose] ?? $dirPurpose }}" contact yet -
-                                    <a href="{{ route('admin.flight-claims.airlines') }}" wire:navigate class="underline">add it in the Airline Directory</a>
+                                <p class="flex items-center gap-1.5 text-[11px] text-slate-500">
+                                    <i data-lucide="book-user" class="w-3.5 h-3.5 text-slate-400"></i>
+                                    {{ $airlineRec->name }} has no {{ $purposeName }} address saved -
+                                    <a href="{{ route('admin.flight-claims.airlines') }}" wire:navigate class="font-bold text-primary-600 hover:underline">add one</a>
+                                    to fill this in automatically next time.
+                                </p>
+                            @elseif ($airlineName !== '')
+                                <p class="flex items-center gap-1.5 text-[11px] text-slate-500">
+                                    <i data-lucide="book-user" class="w-3.5 h-3.5 text-slate-400"></i>
+                                    {{ $airlineName }} isn't in the Airline Directory yet -
+                                    <a href="{{ route('admin.flight-claims.airlines') }}" wire:navigate class="font-bold text-primary-600 hover:underline">add it</a>
+                                    to fill this in automatically next time.
                                 </p>
                             @else
-                                <p class="flex items-center gap-1.5 text-[11px] font-bold text-amber-600">
-                                    <i data-lucide="book-user" class="w-3.5 h-3.5"></i>
-                                    "{{ $claim->airline }}" is not in the Airline Directory -
-                                    <a href="{{ route('admin.flight-claims.airlines') }}" wire:navigate class="underline">add it</a> so emails route automatically
+                                <p class="flex items-center gap-1.5 text-[11px] text-slate-500">
+                                    <i data-lucide="book-user" class="w-3.5 h-3.5 text-slate-400"></i>
+                                    No airline recorded on this claim yet - type the address above, or set the airline so it fills in automatically.
                                 </p>
                             @endif
                         </div>
@@ -150,6 +270,16 @@
                                    class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-medium focus:border-primary-500 outline-none">
                         </div>
                         @error('subject') <p class="text-xs font-bold text-rose-600 sm:ml-[78px]">{{ $message }}</p> @enderror
+
+                        <div class="grid sm:grid-cols-[70px_1fr_1fr] items-center gap-2">
+                            <label class="text-[11px] uppercase tracking-wider font-bold text-slate-400">Copies</label>
+                            <input type="text" wire:model="cc" placeholder="CC - comma separated"
+                                   class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm focus:border-primary-500 outline-none">
+                            <input type="text" wire:model="bcc" placeholder="BCC - comma separated"
+                                   class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm focus:border-primary-500 outline-none">
+                        </div>
+                        @error('cc') <p class="text-xs font-bold text-rose-600 sm:ml-[78px]">{{ $message }}</p> @enderror
+                        @error('bcc') <p class="text-xs font-bold text-rose-600 sm:ml-[78px]">{{ $message }}</p> @enderror
 
                         <textarea wire:model="body" rows="14" placeholder="The claim letter body - click 'Generate with AI' to draft it from this claim's facts."
                                   class="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm leading-relaxed focus:border-primary-500 outline-none"></textarea>
@@ -204,7 +334,18 @@
                             @endif
                             Sends from {{ config('services.inbound.claims_display') }} - replies auto-attach to this claim ({{ $claim->reference }}).
                         </p>
-                        <div class="flex items-center gap-2">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            {{-- Schedule instead of sending now: empty = send immediately --}}
+                            <label class="flex items-center gap-1.5 text-[11px] font-bold text-slate-400">
+                                <i data-lucide="clock" class="w-3.5 h-3.5"></i>
+                                <input type="datetime-local" wire:model="scheduleAt" min="{{ now()->format('Y-m-d\TH:i') }}"
+                                       class="px-2.5 py-2 rounded-lg border border-slate-200 text-xs text-slate-700 outline-none focus:border-primary-500">
+                            </label>
+                            @error('scheduleAt') <p class="w-full text-xs font-bold text-rose-600">{{ $message }}</p> @enderror
+
+                            <button wire:click="$set('showPreview', true)" class="px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-bold hover:border-slate-300 transition-colors">
+                                Preview
+                            </button>
                             <button wire:click="saveDraft" wire:loading.attr="disabled" class="px-5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-bold hover:border-slate-300 transition-colors disabled:opacity-60">
                                 <span wire:loading.remove wire:target="saveDraft">Save draft</span>
                                 <span wire:loading wire:target="saveDraft" class="inline-flex items-center gap-2"><svg class="inline w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg> Saving…</span>
@@ -222,6 +363,7 @@
                         </div>
                     </div>
                 </div>
+                </div>{{-- /claim email panel --}}
 
                 {{-- Draft history: every version, auditable; approve the final --}}
                 <div x-show="tab === 'email'" class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 mt-4">
@@ -285,7 +427,7 @@
                                     <button @click="open = !open" class="w-full text-left px-4 py-3 flex items-start gap-3">
                                         <span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-black ring-1 shrink-0 mt-0.5
                                             {{ $mail->direction === 'inbound' ? 'bg-emerald-100 text-emerald-700 ring-emerald-200' : 'bg-blue-50 text-blue-700 ring-blue-200' }}">
-                                            {{ $mail->direction === 'inbound' ? 'AIRLINE' : 'SENT' }}
+                                            {{ $mail->direction === 'inbound' ? 'AIRLINE' : ($mail->status === 'scheduled' ? 'SCHEDULED' : ($mail->status === 'failed' ? 'FAILED' : 'SENT')) }}
                                         </span>
                                         <span class="min-w-0 flex-1">
                                             <span class="block text-sm font-bold text-slate-800 truncate">{{ $mail->subject ?: '(no subject)' }}</span>
@@ -294,7 +436,13 @@
                                                     From {{ $mail->from_name ? $mail->from_name . ' - ' : '' }}{{ $mail->from_email }}
                                                     @if ($mail->matched_by) · matched by {{ $mail->matched_by === 'reply_token' ? 'reply address' : 'subject reference' }} @endif
                                                 @else
-                                                    To {{ $mail->to_email }} · sent by {{ $mail->sender?->name ?? 'system' }}
+                                                    To {{ $mail->to_email }}
+                                                    @if ($mail->cc) · cc {{ implode(', ', $mail->cc) }} @endif
+                                                    · {{ $mail->status === 'scheduled' ? 'scheduled by' : 'sent by' }} {{ $mail->sender?->name ?? 'system' }}
+                                                    · <span class="font-bold text-slate-500">{{ $mail->originLabel() }}</span>@if ($mail->template)<span class="text-slate-400"> ({{ $mail->template->name }})</span>@endif
+                                                    @if ($mail->status === 'scheduled' && $mail->scheduled_at)
+                                                        · <span class="font-bold text-amber-600">goes out {{ $mail->scheduled_at->format('d M Y H:i') }}</span>
+                                                    @endif
                                                 @endif
                                                 · {{ $mail->created_at->format('d M Y H:i') }}
                                                 @if (count($mail->attachments ?? []))
@@ -394,44 +542,7 @@
             </div>
 
             {{-- CONTEXT RAIL: everything the admin checks before sending --}}
-            <div class="xl:col-span-2 space-y-4 min-w-0">
-                {{-- Review decision: this claim is waiting on the team --}}
-                @if ($claim->status === \App\Models\Claim::STATUS_PENDING_ELIGIBILITY)
-                    <div class="bg-amber-50 rounded-2xl border border-amber-200 shadow-sm p-5" x-data="{ rejecting: false }">
-                        <div class="flex items-center gap-2 mb-1.5">
-                            <i data-lucide="alert-triangle" class="w-4.5 h-4.5 text-amber-500"></i>
-                            <h2 class="font-bold text-amber-900 text-sm">Your decision is needed</h2>
-                        </div>
-                        <p class="text-xs text-amber-800/80 mb-4">The engine couldn't settle this claim - the customer sees "Our team is reviewing your eligibility" until you decide.</p>
-
-                        <div x-show="!rejecting" class="flex gap-2">
-                            <button wire:click="approve" wire:loading.attr="disabled"
-                                    class="flex-1 inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold px-4 py-2.5 rounded-xl transition-colors disabled:opacity-60">
-                                <span wire:loading.remove wire:target="approve" class="inline-flex items-center gap-2"><i data-lucide="check" class="w-4 h-4"></i> Approve claim</span>
-                                <span wire:loading wire:target="approve" class="inline-flex items-center gap-2"><svg class="inline w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg> Approving…</span>
-                            </button>
-                            <button @click="rejecting = true"
-                                    class="flex-1 inline-flex items-center justify-center gap-2 bg-white border border-amber-200 hover:border-rose-300 hover:text-rose-600 text-amber-900 text-sm font-bold px-4 py-2.5 rounded-xl transition-colors">
-                                <i data-lucide="x" class="w-4 h-4"></i> Reject
-                            </button>
-                        </div>
-
-                        <div x-show="rejecting" x-cloak class="space-y-2">
-                            <textarea wire:model="rejection_reason" rows="3" placeholder="Reason shown and emailed to the customer (min 10 characters)…"
-                                      class="w-full px-3.5 py-2.5 rounded-xl border border-amber-200 bg-white text-sm focus:border-rose-400 outline-none"></textarea>
-                            @error('rejection_reason') <p class="text-xs font-bold text-rose-600">{{ $message }}</p> @enderror
-                            <div class="flex gap-2">
-                                <button @click="rejecting = false" class="px-4 py-2 rounded-xl bg-white border border-amber-200 text-amber-900 text-sm font-bold">Cancel</button>
-                                <button wire:click="reject" wire:loading.attr="disabled"
-                                        class="flex-1 bg-rose-600 hover:bg-rose-700 text-white text-sm font-bold px-4 py-2 rounded-xl transition-colors disabled:opacity-60">
-                                    <span wire:loading.remove wire:target="reject">Reject &amp; notify customer</span>
-                                    <span wire:loading wire:target="reject" class="inline-flex items-center gap-2"><svg class="inline w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg> Rejecting…</span>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                @endif
-
+            <div class="lg:col-span-2 space-y-4 min-w-0 lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto">
                 {{-- Workflow: current stage + context-specific admin actions --}}
                 @if ($wfStage && $claim->status === \App\Models\Claim::STATUS_ELIGIBLE)
                     <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5" x-data="{ target: null }">
@@ -773,10 +884,43 @@
                         <p class="text-[11px] text-slate-400 mt-2.5">Consent {{ $claim->confirmed_at->format('d M Y H:i') }} UTC · booking {{ $claim->booking_reference ?: '-' }}</p>
                     @endif
                 </div>
+            </div>{{-- /context rail --}}
+        </div>{{-- /grid --}}
+    </div>
 
+    {{-- Email preview: exactly what leaves, variables already replaced --}}
+    @if ($showPreview)
+        <div class="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" wire:click="$set('showPreview', false)"></div>
+            <div class="relative bg-white w-full max-w-2xl rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
+                <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+                    <div>
+                        <h3 class="font-bold text-slate-900">Email preview</h3>
+                        <p class="text-[11px] text-slate-400">
+                            {{ $aiGenerated ? 'AI draft' : ($templateId ? 'From a saved template' : 'Written by hand') }}
+                            @if ($scheduleAt) · scheduled for {{ \Illuminate\Support\Carbon::parse($scheduleAt)->format('d M Y H:i') }} @endif
+                        </p>
+                    </div>
+                    <button wire:click="$set('showPreview', false)" class="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"><i data-lucide="x" class="w-4 h-4"></i></button>
+                </div>
+                <div class="p-6 space-y-3">
+                    <dl class="text-sm space-y-1.5">
+                        <div class="flex gap-3"><dt class="w-20 shrink-0 text-[11px] uppercase font-bold text-slate-400 pt-0.5">From</dt><dd class="text-slate-600">{{ config('services.inbound.claims_display') }}</dd></div>
+                        <div class="flex gap-3"><dt class="w-20 shrink-0 text-[11px] uppercase font-bold text-slate-400 pt-0.5">To</dt><dd class="font-bold text-slate-800">{{ $to ?: 'No recipient set' }}</dd></div>
+                        @if ($cc)<div class="flex gap-3"><dt class="w-20 shrink-0 text-[11px] uppercase font-bold text-slate-400 pt-0.5">CC</dt><dd class="text-slate-600">{{ $cc }}</dd></div>@endif
+                        @if ($bcc)<div class="flex gap-3"><dt class="w-20 shrink-0 text-[11px] uppercase font-bold text-slate-400 pt-0.5">BCC</dt><dd class="text-slate-600">{{ $bcc }}</dd></div>@endif
+                        <div class="flex gap-3"><dt class="w-20 shrink-0 text-[11px] uppercase font-bold text-slate-400 pt-0.5">Subject</dt><dd class="font-bold text-slate-900">{{ $subject ?: 'No subject' }}</dd></div>
+                        <div class="flex gap-3"><dt class="w-20 shrink-0 text-[11px] uppercase font-bold text-slate-400 pt-0.5">Files</dt><dd class="text-slate-600">{{ count($attached) ?: 'none' }} attached</dd></div>
+                    </dl>
+                    <div class="rounded-xl border border-slate-200 bg-slate-50/50 p-4 text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{{ $body ?: 'Nothing written yet.' }}</div>
+                    @php $unresolved = preg_match('/\{\{\s*[a-z_]+\s*\}\}/i', (string) $body); @endphp
+                    @if ($unresolved)
+                        <p class="text-[11px] font-bold text-amber-600">This letter still contains unresolved template variables - fix them before sending.</p>
+                    @endif
+                </div>
             </div>
         </div>
-    </div>
+    @endif
 
     {{-- Document preview modal --}}
     <div x-show="preview" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8">

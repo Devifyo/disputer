@@ -4,7 +4,9 @@ namespace App\Livewire\Admin\FlightClaims;
 
 use App\Models\Airline;
 use App\Models\AirlineContact;
+use App\Models\AirlineEmailTemplate;
 use App\Models\Claim;
+use App\Models\ClaimCorrespondence;
 use App\Models\ClaimDraft;
 use App\Models\ClaimExpense;
 use App\Models\Setting;
@@ -12,6 +14,9 @@ use App\Services\Claims\ClaimCorrespondenceService;
 use App\Services\Claims\ClaimLetterService;
 use App\Services\Claims\ClaimWorkflowService;
 use App\Services\Claims\RegulatorDirectory;
+use App\Services\Claims\TemplateRenderer;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Str;
 use App\Services\Eligibility\ClaimEligibilityService;
 use App\Services\Eligibility\EligibilityEngine;
 use Illuminate\Support\Facades\Storage;
@@ -36,6 +41,16 @@ class ClaimDetail extends Component
 
     /** Attachment keys selected to go out with the email. */
     public array $attached = [];
+
+    // Compose: AI drafting is the default route; a saved template is the
+    // manual alternative. cc/bcc and scheduling apply to both.
+    public string $composeMode = 'ai';
+    public ?int $templateId = null;
+    public string $cc = '';
+    public string $bcc = '';
+    public string $scheduleAt = '';
+    public bool $showPreview = false;
+    public bool $aiGenerated = false;
 
     /** Reason shown to the customer when the team rejects the claim. */
     public string $rejection_reason = '';
@@ -81,9 +96,23 @@ class ClaimDetail extends Component
         // Default selection: everything legal + the ticket; the admin trims.
         $this->attached = $letter['attachments']
             ?? collect($this->attachments())->pluck('key')->all();
+
+        $this->prefillAirlineResponse();
     }
 
     /** The claim's airline in the directory. */
+    /**
+     * Auto-load the airline's latest reply into the follow-up context box.
+     * The admin can still edit or clear it - and can paste one manually when
+     * the airline answered by phone or post.
+     */
+    private function prefillAirlineResponse(): void
+    {
+        if (trim($this->airline_response) === '' && $reply = $this->latestAirlineReply()) {
+            $this->airline_response = Str::limit(trim($reply->newBody()), 4000, '');
+        }
+    }
+
     public function airlineRecord(): ?Airline
     {
         return Airline::match($this->claim->airline, $this->claim->flight_number);
@@ -216,16 +245,52 @@ class ClaimDetail extends Component
      */
     public function send(ClaimCorrespondenceService $correspondence, ClaimWorkflowService $workflow): void
     {
+        abort_unless(auth()->user()->can('claim_emails.send'), 403);
+
         $this->validate([
-            'to'      => 'required|email|max:190',
-            'subject' => 'required|string|max:190',
-            'body'    => 'required|string|min:50',
-        ], ['body.min' => 'The email body looks empty - generate or write the claim first.'], ['to' => 'recipient email']);
+            'to'         => 'required|email|max:190',
+            'subject'    => 'required|string|max:190',
+            'body'       => 'required|string|min:50',
+            'cc'         => 'nullable|string|max:500',
+            'bcc'        => 'nullable|string|max:500',
+            'scheduleAt' => 'nullable|date|after:now',
+        ], [
+            'body.min'         => 'The email body looks empty - generate or write the claim first.',
+            'scheduleAt.after' => 'Schedule a time in the future, or send now.',
+        ], ['to' => 'recipient email', 'scheduleAt' => 'schedule time']);
 
         $this->persist();
 
+        $options = [
+            'cc'           => $this->cc,
+            'bcc'          => $this->bcc,
+            'template_id'  => $this->templateId,
+            'ai_generated' => $this->aiGenerated,
+        ];
+
+        // Scheduled: the record appears immediately as "scheduled" and a
+        // queued job delivers it - nothing else in this flow changes.
+        if (trim($this->scheduleAt) !== '') {
+            try {
+                $when = \Illuminate\Support\Carbon::parse($this->scheduleAt);
+                $correspondence->schedule($this->claim, $this->to, $this->subject, $this->body, $this->attached, auth()->id(), $when, $options);
+            } catch (\Throwable $e) {
+                report($e);
+                $this->dispatch('toast', ['type' => 'error', 'message' => 'Could not schedule the email: ' . $e->getMessage()]);
+
+                return;
+            }
+
+            $this->showPreview = false;
+            $this->scheduleAt  = '';
+            $this->claim->refresh()->load(['user', 'signers', 'itinerary.passengers', 'events', 'expenses']);
+            $this->dispatch('toast', ['type' => 'success', 'message' => "Scheduled - it will go to {$this->to} automatically."]);
+
+            return;
+        }
+
         try {
-            $correspondence->send($this->claim, $this->to, $this->subject, $this->body, $this->attached, auth()->id());
+            $correspondence->send($this->claim, $this->to, $this->subject, $this->body, $this->attached, auth()->id(), $options);
         } catch (\Throwable $e) {
             report($e);
             $this->dispatch('toast', ['type' => 'error', 'message' => 'Sending failed - the email was not delivered. ' . $e->getMessage()]);
@@ -250,6 +315,7 @@ class ClaimDetail extends Component
             }
         }
 
+        $this->showPreview = false;
         $this->claim->refresh()->load(['user', 'signers', 'itinerary.passengers', 'events', 'expenses']);
         $this->dispatch('toast', ['type' => 'success', 'message' => "Email sent to {$this->to}."]);
     }
@@ -408,6 +474,54 @@ class ClaimDetail extends Component
         $this->dispatch('toast', ['type' => 'success', 'message' => 'Claim rejected - the customer has been notified with your reason.']);
     }
 
+    // ── Compose: template route ─────────────────────────────
+
+    /** Templates this claim's airline offers, newest default first. */
+    public function airlineTemplates()
+    {
+        $airline = $this->airlineRecord();
+
+        return $airline
+            ? AirlineEmailTemplate::where('airline_id', $airline->id)->active()
+                ->orderByDesc('is_default')->orderBy('type')->get()
+            : collect();
+    }
+
+    /**
+     * Load a saved template exactly as written, variables substituted. No AI
+     * is involved - what the admin sees is what the airline gets.
+     */
+    public function useTemplate(TemplateRenderer $renderer): void
+    {
+        $template = AirlineEmailTemplate::with('airline')->find($this->templateId);
+
+        if (!$template) {
+            $this->dispatch('toast', ['type' => 'error', 'message' => 'Pick a template first.']);
+
+            return;
+        }
+
+        $rendered = $renderer->renderTemplate($template, $this->claim);
+
+        $this->subject     = $rendered['subject'];
+        $this->body        = $rendered['body'];
+        $this->aiGenerated = false;
+
+        // Address it the way this letter type should be addressed.
+        if ($contact = $template->airline?->contactFor($template->contactPurpose())) {
+            $this->to = $contact->email;
+        }
+
+        $unknown = $renderer->unknownVariables($template->subject . ' ' . $template->body);
+
+        $this->dispatch('toast', [
+            'type'    => $unknown ? 'error' : 'success',
+            'message' => $unknown
+                ? 'Template loaded, but these variables are unknown and will send as written: ' . implode(', ', $unknown)
+                : "\"{$template->name}\" loaded - edit anything before sending.",
+        ]);
+    }
+
     public function generate(ClaimLetterService $letters): void
     {
         $this->createDraft($letters, ClaimDraft::TYPE_CLAIM);
@@ -456,7 +570,20 @@ class ClaimDetail extends Component
      */
     private function createDraft(ClaimLetterService $letters, string $type, array $context = []): void
     {
+        abort_unless(auth()->user()->can('claim_drafts.generate'), 403);
+
         $context['history'] = $this->correspondenceHistory();
+
+        // The airline's saved template for this letter type becomes the AI's
+        // base, so airline-specific wording and structure survive the draft.
+        if ($base = $this->baseTemplate($type)) {
+            $context['base_template'] = [
+                'name'    => $base->name,
+                'subject' => $base->subject,
+                'body'    => app(TemplateRenderer::class)->render($base->body, $this->claim),
+            ];
+            $context['base_template_id'] = $base->id;
+        }
 
         // Follow-ups and complaints reference the real date of the original
         // demand - the approved claim letter, or the first version drafted.
@@ -478,13 +605,34 @@ class ClaimDetail extends Component
         $this->loadedDraftId    = $draft->id;
         $this->airline_response = '';
 
+        $this->aiGenerated = $result['generated_by'] === 'ai';
+        $this->templateId  = $context['base_template_id'] ?? null;
+
         $this->persist(['generated_at' => now()->toIso8601String(), 'generated_by' => $result['generated_by']]);
+
+        app(ClaimWorkflowService::class)->audit(
+            $this->claim, 'AI draft generated', 'admin', auth()->id(),
+            sprintf('%s v%d via %s%s', $draft->typeLabel(), $draft->version, $result['generated_by'],
+                isset($context['base_template']) ? ' (base: ' . $context['base_template']['name'] . ')' : ''),
+        );
 
         $this->dispatch('toast', ['type' => 'success', 'message' => sprintf(
             '%s v%d drafted%s - review before sending.',
             $draft->typeLabel(), $draft->version,
-            $result['generated_by'] === 'ai' ? ' by AI' : ' from the template (AI unavailable)'
+            $result['generated_by'] === 'ai' ? ' by AI' : ' from the built-in template (AI unavailable)'
         )]);
+    }
+
+    /** The saved template the AI should build on for this letter type. */
+    private function baseTemplate(string $draftType): ?AirlineEmailTemplate
+    {
+        $type = match ($draftType) {
+            ClaimDraft::TYPE_FOLLOW_UP => AirlineEmailTemplate::TYPE_FOLLOW_UP,
+            ClaimDraft::TYPE_REGULATOR => AirlineEmailTemplate::TYPE_ESCALATION,
+            default                    => AirlineEmailTemplate::TYPE_INITIAL,
+        };
+
+        return AirlineEmailTemplate::defaultFor($this->airlineRecord(), $type);
     }
 
     public function loadDraft(int $draftId): void
@@ -550,9 +698,14 @@ class ClaimDetail extends Component
     }
 
     /** Prior correspondence fed to follow-up / regulator drafting. */
+    /**
+     * What the AI needs to write the next letter: our own recent letters AND
+     * the airline's actual replies. The replies are already on the claim -
+     * nobody should have to paste them in by hand.
+     */
     private function correspondenceHistory(): array
     {
-        return $this->claim->drafts()
+        $ours = $this->claim->drafts()
             ->get()
             ->groupBy('type')
             ->map(fn ($group) => $group->firstWhere('approved_at', '!=', null) ?? $group->first())
@@ -560,13 +713,38 @@ class ClaimDetail extends Component
             ->sortByDesc('id')
             ->take(3)
             ->map(fn (ClaimDraft $d) => [
-                'label'   => $d->typeLabel() . ' v' . $d->version . ($d->approved_at ? ' (approved)' : ''),
+                'label'   => 'Unjamm - ' . $d->typeLabel() . ' v' . $d->version . ($d->approved_at ? ' (approved)' : ''),
                 'date'    => $d->created_at->format('d M Y'),
                 'subject' => $d->subject,
                 'body'    => $d->body,
-            ])
+                'sort'    => $d->created_at,
+            ]);
+
+        $theirs = $this->claim->correspondence()
+            ->where('direction', ClaimCorrespondence::DIRECTION_INBOUND)
+            ->latest('id')->take(3)->get()
+            ->map(fn (ClaimCorrespondence $mail) => [
+                'label'   => 'Airline reply - ' . ($mail->from_name ?: $mail->from_email),
+                'date'    => $mail->created_at->format('d M Y'),
+                'subject' => (string) $mail->subject,
+                'body'    => $mail->newBody(),
+                'sort'    => $mail->created_at,
+            ]);
+
+        return $ours->concat($theirs)
+            ->sortByDesc('sort')
+            ->map(fn (array $entry) => Arr::except($entry, 'sort'))
             ->values()
             ->all();
+    }
+
+    /** The airline's most recent inbound reply on this claim. */
+    public function latestAirlineReply(): ?ClaimCorrespondence
+    {
+        return $this->claim->correspondence()
+            ->where('direction', ClaimCorrespondence::DIRECTION_INBOUND)
+            ->latest('id')
+            ->first();
     }
 
     private function persist(array $extra = []): void
@@ -648,8 +826,11 @@ class ClaimDetail extends Component
                 'wfOptions'    => $this->claim->status === Claim::STATUS_ELIGIBLE ? $workflow->manualOptions($this->claim) : collect(),
                 'pendingTimer' => $this->claim->workflowTimers()->where('status', 'pending')->orderBy('due_at')->first(),
                 'auditLogs'    => $this->claim->auditLogs()->with('actor')->get(),
-                'mailbox'      => $this->claim->correspondence()->with('sender')->get(),
+                'mailbox'      => $this->claim->correspondence()->with(['sender', 'template'])->get(),
                 'regulator'    => RegulatorDirectory::for($this->claim),
+                'templates'    => $this->airlineTemplates(),
+                'canSendEmail' => auth()->user()->can('claim_emails.send'),
+                'canDraft'     => auth()->user()->can('claim_drafts.generate'),
                 'expenses'     => $this->claim->expenses()->with('reviewer')->get(),
             ])
             ->extends('layouts.admin')

@@ -6,6 +6,7 @@ use App\Models\Airline;
 use App\Models\AirlineContact;
 use App\Models\ClaimWorkflow;
 use Illuminate\Support\Str;
+use App\Services\Audit\AdminActivity;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -34,6 +35,8 @@ class Airlines extends Component
         return [
             'name'              => '',
             'iata_code'         => '',
+            'icao_code'         => '',
+            'country'           => '',
             'is_active'         => true,
             'claim_workflow_id' => '',
             'notes'             => '',
@@ -93,6 +96,8 @@ class Airlines extends Component
         $this->form      = [
             'name'              => $airline->name,
             'iata_code'         => $airline->iata_code,
+            'icao_code'         => $airline->icao_code,
+            'country'           => $airline->country,
             'is_active'         => $airline->is_active,
             'claim_workflow_id' => $airline->claim_workflow_id ?? '',
             'notes'             => $airline->notes,
@@ -108,6 +113,8 @@ class Airlines extends Component
         $this->validate([
             'form.name'               => 'required|string|max:120',
             'form.iata_code'          => 'nullable|string|min:2|max:3|unique:airlines,iata_code,' . ($this->editingId ?? 'NULL'),
+            'form.icao_code'          => 'nullable|string|min:3|max:4',
+            'form.country'            => 'nullable|string|max:80',
             'form.claim_workflow_id'  => 'nullable|exists:claim_workflows,id',
             'form.notes'              => 'nullable|string|max:500',
             'form.contacts.*.purpose' => 'nullable|string|max:60',
@@ -118,6 +125,8 @@ class Airlines extends Component
         $airline = Airline::updateOrCreate(['id' => $this->editingId], [
             'name'              => trim($this->form['name']),
             'iata_code'         => strtoupper(trim($this->form['iata_code'] ?? '')) ?: null,
+            'icao_code'         => strtoupper(trim($this->form['icao_code'] ?? '')) ?: null,
+            'country'           => trim($this->form['country'] ?? '') ?: null,
             'is_active'         => (bool) $this->form['is_active'],
             'claim_workflow_id' => $this->form['claim_workflow_id'] ?: null,
             'notes'             => $this->form['notes'] ?: null,
@@ -146,6 +155,21 @@ class Airlines extends Component
 
         $this->showForm = false;
         $this->dispatch('toast', ['type' => 'success', 'message' => "Airline {$airline->name} saved."]);
+    }
+
+    /**
+     * Remove an airline. Contacts and templates go with it (cascade); claims
+     * are untouched - they store the airline name they were filed under.
+     */
+    public function delete(int $id, AdminActivity $activity): void
+    {
+        abort_unless(auth()->user()->can('airlines.manage'), 403);
+
+        $airline = Airline::findOrFail($id);
+        $activity->log($airline, AdminActivity::AIRLINE_DELETED, $airline->only(['name', 'iata_code', 'country']), null);
+        $airline->delete();
+
+        $this->dispatch('toast', ['type' => 'success', 'message' => 'Airline removed.']);
     }
 
     public function toggleActive(int $id): void

@@ -13,9 +13,14 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class Airline extends Model
 {
-    protected $fillable = ['name', 'iata_code', 'is_active', 'claim_workflow_id', 'notes'];
+    protected $fillable = ['name', 'iata_code', 'icao_code', 'country', 'is_active', 'claim_workflow_id', 'notes'];
 
     protected $casts = ['is_active' => 'boolean'];
+
+    public function templates(): HasMany
+    {
+        return $this->hasMany(AirlineEmailTemplate::class);
+    }
 
     public function contacts(): HasMany
     {

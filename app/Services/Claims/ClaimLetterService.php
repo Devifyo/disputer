@@ -235,6 +235,29 @@ class ClaimLetterService
         ], fn ($v) => $v !== null && $v !== '');
     }
 
+    /**
+     * The airline's saved template, handed to the model as the shape to
+     * follow. It is a STYLE guide, never a source of facts or law - those
+     * come from the claim record and the Eligibility Engine.
+     */
+    private function baseTemplateBlock(array $context): string
+    {
+        $base = $context['base_template'] ?? null;
+
+        if (!$base) {
+            return '';
+        }
+
+        return <<<BASE
+
+AIRLINE TEMPLATE (the team's approved letter for this airline - follow its structure, tone and any airline-specific wording, e.g. how they want claims addressed or referenced):
+Subject: {$base['subject']}
+{$base['body']}
+
+TEMPLATE RULE: keep this letter's structure and phrasing where they fit, and improve it with the specifics of THIS claim. The template's facts, dates and amounts are examples only - every figure you write must come from the CLAIM RECORD and LEGAL BASIS above. Never copy a citation from the template that is not in the allowed list.
+BASE;
+    }
+
     private function prompt(Claim $claim, string $type, array $context): string
     {
         $jurisdiction = ClaimLegalDocumentService::jurisdiction($claim);
@@ -263,7 +286,8 @@ DATA FIDELITY RULE (strict): every date, amount, name, flight detail and referen
 ATTACHED PASSENGER DOCUMENTS: the customer's ticket/booking and supporting evidence follow this message. Read each one and use what strengthens the case - booking references, fare paid, boarding passes, airline emails, receipts for meals/hotel/transport (claim those as expense reimbursement where the regime provides a right to care). If a document contradicts the claim record, rely on the verified claim record and do not mention the discrepancy.
 SHARED;
 
-        $history = $this->historyBlock($context);
+        $history  = $this->historyBlock($context);
+        $baseText = $this->baseTemplateBlock($context);
 
         $task = match ($type) {
             ClaimDraft::TYPE_FOLLOW_UP => $this->followUpTask($regime, $context),
@@ -283,6 +307,7 @@ INITIALTASK,
 You are a legal correspondence writer for Unjamm, an air passenger rights company.
 
 {$shared}
+{$baseText}
 {$history}
 {$task}
 

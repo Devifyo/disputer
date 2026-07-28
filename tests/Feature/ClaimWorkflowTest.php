@@ -32,7 +32,13 @@ class ClaimWorkflowTest extends TestCase
 
         Mail::fake();
         config(['services.gemini.api_key' => null]); // deterministic template drafts
-        Role::findOrCreate('admin');
+        Role::findOrCreate('admin')->givePermissionTo(
+            \Spatie\Permission\Models\Permission::whereIn('name', [
+                'airlines.manage', 'claim_templates.manage', 'claim_templates.delete',
+                'claim_drafts.generate', 'claim_emails.send',
+            ])->get()
+        );
+        app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
         Role::findOrCreate('user');
         $this->workflow = app(ClaimWorkflowService::class);
     }

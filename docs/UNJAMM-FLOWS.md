@@ -501,6 +501,59 @@ subscriptions; permissioned beyond the admin role.
   cards stay clean at any volume.
   Admin sidebar bell icon inlined as SVG (the lucide JS replacement was
   lost inside the nested Livewire component).
+- Airline replies feed the drafts automatically (client caught it): the
+  follow-up context box used to be a blank "paste the airline's response"
+  field even though inbound replies are already stored on the claim. It
+  now prefills from the latest inbound correspondence (new text only -
+  the quoted history is stripped) and labels its source, with a Clear
+  button and a manual paste path for airlines that answer by phone or
+  post. The AI's `history` context also merges inbound replies with our
+  own drafts (labelled "Airline reply - X" vs "Unjamm - ..."), so a
+  follow-up is written against what the airline actually said rather
+  than only against our previous letters.
+- Airline email templates + hybrid composer (Flight Claims -> Claim
+  Templates): per-airline letters typed as initial claim / follow up /
+  escalation / final notice / custom, each with subject, body,
+  is_default, is_active and created_by/updated_by. Exactly ONE default
+  per airline+type, enforced by a unique index on
+  (airline_id, type, is_default) where "not default" is stored as NULL -
+  a race cannot leave two. Admin UI: search + airline/type filters,
+  create/edit, duplicate (copy lands inactive and non-default so it
+  cannot be sent by accident), make default, enable/disable, delete
+  (own permission), and preview rendered against a REAL claim of that
+  airline with a warning listing unresolvable variables.
+  `TemplateRenderer` owns the 17 documented {{variables}} (passenger,
+  flight, times from the tracking snapshot, delay, claim reference,
+  compensation, regulation/article, today) - values come from the claim
+  and the Eligibility Engine's stored verdict, never from the renderer;
+  an unknown placeholder is left VISIBLE rather than silently blanked.
+  Composer on the claim: a mode switch with **AI draft as the default**
+  and "Use saved template" as the manual route. AI route feeds the
+  airline's default template into the prompt as a STYLE base (structure,
+  tone, airline-specific wording) with an explicit rule that facts, law
+  and amounts still come only from the claim record - the citation guard
+  is untouched. Template route renders the template verbatim, fills the
+  variables, and addresses it to the airline contact that letter type
+  belongs to (initial/follow-up -> claims, escalation -> escalation,
+  final notice -> legal). Both routes stay fully editable.
+  Sending gained CC/BCC (invalid addresses dropped, never fatal), an
+  email preview (from/to/cc/bcc/subject/attachment count/rendered body
+  with an unresolved-variable warning) and scheduling: a "scheduled"
+  correspondence row appears immediately in the claim's history and
+  `SendScheduledClaimEmail` delivers it, flipping the status (failed
+  status on terminal failure). History now records provenance -
+  AI draft / Template (with its name) / Written by hand - plus cc and
+  the scheduled time.
+  Airline directory gained ICAO code, country and delete (cascades
+  contacts + templates; claims keep the airline name they were filed
+  under). New permissions: airlines.manage, claim_templates.manage,
+  claim_templates.delete, claim_drafts.generate, claim_emails.send -
+  granted to the admin role by the migration. Template and airline
+  actions are audited to the new append-only `admin_activity_logs`
+  (immutable, morphed subject, actor + IP + old/new values) via the
+  `AdminActivity` service; claim-scoped events (AI draft generated,
+  email sent/scheduled) keep going to the claim audit log so they show
+  on the claim timeline.
 - Passenger management (Flight Claims -> Passengers): passengers are not
   a table - a person appears as a signature-roster entry, a name on a
   parsed ticket, a claim's lead passenger and a monitored trip - so

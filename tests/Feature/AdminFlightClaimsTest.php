@@ -27,7 +27,13 @@ class AdminFlightClaimsTest extends TestCase
         parent::setUp();
 
         Http::fake();
-        Role::findOrCreate('admin');
+        Role::findOrCreate('admin')->givePermissionTo(
+            \Spatie\Permission\Models\Permission::whereIn('name', [
+                'airlines.manage', 'claim_templates.manage', 'claim_templates.delete',
+                'claim_drafts.generate', 'claim_emails.send',
+            ])->get()
+        );
+        app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
         Role::findOrCreate('user');
         $this->admin = User::factory()->create();
         $this->admin->assignRole('admin');

@@ -38,7 +38,13 @@ class ClaimCorrespondenceTest extends TestCase
         AdminAlertRecipients::store([
             ['name' => 'Ops', 'email' => 'ops@unjamm.com', 'alerts' => array_keys(AdminAlertRecipients::TYPES)],
         ]);
-        Role::findOrCreate('admin');
+        Role::findOrCreate('admin')->givePermissionTo(
+            \Spatie\Permission\Models\Permission::whereIn('name', [
+                'airlines.manage', 'claim_templates.manage', 'claim_templates.delete',
+                'claim_drafts.generate', 'claim_emails.send',
+            ])->get()
+        );
+        app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
         Role::findOrCreate('user');
         config(['services.inbound.reply_domain' => 'claims.unjamm.com']);
         config(['services.inbound.claims_display' => 'claims@unjamm.com']);

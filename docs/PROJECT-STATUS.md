@@ -113,7 +113,10 @@ Status keys: **Done** (built, tested, verified in production) ·
 
 | Item | Status | Notes |
 |---|---|---|
-| Airline directory + per-purpose contacts | Done | Claims/legal/escalation/customer relations + custom rows |
+| Airline directory + per-purpose contacts | Done | Claims/legal/escalation/customer relations + custom rows, ICAO/country, delete |
+| Airline email templates | Done | Per airline and letter type, one default each, duplicate/preview/enable/delete, audited |
+| Hybrid composer (AI default / saved template) | Done | Template renders verbatim with variables; AI uses the default template as its style base |
+| CC/BCC, preview, scheduled sending | Done | Scheduled emails appear in history and deliver via a queued job |
 | Outbound claim email | Done | From the public claims address, per-claim reply-to token |
 | Inbound airline replies -> claim | Done | Reply-token match, subject-reference fallback |
 | Correspondence tab | Done | Quoted history collapsed, attachments previewable |
@@ -190,6 +193,15 @@ Status keys: **Done** (built, tested, verified in production) ·
 ## Session log
 
 Newest first. One line per session: what changed, what it unblocked.
+
+- **2026-07-28** - Airline email templates + hybrid composer: per-airline
+  letters (5 types, one default each, duplicate/preview/enable/delete),
+  a variable renderer, and a compose mode switch where AI drafting stays
+  the default and a saved template is the manual alternative (the airline's
+  default template also becomes the AI's style base). CC/BCC, email preview,
+  scheduled sending, provenance in history, ICAO/country/delete on airlines,
+  five new permissions and an immutable admin activity log. Full suite
+  295 passing.
 
 - **2026-07-28** - Passenger management built (Flight Claims -> Passengers):
   a directory that merges signature rosters, ticket passenger lists, claim

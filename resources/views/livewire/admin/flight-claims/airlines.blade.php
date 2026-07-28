@@ -62,6 +62,8 @@
                                     <span wire:loading.remove wire:target="edit({{ $airline->id }})">Edit</span>
                                     <span wire:loading wire:target="edit({{ $airline->id }})"><svg class="inline w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg></span>
                                 </button>
+                                <button @click="$dispatch('admin-confirm', { title: 'Remove airline', message: 'Delete {{ addslashes($airline->name) }}? Its contacts and templates go too. Existing claims keep the airline name they were filed under.', confirmLabel: 'Delete', danger: true, method: 'delete', params: [{{ $airline->id }}] })"
+                                        class="text-xs font-bold text-rose-600 hover:underline">Delete</button>
                                 <button wire:click="toggleActive({{ $airline->id }})" wire:loading.attr="disabled" class="text-xs font-bold text-amber-600 hover:underline">
                                     <span wire:loading.remove wire:target="toggleActive({{ $airline->id }})">{{ $airline->is_active ? 'Deactivate' : 'Activate' }}</span>
                                     <span wire:loading wire:target="toggleActive({{ $airline->id }})"><svg class="inline w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg></span>
@@ -95,11 +97,24 @@
                             <input type="text" wire:model="form.name" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:border-primary-500 outline-none">
                             @error('form.name') <p class="text-xs font-bold text-rose-600 mt-1">{{ $message }}</p> @enderror
                         </div>
-                        <div>
-                            <label class="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">IATA code</label>
-                            <input type="text" wire:model="form.iata_code" placeholder="AC" maxlength="3" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm uppercase focus:border-primary-500 outline-none">
-                            @error('form.iata_code') <p class="text-xs font-bold text-rose-600 mt-1">{{ $message }}</p> @enderror
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">IATA code</label>
+                                <input type="text" wire:model="form.iata_code" placeholder="AC" maxlength="3" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm uppercase focus:border-primary-500 outline-none">
+                                @error('form.iata_code') <p class="text-xs font-bold text-rose-600 mt-1">{{ $message }}</p> @enderror
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">ICAO code</label>
+                                <input type="text" wire:model="form.icao_code" placeholder="ACA" maxlength="4" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm uppercase focus:border-primary-500 outline-none">
+                                @error('form.icao_code') <p class="text-xs font-bold text-rose-600 mt-1">{{ $message }}</p> @enderror
+                            </div>
                         </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">Country</label>
+                        <input type="text" wire:model="form.country" placeholder="Canada" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:border-primary-500 outline-none">
+                        @error('form.country') <p class="text-xs font-bold text-rose-600 mt-1">{{ $message }}</p> @enderror
                     </div>
 
                     <div>
@@ -170,4 +185,6 @@
             </div>
         </div>
     @endif
+
+    <x-admin.confirm />
 </div>

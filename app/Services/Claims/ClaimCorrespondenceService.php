@@ -4,9 +4,11 @@ namespace App\Services\Claims;
 
 use App\Mail\AirlineClaimMail;
 use App\Models\Claim;
+use App\Jobs\SendScheduledClaimEmail;
 use App\Models\ClaimCorrespondence;
 use App\Services\Notifications\AdminNotifier;
 use App\Support\Alerts\AdminAlert;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
@@ -25,22 +27,45 @@ use Illuminate\Support\Str;
 class ClaimCorrespondenceService
 {
     /** Send the composed email to the airline and record it on the claim. */
-    public function send(Claim $claim, string $to, string $subject, string $body, array $attachmentKeys, ?int $adminId): ClaimCorrespondence
+    /**
+     * @param array{cc?: array, bcc?: array, template_id?: int|null, ai_generated?: bool} $options
+     *        Provenance travels with the email: which saved template it came
+     *        from and whether the AI wrote it, so history can answer "how was
+     *        this letter produced" months later.
+     */
+    public function send(Claim $claim, string $to, string $subject, string $body, array $attachmentKeys, ?int $adminId, array $options = []): ClaimCorrespondence
     {
         $subject = $this->taggedSubject($claim, $subject);
         $files   = $this->files($claim, $attachmentKeys);
+        $cc      = $this->addresses($options['cc'] ?? []);
+        $bcc     = $this->addresses($options['bcc'] ?? []);
 
-        Mail::to($to)->send(new AirlineClaimMail($claim, $subject, $body, $files));
+        $mail = Mail::to($to);
+
+        if ($cc !== []) {
+            $mail->cc($cc);
+        }
+
+        if ($bcc !== []) {
+            $mail->bcc($bcc);
+        }
+
+        $mail->send(new AirlineClaimMail($claim, $subject, $body, $files));
 
         $record = $claim->correspondence()->create([
-            'direction'   => ClaimCorrespondence::DIRECTION_OUTBOUND,
-            'from_email'  => config('services.inbound.claims_display'),
-            'from_name'   => 'Unjamm Claims',
-            'to_email'    => $to,
-            'subject'     => $subject,
-            'body'        => $body,
-            'attachments' => collect($files)->map(fn ($f) => ['name' => $f['name'], 'key' => $f['key']])->all(),
-            'sent_by'     => $adminId,
+            'direction'    => ClaimCorrespondence::DIRECTION_OUTBOUND,
+            'from_email'   => config('services.inbound.claims_display'),
+            'from_name'    => 'Unjamm Claims',
+            'to_email'     => $to,
+            'cc'           => $cc ?: null,
+            'bcc'          => $bcc ?: null,
+            'subject'      => $subject,
+            'body'         => $body,
+            'attachments'  => collect($files)->map(fn ($f) => ['name' => $f['name'], 'key' => $f['key']])->all(),
+            'template_id'  => $options['template_id'] ?? null,
+            'ai_generated' => (bool) ($options['ai_generated'] ?? false),
+            'status'       => ClaimCorrespondence::STATUS_SENT,
+            'sent_by'      => $adminId,
         ]);
 
         app(ClaimWorkflowService::class)->audit(
@@ -49,6 +74,78 @@ class ClaimCorrespondenceService
         );
 
         return $record;
+    }
+
+    /**
+     * Queue an email for later. The record exists immediately with status
+     * "scheduled" so the claim timeline shows what is coming, and the job
+     * flips it to sent - or to failed, where an admin can see it.
+     */
+    public function schedule(Claim $claim, string $to, string $subject, string $body, array $attachmentKeys, ?int $adminId, Carbon $when, array $options = []): ClaimCorrespondence
+    {
+        $record = $claim->correspondence()->create([
+            'direction'    => ClaimCorrespondence::DIRECTION_OUTBOUND,
+            'from_email'   => config('services.inbound.claims_display'),
+            'from_name'    => 'Unjamm Claims',
+            'to_email'     => $to,
+            'cc'           => $this->addresses($options['cc'] ?? []) ?: null,
+            'bcc'          => $this->addresses($options['bcc'] ?? []) ?: null,
+            'subject'      => $this->taggedSubject($claim, $subject),
+            'body'         => $body,
+            'attachments'  => collect($attachmentKeys)->map(fn ($key) => ['key' => $key, 'name' => $key])->all(),
+            'template_id'  => $options['template_id'] ?? null,
+            'ai_generated' => (bool) ($options['ai_generated'] ?? false),
+            'status'       => ClaimCorrespondence::STATUS_SCHEDULED,
+            'scheduled_at' => $when,
+            'sent_by'      => $adminId,
+        ]);
+
+        SendScheduledClaimEmail::dispatch($record->id, $attachmentKeys)->delay($when);
+
+        app(ClaimWorkflowService::class)->audit(
+            $claim, "Claim email scheduled for {$when->format('d M Y H:i')}", 'admin', $adminId, $subject
+        );
+
+        return $record;
+    }
+
+    /** Deliver a previously scheduled email (the queued job's body). */
+    public function deliverScheduled(ClaimCorrespondence $record, array $attachmentKeys): void
+    {
+        $claim = $record->claim;
+        $files = $this->files($claim, $attachmentKeys);
+
+        $mail = Mail::to($record->to_email);
+
+        if ($record->cc) {
+            $mail->cc($record->cc);
+        }
+
+        if ($record->bcc) {
+            $mail->bcc($record->bcc);
+        }
+
+        $mail->send(new AirlineClaimMail($claim, $record->subject, $record->body, $files));
+
+        $record->forceFill([
+            'status'      => ClaimCorrespondence::STATUS_SENT,
+            'attachments' => collect($files)->map(fn ($f) => ['name' => $f['name'], 'key' => $f['key']])->all(),
+        ])->save();
+
+        app(ClaimWorkflowService::class)->audit(
+            $claim, "Scheduled claim email sent to {$record->to_email}", 'system', $record->sent_by, $record->subject
+        );
+    }
+
+    /** @return array<int, string> valid, de-duplicated addresses */
+    private function addresses(array|string|null $input): array
+    {
+        $values = is_string($input) ? preg_split('/[,;\s]+/', $input) : (array) $input;
+
+        return collect($values)
+            ->map(fn ($email) => strtolower(trim((string) $email)))
+            ->filter(fn ($email) => $email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL))
+            ->unique()->values()->all();
     }
 
     /**
