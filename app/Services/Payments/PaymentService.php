@@ -9,6 +9,8 @@ use App\Models\Setting;
 use App\Models\User;
 use App\Notifications\PaymentEvent;
 use App\Services\Claims\AdminAlertRecipients;
+use App\Services\Notifications\AdminNotifier;
+use App\Support\Alerts\AdminAlert;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
@@ -255,25 +257,27 @@ class PaymentService
         ]);
     }
 
-    /** Email the configured operations mailboxes + in-app bell for admin users. */
+    /** Raise a payments alert - AdminNotifier owns the delivery channels. */
     public function alertAdmins(Payment $payment, string $subject, string $body): void
     {
-        foreach (AdminAlertRecipients::for(AdminAlertRecipients::TYPE_PAYMENTS) as $recipient) {
-            dispatch(function () use ($recipient, $payment, $subject, $body) {
-                send_dynamic_email($recipient['email'], 'payment-admin-alert', [
-                    '[NAME]'    => $recipient['name'],
-                    '[SUBJECT]' => $subject,
-                    '[BODY]'    => str_replace('[CLAIM]', '#' . ($payment->claim?->number ?? $payment->claim_id), $body),
-                    '[CLAIM]'   => '#' . ($payment->claim?->number ?? $payment->claim_id),
-                    '[AMOUNT]'  => $payment->money($payment->gross_amount),
-                    '[URL]'     => route('admin.flight-claims.payments'),
-                ]);
-            });
-        }
+        $claim = '#' . ($payment->claim?->number ?? $payment->claim_id);
+        $body  = str_replace('[CLAIM]', $claim, $body);
+        $url   = route('admin.flight-claims.payments');
 
-        foreach (User::role('admin')->get() as $admin) {
-            $admin->notify(new PaymentEvent($payment, $subject, str_replace('[CLAIM]', '#' . ($payment->claim?->number ?? $payment->claim_id), $body)));
-        }
+        app(AdminNotifier::class)->send(new AdminAlert(
+            type: AdminAlertRecipients::TYPE_PAYMENTS,
+            title: $subject,
+            description: $body,
+            url: $url,
+            template: 'payment-admin-alert',
+            replacements: [
+                '[SUBJECT]' => $subject,
+                '[BODY]'    => $body,
+                '[CLAIM]'   => $claim,
+                '[AMOUNT]'  => $payment->money($payment->gross_amount),
+                '[URL]'     => $url,
+            ],
+        ));
 
         $this->audit($payment, 'notification_sent', null, null, ['subject' => $subject]);
     }

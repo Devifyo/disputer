@@ -192,10 +192,11 @@
                             <span class="text-[11px] font-bold text-slate-400">{{ count(array_filter($alert_recipients, fn ($r) => trim($r['email'] ?? '') !== '')) }} configured</span>
                         </div>
                         <p class="text-xs text-slate-500 mb-3">
-                            Who gets notified when a claim needs an escalation decision or an airline replies.
-                            Tick the alerts each person should receive.
+                            Every operational alert - airline replies, escalation decisions, payments and payouts - is emailed
+                            to the mailboxes below; add as many as you need and tick what each one should receive.
+                            Admin accounts always see the same alerts in the app's notification bell.
                             @if (!array_filter($alert_recipients, fn ($r) => trim($r['email'] ?? '') !== ''))
-                                <span class="text-amber-600 font-bold">None set - alerts currently go to every admin account.</span>
+                                <span class="text-amber-600 font-bold">None set - alert emails currently go to every admin account.</span>
                             @endif
                         </p>
 

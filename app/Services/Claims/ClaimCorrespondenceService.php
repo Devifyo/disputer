@@ -5,6 +5,8 @@ namespace App\Services\Claims;
 use App\Mail\AirlineClaimMail;
 use App\Models\Claim;
 use App\Models\ClaimCorrespondence;
+use App\Services\Notifications\AdminNotifier;
+use App\Support\Alerts\AdminAlert;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
@@ -192,21 +194,24 @@ class ClaimCorrespondenceService
 
     private function alertAdmins(Claim $claim, ClaimCorrespondence $record): void
     {
-        foreach (AdminAlertRecipients::for(AdminAlertRecipients::TYPE_AIRLINE_REPLY) as $admin) {
-            try {
-                send_dynamic_email($admin['email'], 'claim-airline-reply-alert', [
-                    '[NAME]'      => $admin['name'],
-                    '[CLAIM]'     => '#' . $claim->number,
-                    '[FROM]'      => trim(($record->from_name ?? '') . ' <' . $record->from_email . '>'),
-                    '[FLIGHT]'    => trim(($claim->airline ?? '') . ' ' . ($claim->flight_number ?? '')),
-                    '[ROUTE]'     => "{$claim->departure_airport} - {$claim->arrival_airport}",
-                    '[SUBJECT]'   => (string) $record->subject,
-                    '[PREVIEW]'   => Str::limit((string) $record->body, 400),
-                    '[CLAIM_URL]' => route('admin.flight-claims.claims.show', $claim),
-                ]);
-            } catch (\Throwable $e) {
-                Log::warning('Airline reply alert failed', ['admin' => $admin->id, 'error' => $e->getMessage()]);
-            }
-        }
+        $from = trim(($record->from_name ?: '') . ' <' . $record->from_email . '>');
+        $url  = route('admin.flight-claims.claims.show', $claim);
+
+        app(AdminNotifier::class)->send(new AdminAlert(
+            type: AdminAlertRecipients::TYPE_AIRLINE_REPLY,
+            title: sprintf('New airline reply on claim #%s', $claim->number),
+            description: sprintf('%s - %s', $from, Str::limit((string) ($record->subject ?: $record->body), 120)),
+            url: $url,
+            template: 'claim-airline-reply-alert',
+            replacements: [
+                '[CLAIM]'     => '#' . $claim->number,
+                '[FROM]'      => $from,
+                '[FLIGHT]'    => trim(($claim->airline ?? '') . ' ' . ($claim->flight_number ?? '')),
+                '[ROUTE]'     => "{$claim->departure_airport} - {$claim->arrival_airport}",
+                '[SUBJECT]'   => (string) $record->subject,
+                '[PREVIEW]'   => Str::limit((string) $record->body, 400),
+                '[CLAIM_URL]' => $url,
+            ],
+        ));
     }
 }

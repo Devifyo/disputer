@@ -11,7 +11,9 @@ use App\Models\PaymentLog;
 use App\Models\Payout;
 use App\Models\PayoutTransaction;
 use App\Models\User;
+use App\Notifications\AdminAlertNotification;
 use App\Notifications\PaymentEvent;
+use App\Services\Claims\AdminAlertRecipients;
 use App\Services\Payments\PaymentService;
 use App\Services\Payments\WisePayoutService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -90,7 +92,8 @@ class PaymentModuleTest extends TestCase
 
         // The customer is told (email template + in-app), admins alerted in-app.
         Notification::assertSentTo($this->customer, PaymentEvent::class);
-        Notification::assertSentTo($this->admin, PaymentEvent::class);
+        Notification::assertSentTo($this->admin, AdminAlertNotification::class,
+            fn ($n) => $n->toDatabase($this->admin)['kind'] === AdminAlertRecipients::TYPE_PAYMENTS);
     }
 
     public function test_fee_override_requires_its_own_permission_and_keeps_history(): void

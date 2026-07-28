@@ -4,12 +4,16 @@ namespace Tests\Feature;
 
 use App\Livewire\Admin\FlightClaims\ClaimDetail;
 use App\Mail\AirlineClaimMail;
+use App\Mail\GenericEmail;
 use App\Models\Claim;
 use App\Models\ClaimCorrespondence;
 use App\Models\User;
+use App\Notifications\AdminAlertNotification;
+use App\Services\Claims\AdminAlertRecipients;
 use App\Services\Claims\ClaimCorrespondenceService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
@@ -29,7 +33,11 @@ class ClaimCorrespondenceTest extends TestCase
         parent::setUp();
 
         Mail::fake();
+        Notification::fake();
         Storage::fake('local');
+        AdminAlertRecipients::store([
+            ['name' => 'Ops', 'email' => 'ops@unjamm.com', 'alerts' => array_keys(AdminAlertRecipients::TYPES)],
+        ]);
         Role::findOrCreate('admin');
         Role::findOrCreate('user');
         config(['services.inbound.reply_domain' => 'claims.unjamm.com']);
@@ -99,6 +107,42 @@ class ClaimCorrespondenceTest extends TestCase
 
         // No new claim or user was created for the airline's address.
         $this->assertSame(1, Claim::count());
+
+        // The team hears about it on BOTH channels: the configured mailboxes
+        // by email, every admin account in the app.
+        Mail::assertSent(GenericEmail::class, fn ($mail) => $mail->hasTo('ops@unjamm.com'));
+        Notification::assertSentTo($admin, AdminAlertNotification::class, function ($notification) use ($admin, $claim) {
+            $payload = $notification->toDatabase($admin);
+
+            return $payload['kind'] === AdminAlertRecipients::TYPE_AIRLINE_REPLY
+                && str_contains($payload['title'], $claim->number)
+                && str_contains($payload['description'], 'claims@aircanada.ca');
+        });
+    }
+
+    public function test_an_alert_with_no_subscribers_still_reaches_the_admin_accounts(): void
+    {
+        $claim = $this->claim();
+        $admin = User::factory()->create(['email' => 'boss@unjamm.com']);
+        $admin->assignRole('admin');
+
+        // Recipients configured, but nobody subscribed to airline replies.
+        AdminAlertRecipients::store([
+            ['name' => 'Money', 'email' => 'finance@unjamm.com', 'alerts' => [AdminAlertRecipients::TYPE_PAYMENTS]],
+        ]);
+
+        $this->postJson('/api/webhooks/sendgrid/claims-inbound', [
+            'from'     => 'Air Canada Claims <claims@aircanada.ca>',
+            'to'       => $claim->replyAddress(),
+            'envelope' => json_encode(['to' => [$claim->replyAddress()]]),
+            'subject'  => 'Re: Compensation claim - AC1540',
+            'text'     => 'Reviewing.',
+        ])->assertOk();
+
+        // Falls back to the admin accounts rather than emailing nobody, and
+        // never leaks the alert to an unsubscribed mailbox.
+        Mail::assertSent(GenericEmail::class, fn ($mail) => $mail->hasTo('boss@unjamm.com'));
+        Mail::assertNotSent(GenericEmail::class, fn ($mail) => $mail->hasTo('finance@unjamm.com'));
     }
 
     public function test_inbound_reply_to_the_public_address_matches_by_subject_reference(): void

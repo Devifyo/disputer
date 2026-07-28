@@ -5,6 +5,8 @@ namespace App\Services\Claims;
 use App\Models\Claim;
 use App\Models\ClaimLifecycleStage;
 use App\Models\ClaimWorkflowTimer;
+use App\Services\Notifications\AdminNotifier;
+use App\Support\Alerts\AdminAlert;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
@@ -172,21 +174,23 @@ class ClaimWorkflowService
 
     private function notifyAdmins(Claim $claim, ClaimLifecycleStage $stage, string $reason): void
     {
-        foreach (AdminAlertRecipients::for(AdminAlertRecipients::TYPE_ESCALATION) as $admin) {
-            try {
-                send_dynamic_email($admin['email'], 'claim-escalation-alert', [
-                    '[NAME]'      => $admin['name'],
-                    '[CLAIM]'     => '#' . $claim->number,
-                    '[STAGE]'     => $stage->name,
-                    '[FLIGHT]'    => trim(($claim->airline ?? '') . ' ' . ($claim->flight_number ?? '')),
-                    '[ROUTE]'     => "{$claim->departure_airport} - {$claim->arrival_airport}",
-                    '[REASON]'    => $reason,
-                    '[CLAIM_URL]' => url('/admin/flight-claims/claims/' . $claim->id),
-                ]);
-            } catch (Throwable $e) {
-                Log::warning('Admin workflow notification failed', ['claim' => $claim->id, 'error' => $e->getMessage()]);
-            }
-        }
+        $url = url('/admin/flight-claims/claims/' . $claim->id);
+
+        app(AdminNotifier::class)->send(new AdminAlert(
+            type: AdminAlertRecipients::TYPE_ESCALATION,
+            title: sprintf('Claim #%s needs an escalation decision', $claim->number),
+            description: sprintf('%s - %s', $stage->name, $reason),
+            url: $url,
+            template: 'claim-escalation-alert',
+            replacements: [
+                '[CLAIM]'     => '#' . $claim->number,
+                '[STAGE]'     => $stage->name,
+                '[FLIGHT]'    => trim(($claim->airline ?? '') . ' ' . ($claim->flight_number ?? '')),
+                '[ROUTE]'     => "{$claim->departure_airport} - {$claim->arrival_airport}",
+                '[REASON]'    => $reason,
+                '[CLAIM_URL]' => $url,
+            ],
+        ));
     }
 
     private function notifyCustomer(Claim $claim, ClaimLifecycleStage $stage): void

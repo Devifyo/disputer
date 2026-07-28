@@ -501,6 +501,23 @@ subscriptions; permissioned beyond the admin role.
   cards stay clean at any volume.
   Admin sidebar bell icon inlined as SVG (the lucide JS replacement was
   lost inside the nested Livewire component).
+- Admin notifications unified (email + in-app for EVERY alert type):
+  new `AdminNotifier` service is the single delivery point - services now
+  raise an `AdminAlert` value object (type, title, description, url,
+  email template + placeholders) and the notifier decides who hears it
+  and how: queued template emails to the recipients configured per alert
+  type in Admin -> Settings -> Flight Claims (multiple mailboxes, each
+  subscribed to what it cares about, falling back to the admin accounts
+  when nobody subscribes) PLUS an in-app bell notification
+  (`AdminAlertNotification`) for every admin account. Airline replies and
+  escalation decisions previously emailed only - they now ring the bell
+  too; payments alerts moved off the payment-specific notification onto
+  the shared one. Adding a channel (Slack/SMS) is a change to
+  AdminNotifier alone; adding an alert type is a new entry in
+  AdminAlertRecipients::TYPES, which the settings UI renders
+  automatically. Emails are queued, so inbound-webhook handling never
+  blocks on SMTP, and a failed send is logged with the mailbox (it used
+  to log `$admin->id` on an array).
 - Expense reimbursements are fee-free (business rule from the client):
   payments carry expenses_amount - the part of the gross that reimburses
   out-of-pocket receipts. The success fee is computed on

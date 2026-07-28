@@ -188,6 +188,14 @@ Status keys: **Done** (built, tested, verified in production) ·
 
 Newest first. One line per session: what changed, what it unblocked.
 
+- **2026-07-28** - Admin notifications unified behind one `AdminNotifier`
+  (AdminAlert value object -> queued template emails to the configured
+  recipient mailboxes + in-app bell for every admin). Airline replies and
+  escalation decisions now notify in-app as well as by email, and all three
+  alert types share one delivery path, so multi-mailbox routing configured
+  in Settings -> Flight Claims applies to every admin notification. Full
+  suite 276 passing.
+
 - **2026-07-27** - Payout destination made customer-owned: default bank
   account (auto on first save, switchable by the customer), admin drafter
   shows it read-only, "Request bank details" button notifies customers who
