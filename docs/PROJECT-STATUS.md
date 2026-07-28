@@ -1,6 +1,6 @@
 # Unjamm - project status
 
-**Last updated: 2026-07-27**
+**Last updated: 2026-07-28**
 
 Living delivery tracker: what is built, what is partial, what is not started,
 and what is blocked on someone else. Claude Code updates this file at the end
@@ -125,7 +125,10 @@ Status keys: **Done** (built, tested, verified in production) ·
 
 | Item | Status | Notes |
 |---|---|---|
-| Flight Claims group (trips, claims, lifecycle, airlines) | Done | |
+| Flight Claims group (trips, claims, passengers, lifecycle, airlines) | Done | |
+| Passenger management | Done | Directory merging signature rosters, ticket passengers, claims and trips into one profile per person; attention filters + per-person signature fixes (audited) |
+| Airline claims dashboard (KPIs/charts) | Partial | Claims page is a filterable worklist with a review counter - no stat tiles or trend charts yet |
+| Flight monitoring dashboard (KPIs/charts) | Partial | Protected Trips list + detail drawer with monitoring events - no roll-up metrics yet |
 | Claim detail page | Done | Composer, drafts, workflow actions, timeline, audit, correspondence |
 | Styled confirm modal (no native dialogs) | Done | `x-admin.confirm` |
 | Per-button loading spinners | Done | Parameterised `wire:target` |
@@ -187,6 +190,13 @@ Status keys: **Done** (built, tested, verified in production) ·
 ## Session log
 
 Newest first. One line per session: what changed, what it unblocked.
+
+- **2026-07-28** - Passenger management built (Flight Claims -> Passengers):
+  a directory that merges signature rosters, ticket passenger lists, claim
+  passengers and monitored trips into one profile per person, with search,
+  attention filters (awaiting signature / no email on file / minors) and
+  per-person signature fixes (correct email + send, resend, copy link),
+  audited on the claim. Closes the "Passenger management" admin gap.
 
 - **2026-07-28** - Admin notifications unified behind one `AdminNotifier`
   (AdminAlert value object -> queued template emails to the configured

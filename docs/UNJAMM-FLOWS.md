@@ -3,7 +3,7 @@
 Living documentation of the flight-dispute module: how the flows work, where
 the code lives, and what changed. **Update this file whenever a flow changes.**
 
-Last updated: 2026-07-27
+Last updated: 2026-07-28
 
 ---
 
@@ -501,6 +501,27 @@ subscriptions; permissioned beyond the admin role.
   cards stay clean at any volume.
   Admin sidebar bell icon inlined as SVG (the lucide JS replacement was
   lost inside the nested Livewire component).
+- Passenger management (Flight Claims -> Passengers): passengers are not
+  a table - a person appears as a signature-roster entry, a name on a
+  parsed ticket, a claim's lead passenger and a monitored trip - so
+  `PassengerDirectory` merges those records into one profile per human
+  and owns the identity rule: a SIGNER's own email address first (name
+  variants like "T. Hagyal" merge onto it), then the normalised name. A
+  claim's contact email counts as identity only on a single-passenger
+  claim, and the account holder's email never does - otherwise every
+  passenger on a family booking would fuse into one person (both caught
+  by tests). Guardians and the minors they sign for each get their own
+  linked profile.
+  The screen: counter tiles that double as filters (people / awaiting
+  signature / no email on file / minors), search across name, email,
+  claim number, reference and flight, and a drawer per person showing
+  their signatures, claims (with compensation totals), monitored trips
+  and signed POAs. Admin actions where support actually gets stuck:
+  correct a signer's email and send in one click, resend the signature
+  request, or copy the signing link to share another way - all through
+  ClaimSignatureService::invite() and written to the claim's audit log.
+  Scale note: the merge runs in PHP over the claim book; materialise it
+  into a table if that stops fitting in memory.
 - Admin notifications unified (email + in-app for EVERY alert type):
   new `AdminNotifier` service is the single delivery point - services now
   raise an `AdminAlert` value object (type, title, description, url,

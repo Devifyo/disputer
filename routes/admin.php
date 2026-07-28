@@ -12,6 +12,7 @@ use App\Livewire\Admin\SuccessStories\Index as SuccessStoriesIndex;
 use App\Livewire\Admin\Plans\Index as AdminPlans;
 use App\Livewire\Admin\Support\Index as SupportIndex;
 use App\Livewire\Admin\TripReviews\Index as TripReviewsIndex;
+use App\Livewire\Admin\FlightClaims\Passengers as FlightClaimsPassengers;
 use App\Livewire\Admin\FlightClaims\Trips as FlightClaimsTrips;
 use App\Livewire\Admin\FlightClaims\Claims as FlightClaimsClaims;
 use App\Livewire\Admin\FlightClaims\ClaimDetail as FlightClaimsClaimDetail;
@@ -35,6 +36,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role_access:admin']
     Route::get('/trip-reviews', TripReviewsIndex::class)->name('trip-reviews.index');
     Route::get('/flight-claims/trips', FlightClaimsTrips::class)->name('flight-claims.trips');
     Route::get('/flight-claims/claims', FlightClaimsClaims::class)->name('flight-claims.claims');
+    Route::get('/flight-claims/passengers', FlightClaimsPassengers::class)->name('flight-claims.passengers');
     Route::get('/flight-claims/lifecycle', FlightClaimsLifecycle::class)->name('flight-claims.lifecycle');
     Route::get('/flight-claims/airlines', FlightClaimsAirlines::class)->name('flight-claims.airlines');
     Route::get('/flight-claims/subscriptions', FlightClaimsSubscriptions::class)->name('flight-claims.subscriptions');
