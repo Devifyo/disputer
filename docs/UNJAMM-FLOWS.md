@@ -542,6 +542,16 @@ subscriptions; permissioned beyond the admin role.
   own drafts (labelled "Airline reply - X" vs "Unjamm - ..."), so a
   follow-up is written against what the airline actually said rather
   than only against our previous letters.
+- Admin dashboard rebuilt around the flight product: Total Cases /
+  Escalated / Total Earnings / Recent Cases (all retired case-module
+  figures) replaced by Total Claims (with a "N need review" hint),
+  Protected Trips (with actively-monitored count), Fees Earned (the
+  success-fee share of PAID payments, per currency) and a Recent Claims
+  table using the same stage badges as the claims list - every card
+  links into its module. Stats live in
+  `App\Services\Dashboard\AdminDashboard` (controller only renders,
+  mirroring the customer FlightDashboard); the blade imports via @use,
+  no inline FQCNs.
 - Customer claim list follows the JOURNEY, not the verdict (client caught
   a paid claim still badged "Eligible for Compensation"): eligibility is
   decided once and never changes, so it cannot be the badge on its own.

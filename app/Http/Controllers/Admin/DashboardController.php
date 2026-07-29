@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Services\Dashboard\AdminDashboard;
+
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\User;
@@ -14,30 +16,12 @@ class DashboardController extends Controller
     /**
      * Display the admin dashboard.
      */
-    public function index()
-    {   
-
-        $totalEarnings = UserSubscription::join('plans', 'user_subscriptions.plan_id', '=', 'plans.id')
-            ->whereNotNull('user_subscriptions.transaction_id')
-            ->sum('plans.price');
-
-        $stats = [
-            'total_users' => User::customers()->count(),
-            'total_cases' => Cases::count(),
-            'total_earnings' => $totalEarnings, // <-- Replaced pending_cases with this
-            'resolved_today' => Cases::where('status', CaseStatus::RESOLVED)
-                                ->whereDate('updated_at', today())
-                                ->count(),
-            'escalated_cases' => Cases::where('status', CaseStatus::ESCALATED)->count(),
-        ];
-
-        // Fetch recent 10 users
-        $recentUsers = User::latest()->take(10)->get();
-        
-        // Fetch recent 10 cases with their owning user
-        $recentCases = Cases::with('user')->latest()->take(10)->get();
-
-        return view('admin.dashboard', compact('stats', 'recentUsers', 'recentCases'));
+    public function index(AdminDashboard $dashboard)
+    {
+        // The dashboard follows the flight product: claims, protected trips
+        // and the fees they earn. The retired case-management figures (Cases
+        // counts, subscription earnings) left with that module.
+        return view('admin.dashboard', $dashboard->overview());
     }
 
     /**
