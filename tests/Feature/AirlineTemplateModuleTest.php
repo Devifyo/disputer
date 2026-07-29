@@ -73,10 +73,9 @@ class AirlineTemplateModuleTest extends TestCase
         ]);
     }
 
-    private function template(array $overrides = []): AirlineEmailTemplate
+    private function template(array $overrides = [], ?array $airlineIds = null): AirlineEmailTemplate
     {
-        return AirlineEmailTemplate::create(array_merge([
-            'airline_id' => $this->airline->id,
+        $template = AirlineEmailTemplate::create(array_merge([
             'name'       => 'Air Canada - initial claim',
             'type'       => AirlineEmailTemplate::TYPE_INITIAL,
             'subject'    => 'Claim {{claim_reference}} - flight {{flight_number}}',
@@ -84,6 +83,11 @@ class AirlineTemplateModuleTest extends TestCase
             'is_default' => true,
             'is_active'  => true,
         ], $overrides));
+
+        // null = this airline; [] = every airline (house template).
+        $template->airlines()->sync($airlineIds ?? [$this->airline->id]);
+
+        return $template->load('airlines');
     }
 
     // ── Rendering ───────────────────────────────────────────
@@ -121,7 +125,8 @@ class AirlineTemplateModuleTest extends TestCase
     {
         Livewire::actingAs($this->admin)->test(AdminTemplates::class)
             ->call('create')
-            ->set('form.airline_id', $this->airline->id)
+            ->set('form.all', false)
+            ->set('form.airlines', [$this->airline->id])
             ->set('form.name', 'Air Canada - follow up')
             ->set('form.type', AirlineEmailTemplate::TYPE_FOLLOW_UP)
             ->set('form.subject', 'Following up on {{claim_reference}}')
@@ -148,8 +153,8 @@ class AirlineTemplateModuleTest extends TestCase
 
         $this->assertTrue($second->fresh()->is_default);
         $this->assertFalse($first->fresh()->is_default);
-        $this->assertSame(1, AirlineEmailTemplate::where('airline_id', $this->airline->id)
-            ->where('type', AirlineEmailTemplate::TYPE_INITIAL)->where('is_default', true)->count());
+        $this->assertSame(1, AirlineEmailTemplate::where('type', AirlineEmailTemplate::TYPE_INITIAL)
+            ->where('is_default', true)->count());
     }
 
     public function test_duplicating_produces_an_inactive_non_default_copy(): void
@@ -355,5 +360,127 @@ class AirlineTemplateModuleTest extends TestCase
         // And the drafting context carries the thread, not just our letters.
         $history = (fn () => $this->correspondenceHistory())->call($component->instance());
         $this->assertNotEmpty(collect($history)->firstWhere('label', 'Airline reply - Air Canada Claims'));
+    }
+
+    public function test_a_template_can_cover_several_airlines_or_all_of_them(): void
+    {
+        $lufthansa = Airline::firstOrCreate(['iata_code' => 'LH'], ['name' => 'Lufthansa', 'is_active' => true]);
+
+        $shared = $this->template(['name' => 'EU carriers - initial', 'is_default' => false], [$this->airline->id, $lufthansa->id]);
+        $house  = $this->template(['name' => 'House - initial', 'is_default' => false], []);
+
+        $this->assertSame('Air Canada, Lufthansa', $shared->reachLabel());
+        $this->assertTrue($house->appliesToAll());
+        $this->assertSame('All airlines', $house->reachLabel());
+
+        // Both are offered for either airline...
+        $forAC = AirlineEmailTemplate::forAirline($this->airline)->pluck('id');
+        $this->assertTrue($forAC->contains($shared->id));
+        $this->assertTrue($forAC->contains($house->id));
+
+        // ...and a house template also covers an airline nobody targeted.
+        $other = Airline::firstOrCreate(['iata_code' => 'BA'], ['name' => 'British Airways', 'is_active' => true]);
+        $forBA = AirlineEmailTemplate::forAirline($other)->pluck('id');
+        $this->assertFalse($forBA->contains($shared->id));
+        $this->assertTrue($forBA->contains($house->id));
+    }
+
+    public function test_an_airline_specific_template_beats_a_house_one(): void
+    {
+        $this->template(['name' => 'House - initial', 'is_default' => true], []);
+        $specific = $this->template(['name' => 'Air Canada - initial', 'is_default' => false], [$this->airline->id]);
+
+        $chosen = AirlineEmailTemplate::defaultFor($this->airline, AirlineEmailTemplate::TYPE_INITIAL);
+
+        $this->assertSame($specific->id, $chosen->id, 'The airline\'s own wording wins over the house letter.');
+    }
+
+    public function test_nothing_can_be_sent_to_an_airline_before_the_customer_authorises_it(): void
+    {
+        // Eligible, but the customer has not confirmed and nothing is signed -
+        // our letters assert a signed authority is attached, so sending would
+        // be a false statement to the airline.
+        $claim = Claim::create([
+            'user_id' => $this->customer->id, 'status' => Claim::STATUS_ELIGIBLE, 'workflow_state' => 'draft',
+            'airline' => 'Air Canada', 'flight_number' => 'AC1540', 'departure_airport' => 'YYZ',
+            'arrival_airport' => 'IAD', 'flight_date' => '2026-07-10', 'passenger_name' => 'Tenzin Hagyal',
+            'compensation_amount' => '400.00', 'compensation_currency' => 'CAD',
+        ]);
+
+        [$allowed, $reason] = $claim->canContactAirline();
+        $this->assertFalse($allowed);
+        $this->assertStringContainsString('not confirmed', $reason);
+
+        Livewire::actingAs($this->admin)->test(AdminClaimDetail::class, ['claim' => $claim])
+            ->set('to', 'claims@aircanada.ca')
+            ->set('subject', 'Compensation claim')
+            ->set('body', str_repeat('The body of the claim letter. ', 5))
+            ->call('send');
+
+        Mail::assertNothingSent();
+        $this->assertSame(0, $claim->correspondence()->count());
+
+        // Confirmed but still unsigned: still blocked, and the reason says so.
+        $claim->forceFill(['confirmed_at' => now()])->save();
+        $claim->signers()->create([
+            'name' => 'Tenzin Hagyal', 'email' => 't@example.com',
+            'role' => \App\Models\ClaimSigner::ROLE_PASSENGER, 'status' => \App\Models\ClaimSigner::STATUS_PENDING,
+        ]);
+
+        [$allowed, $reason] = $claim->fresh()->canContactAirline();
+        $this->assertFalse($allowed);
+        $this->assertStringContainsString('0 of 1 signatures', $reason);
+
+        // Everyone has signed - now it may go.
+        $claim->signers()->update(['status' => \App\Models\ClaimSigner::STATUS_SIGNED, 'signed_at' => now()]);
+        [$allowed] = $claim->fresh()->load('signers')->canContactAirline();
+        $this->assertTrue($allowed);
+    }
+
+    public function test_the_admin_can_nudge_the_customer_by_email_and_in_app_once_a_day(): void
+    {
+        \Illuminate\Support\Facades\Notification::fake();
+
+        $claim = Claim::create([
+            'user_id' => $this->customer->id, 'status' => Claim::STATUS_ELIGIBLE, 'workflow_state' => 'draft',
+            'airline' => 'Air Canada', 'flight_number' => 'AC1540', 'departure_airport' => 'YYZ',
+            'arrival_airport' => 'IAD', 'flight_date' => '2026-07-10', 'passenger_name' => 'Tenzin Hagyal',
+            'compensation_amount' => '400.00', 'compensation_currency' => 'CAD',
+        ]);
+
+        $component = Livewire::actingAs($this->admin)->test(AdminClaimDetail::class, ['claim' => $claim]);
+
+        // Unconfirmed claim: the nudge asks them to confirm.
+        $this->assertSame(\App\Notifications\ClaimActionNeeded::ACTION_CONFIRM, $component->instance()->customerAction()[0]);
+
+        $component->call('remindCustomer');
+
+        \Illuminate\Support\Facades\Notification::assertSentTo($this->customer, \App\Notifications\ClaimActionNeeded::class,
+            function ($notification) {
+                $payload = $notification->toDatabase($this->customer);
+
+                // Both channels, one message.
+                return in_array('mail', $notification->via($this->customer), true)
+                    && in_array('database', $notification->via($this->customer), true)
+                    && str_contains($payload['title'], 'Confirm');
+            });
+
+        $this->assertNotNull($claim->fresh()->reminded_at);
+        $this->assertTrue($claim->auditLogs()->where('action', 'like', 'Customer reminded%')->exists());
+
+        // A second nudge the same day is refused - a repeat reads as a fault.
+        \Illuminate\Support\Facades\Notification::fake();
+        Livewire::actingAs($this->admin)->test(AdminClaimDetail::class, ['claim' => $claim->fresh()])->call('remindCustomer');
+        \Illuminate\Support\Facades\Notification::assertNothingSent();
+
+        // Once confirmed but unsigned, the nudge switches to signing.
+        $claim->forceFill(['confirmed_at' => now(), 'reminded_at' => null])->save();
+        $claim->signers()->create([
+            'name' => 'Tenzin Hagyal', 'email' => 't@example.com',
+            'role' => \App\Models\ClaimSigner::ROLE_PASSENGER, 'status' => \App\Models\ClaimSigner::STATUS_PENDING,
+        ]);
+
+        $fresh = Livewire::actingAs($this->admin)->test(AdminClaimDetail::class, ['claim' => $claim->fresh()]);
+        $this->assertSame(\App\Notifications\ClaimActionNeeded::ACTION_SIGN, $fresh->instance()->customerAction()[0]);
     }
 }

@@ -539,6 +539,40 @@ subscriptions; permissioned beyond the admin role.
   own drafts (labelled "Airline reply - X" vs "Unjamm - ..."), so a
   follow-up is written against what the airline actually said rather
   than only against our previous letters.
+- "Remind customer" on the admin claim header: when a claim waits on the
+  customer, one button nudges them by EMAIL (admin-editable templates
+  `claim-confirm-reminder` / `claim-sign-reminder`, each with the amount,
+  flight and a deep link straight to the confirm or sign step) AND in the
+  app bell (`ClaimActionNeeded`, both channels, same wording). The button
+  knows which step is outstanding and labels itself accordingly. Rate
+  limited to once every 24h (claims.reminded_at) - the button then reads
+  "Reminded 3 hours ago" and is disabled, because a reminder that arrives
+  twice reads as a fault, not urgency. Every nudge writes an audit entry
+  and a customer-visible timeline step.
+- Authorisation gate on airline emails (client caught it): the composer
+  let an admin send a claim letter while the claim was still "Awaiting
+  confirmation" with 0/1 signatures - and our letters state that a signed
+  authority is attached, so that would have been a false assertion to the
+  airline. `Claim::canContactAirline()` now returns [allowed, reason]:
+  blocked unless the claim is eligible, CONFIRMED by the customer and
+  every signature is in. Claims already at ready_to_file or beyond pass
+  through, so follow-ups and escalations keep working. The Send button is
+  disabled with the reason shown above it ("You can draft and save now -
+  sending unlocks by itself"), and send() refuses server-side regardless
+  of the UI. Regression-tested through all three states.
+- Templates reach MANY airlines (client asked): scope moved from a single
+  `airline_id` to a pivot with one rule - NO airlines attached means every
+  airline (a "house" template), one or more means exactly those. The
+  editor has an "All airlines" tick plus a multi-select list; the list
+  shows an ALL AIRLINES chip or "Air Canada, Lufthansa +2". Resolution
+  (`AirlineEmailTemplate::defaultFor` / `scopeForAirline`): an
+  airline-specific template always beats a house one, then the marked
+  default, then the most recently edited - so the AI and the composer
+  both fall back gracefully for carriers with no template of their own.
+  The composer addresses the letter using the CLAIM's airline contact
+  (a template may cover several). One default per letter type is now
+  enforced in the service across overlapping reach, since the old unique
+  index was scoped to a single airline.
 - Airline email templates + hybrid composer (Flight Claims -> Claim
   Templates): per-airline letters typed as initial claim / follow up /
   escalation / final notice / custom, each with subject, body,

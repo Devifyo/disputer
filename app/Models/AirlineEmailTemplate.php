@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 /**
  * A reusable claim letter for one airline. Admins can send one verbatim
@@ -37,7 +38,7 @@ class AirlineEmailTemplate extends Model
     ];
 
     protected $fillable = [
-        'airline_id', 'name', 'type', 'subject', 'body',
+        'name', 'type', 'subject', 'body',
         'is_default', 'is_active', 'created_by', 'updated_by',
     ];
 
@@ -60,9 +61,32 @@ class AirlineEmailTemplate extends Model
         $this->attributes['is_default'] = $value ? 1 : null;
     }
 
-    public function airline(): BelongsTo
+    /**
+     * Which airlines this letter is for. THE RULE: none attached means every
+     * airline (a house template); one or more means exactly those.
+     */
+    public function airlines(): BelongsToMany
     {
-        return $this->belongsTo(Airline::class);
+        return $this->belongsToMany(Airline::class, 'airline_email_template_airline');
+    }
+
+    public function appliesToAll(): bool
+    {
+        return $this->airlines->isEmpty();
+    }
+
+    /** Who this template covers, in words. */
+    public function reachLabel(): string
+    {
+        if ($this->appliesToAll()) {
+            return 'All airlines';
+        }
+
+        $names = $this->airlines->pluck('name');
+
+        return $names->count() <= 2
+            ? $names->implode(', ')
+            : $names->take(2)->implode(', ') . ' +' . ($names->count() - 2);
     }
 
     public function author(): BelongsTo
@@ -91,21 +115,35 @@ class AirlineEmailTemplate extends Model
         return self::TYPE_PURPOSE[$this->type] ?? 'claims';
     }
 
+    /** Templates usable for an airline: its own, plus the house ones. */
+    public function scopeForAirline(Builder $query, ?Airline $airline): Builder
+    {
+        return $query->where(function (Builder $q) use ($airline) {
+            $q->whereDoesntHave('airlines');   // house template - fits any airline
+
+            if ($airline) {
+                $q->orWhereHas('airlines', fn (Builder $a) => $a->whereKey($airline->id));
+            }
+        });
+    }
+
     /**
      * The template an admin (or the AI) should start from for this airline
-     * and letter type: the marked default, else the most recent active one.
+     * and letter type. An airline-specific template always beats a house one,
+     * then the marked default, then the most recently edited.
      */
     public static function defaultFor(?Airline $airline, string $type): ?self
     {
-        if (!$airline) {
-            return null;
-        }
-
-        return static::where('airline_id', $airline->id)
+        return static::with('airlines')
             ->where('type', $type)
             ->active()
-            ->orderByDesc('is_default')
-            ->latest('updated_at')
+            ->forAirline($airline)
+            ->get()
+            ->sortBy([
+                fn (self $t) => $t->appliesToAll() ? 1 : 0,   // specific first
+                fn (self $t) => $t->is_default ? 0 : 1,
+                fn (self $t) => -$t->updated_at->timestamp,
+            ])
             ->first();
     }
 }

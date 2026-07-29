@@ -34,7 +34,7 @@
                         <thead>
                             <tr class="text-left text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-100">
                                 <th class="px-4 py-3 font-bold">Template</th>
-                                <th class="px-4 py-3 font-bold">Airline</th>
+                                <th class="px-4 py-3 font-bold">Applies to</th>
                                 <th class="px-4 py-3 font-bold">Type</th>
                                 <th class="px-4 py-3 font-bold">Subject</th>
                                 <th class="px-4 py-3 font-bold">Status</th>
@@ -51,7 +51,13 @@
                                         @endif
                                         <p class="text-[11px] text-slate-400">{{ $template->author?->name ?? 'system' }} · {{ $template->updated_at->format('d M Y') }}</p>
                                     </td>
-                                    <td class="px-4 py-3.5 text-slate-600">{{ $template->airline?->name ?? '-' }}</td>
+                                    <td class="px-4 py-3.5">
+                                        @if ($template->appliesToAll())
+                                            <span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-black bg-sky-100 text-sky-700">ALL AIRLINES</span>
+                                        @else
+                                            <span class="text-slate-600 text-[13px]" title="{{ $template->airlines->pluck('name')->implode(', ') }}">{{ $template->reachLabel() }}</span>
+                                        @endif
+                                    </td>
                                     <td class="px-4 py-3.5">
                                         <span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-100 text-slate-600">{{ strtoupper($template->typeLabel()) }}</span>
                                     </td>
@@ -117,13 +123,11 @@
                 </div>
 
                 <div class="grid sm:grid-cols-2 gap-3">
-                    <div>
-                        <label class="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">Airline</label>
-                        <select wire:model="form.airline_id" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm outline-none">
-                            <option value="">Choose an airline…</option>
-                            @foreach ($airlines as $airline) <option value="{{ $airline->id }}">{{ $airline->name }}</option> @endforeach
-                        </select>
-                        @error('form.airline_id') <span class="text-rose-500 text-[10px] font-bold">{{ $message }}</span> @enderror
+                    <div class="sm:col-span-2">
+                        <label class="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">Template name</label>
+                        <input type="text" wire:model="form.name" placeholder="e.g. Air Canada - initial claim"
+                               class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:border-primary-500 outline-none">
+                        @error('form.name') <span class="text-rose-500 text-[10px] font-bold">{{ $message }}</span> @enderror
                     </div>
                     <div>
                         <label class="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">Template type</label>
@@ -131,12 +135,64 @@
                             @foreach ($types as $key => $label) <option value="{{ $key }}">{{ $label }}</option> @endforeach
                         </select>
                     </div>
-                    <div class="sm:col-span-2">
-                        <label class="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">Template name</label>
-                        <input type="text" wire:model="form.name" placeholder="e.g. Air Canada - initial claim"
-                               class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:border-primary-500 outline-none">
-                        @error('form.name') <span class="text-rose-500 text-[10px] font-bold">{{ $message }}</span> @enderror
+                    {{-- Reach: a clear choice first, then a searchable picker with
+                         the selection visible as chips - a bare scroll list is
+                         unusable once there are fifty airlines. --}}
+                    <div class="sm:col-span-2" x-data="{ q: '' }">
+                        <label class="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">Applies to</label>
+
+                        <div class="inline-flex items-center gap-1 bg-slate-100 rounded-xl p-1 mb-2">
+                            <button type="button" wire:click="$set('form.all', true)"
+                                    class="px-3.5 py-1.5 rounded-lg text-[12px] font-bold transition-all {{ ($form['all'] ?? false) ? 'bg-white shadow text-slate-900' : 'text-slate-500 hover:text-slate-800' }}">
+                                All airlines
+                            </button>
+                            <button type="button" wire:click="$set('form.all', false)"
+                                    class="px-3.5 py-1.5 rounded-lg text-[12px] font-bold transition-all {{ ($form['all'] ?? false) ? 'text-slate-500 hover:text-slate-800' : 'bg-white shadow text-slate-900' }}">
+                                Specific airlines
+                                @if (count($form['airlines'] ?? []) && !($form['all'] ?? false))
+                                    <span class="ml-1 px-1.5 py-0.5 rounded-full bg-slate-900 text-white text-[10px] font-black">{{ count($form['airlines']) }}</span>
+                                @endif
+                            </button>
+                        </div>
+
+                        @if ($form['all'] ?? false)
+                            <p class="text-[12px] text-slate-500">This house letter is offered for every airline - an airline-specific template still wins where one exists.</p>
+                        @else
+                            @php $chosen = $airlines->whereIn('id', $form['airlines'] ?? []); @endphp
+
+                            @if ($chosen->isNotEmpty())
+                                <div class="flex flex-wrap gap-1.5 mb-2">
+                                    @foreach ($chosen as $picked)
+                                        <button type="button" wire:click="removeAirline({{ $picked->id }})"
+                                                class="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-lg bg-slate-900 text-white text-[11px] font-bold">
+                                            {{ $picked->name }}
+                                            <svg class="w-3 h-3 opacity-60 hover:opacity-100" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                                        </button>
+                                    @endforeach
+                                    <button type="button" wire:click="$set('form.airlines', [])"
+                                            class="text-[11px] font-bold text-slate-400 hover:text-rose-600 px-2">Clear</button>
+                                </div>
+                            @endif
+
+                            <div class="rounded-xl border border-slate-200 overflow-hidden">
+                                <input type="search" x-model="q" placeholder="Search airlines…"
+                                       class="w-full px-3.5 py-2.5 text-sm border-b border-slate-100 outline-none focus:bg-slate-50/50">
+                                <div class="max-h-48 overflow-y-auto divide-y divide-slate-50">
+                                    @foreach ($airlines as $airline)
+                                        <label x-show="q === '' || @js(strtolower($airline->name . ' ' . $airline->iata_code)).includes(q.toLowerCase())"
+                                               class="flex items-center gap-2.5 px-3.5 py-2 text-sm cursor-pointer hover:bg-slate-50">
+                                            <input type="checkbox" value="{{ $airline->id }}" wire:model.live="form.airlines"
+                                                   class="rounded border-slate-300 text-slate-900 focus:ring-slate-900">
+                                            <span class="text-slate-700">{{ $airline->name }}</span>
+                                            @if ($airline->iata_code)<span class="text-[11px] font-mono text-slate-400">{{ $airline->iata_code }}</span>@endif
+                                        </label>
+                                    @endforeach
+                                </div>
+                            </div>
+                            @error('form.airlines') <span class="text-rose-500 text-[10px] font-bold mt-1 block">{{ $message }}</span> @enderror
+                        @endif
                     </div>
+
                     <div class="sm:col-span-2">
                         <label class="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">Subject</label>
                         <input type="text" wire:model="form.subject"
@@ -195,7 +251,7 @@
                         <h3 class="font-bold text-slate-900">{{ $preview['template']->name }}</h3>
                         <p class="text-[11px] text-slate-400">
                             @if ($preview['claim'])
-                                Variables filled from claim #{{ $preview['claim']->number }}
+                                {{ $preview['template']->reachLabel() }} · variables filled from claim #{{ $preview['claim']->number }}
                             @else
                                 No claim to preview against - variables stay unresolved
                             @endif

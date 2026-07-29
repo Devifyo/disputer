@@ -8,6 +8,7 @@ use App\Models\AirlineEmailTemplate;
 use App\Models\Claim;
 use App\Models\ClaimCorrespondence;
 use App\Models\ClaimDraft;
+use App\Notifications\ClaimActionNeeded;
 use App\Models\ClaimExpense;
 use App\Models\Setting;
 use App\Services\Claims\ClaimCorrespondenceService;
@@ -49,6 +50,7 @@ class ClaimDetail extends Component
     public string $cc = '';
     public string $bcc = '';
     public string $scheduleAt = '';
+    public bool $scheduling = false;
     public bool $showPreview = false;
     public bool $aiGenerated = false;
 
@@ -243,9 +245,82 @@ class ClaimDetail extends Component
      * back on this claim automatically. A first send while the claim is
      * ready to file IS the filing - the workflow moves with it.
      */
+    /**
+     * What the customer still has to do, if anything - drives the reminder
+     * button and what the reminder actually says.
+     *
+     * @return array{0: ?string, 1: ?string} [action, human label]
+     */
+    public function customerAction(): array
+    {
+        if ($this->claim->status !== Claim::STATUS_ELIGIBLE) {
+            return [null, null];
+        }
+
+        if (!$this->claim->confirmed_at) {
+            return [ClaimActionNeeded::ACTION_CONFIRM, 'confirm the claim'];
+        }
+
+        if (!$this->claim->signaturesComplete() && $this->claim->signers->isNotEmpty()) {
+            return [ClaimActionNeeded::ACTION_SIGN, 'sign the authorisation'];
+        }
+
+        return [null, null];
+    }
+
+    /**
+     * Nudge the customer by email AND in-app. Rate-limited to once a day:
+     * a reminder that arrives twice reads as a system fault, not urgency.
+     */
+    public function remindCustomer(ClaimWorkflowService $workflow): void
+    {
+        [$action, $label] = $this->customerAction();
+
+        if (!$action) {
+            $this->dispatch('toast', ['type' => 'error', 'message' => 'Nothing is waiting on the customer for this claim.']);
+
+            return;
+        }
+
+        if ($this->claim->reminded_at && $this->claim->reminded_at->gt(now()->subDay())) {
+            $this->dispatch('toast', [
+                'type'    => 'error',
+                'message' => 'Already reminded ' . $this->claim->reminded_at->diffForHumans() . ' - give them a day before nudging again.',
+            ]);
+
+            return;
+        }
+
+        $recipient = $this->claim->user;
+
+        if (!$recipient) {
+            $this->dispatch('toast', ['type' => 'error', 'message' => 'This claim has no customer account to notify.']);
+
+            return;
+        }
+
+        $recipient->notify(new ClaimActionNeeded($this->claim, $action));
+
+        $this->claim->forceFill(['reminded_at' => now()])->save();
+        $workflow->audit($this->claim, 'Customer reminded to ' . $label, 'admin', auth()->id(), $recipient->email);
+        $this->claim->recordEvent('We sent you a reminder to ' . $label, 'pending', now(), 2);
+
+        $this->claim->refresh()->load(['user', 'signers', 'itinerary.passengers', 'events', 'expenses']);
+        $this->dispatch('toast', ['type' => 'success', 'message' => "Reminder sent to {$recipient->email} - and it's in their notifications."]);
+    }
+
     public function send(ClaimCorrespondenceService $correspondence, ClaimWorkflowService $workflow): void
     {
         abort_unless(auth()->user()->can('claim_emails.send'), 403);
+
+        // Never write to an airline on a claim we are not yet authorised to act on.
+        [$allowed, $reason] = $this->claim->canContactAirline();
+
+        if (!$allowed) {
+            $this->dispatch('toast', ['type' => 'error', 'message' => $reason]);
+
+            return;
+        }
 
         $this->validate([
             'to'         => 'required|email|max:190',
@@ -283,6 +358,7 @@ class ClaimDetail extends Component
 
             $this->showPreview = false;
             $this->scheduleAt  = '';
+            $this->scheduling  = false;
             $this->claim->refresh()->load(['user', 'signers', 'itinerary.passengers', 'events', 'expenses']);
             $this->dispatch('toast', ['type' => 'success', 'message' => "Scheduled - it will go to {$this->to} automatically."]);
 
@@ -479,12 +555,12 @@ class ClaimDetail extends Component
     /** Templates this claim's airline offers, newest default first. */
     public function airlineTemplates()
     {
-        $airline = $this->airlineRecord();
-
-        return $airline
-            ? AirlineEmailTemplate::where('airline_id', $airline->id)->active()
-                ->orderByDesc('is_default')->orderBy('type')->get()
-            : collect();
+        // This airline's own templates plus the house ones that fit any airline.
+        return AirlineEmailTemplate::with('airlines')
+            ->active()
+            ->forAirline($this->airlineRecord())
+            ->orderByDesc('is_default')->orderBy('type')
+            ->get();
     }
 
     /**
@@ -493,7 +569,7 @@ class ClaimDetail extends Component
      */
     public function useTemplate(TemplateRenderer $renderer): void
     {
-        $template = AirlineEmailTemplate::with('airline')->find($this->templateId);
+        $template = AirlineEmailTemplate::with('airlines')->find($this->templateId);
 
         if (!$template) {
             $this->dispatch('toast', ['type' => 'error', 'message' => 'Pick a template first.']);
@@ -507,8 +583,9 @@ class ClaimDetail extends Component
         $this->body        = $rendered['body'];
         $this->aiGenerated = false;
 
-        // Address it the way this letter type should be addressed.
-        if ($contact = $template->airline?->contactFor($template->contactPurpose())) {
+        // Address it the way this letter type should be addressed - using the
+        // claim's own airline, since a template may cover several.
+        if ($contact = $this->airlineRecord()?->contactFor($template->contactPurpose())) {
             $this->to = $contact->email;
         }
 
@@ -830,6 +907,8 @@ class ClaimDetail extends Component
                 'regulator'    => RegulatorDirectory::for($this->claim),
                 'templates'    => $this->airlineTemplates(),
                 'canSendEmail' => auth()->user()->can('claim_emails.send'),
+                'contactGate'  => $this->claim->canContactAirline(),
+                'customerTodo' => $this->customerAction(),
                 'canDraft'     => auth()->user()->can('claim_drafts.generate'),
                 'expenses'     => $this->claim->expenses()->with('reviewer')->get(),
             ])

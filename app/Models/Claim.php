@@ -41,7 +41,7 @@ class Claim extends Model
         'fa_flight_id', 'flight_arrival_delay_minutes', 'reported_arrival_delay_minutes', 'did_not_travel', 'flight_cancelled', 'flight_diverted', 'flight_verified_at', 'flight_snapshot',
         'eligibility_status', 'eligibility_regulation', 'eligibility_article', 'eligibility_confidence',
         'eligibility_reason', 'eligibility_details', 'eligibility_evaluated_at', 'eligibility_decision_source',
-        'confirmed_at', 'consents', 'plus_selected', 'signed_at', 'signature_path', 'poa_path', 'assignment_path',
+        'confirmed_at', 'reminded_at', 'consents', 'plus_selected', 'signed_at', 'signature_path', 'poa_path', 'assignment_path',
         'airline_letter', 'workflow_state', 'filed_at', 'filing',
     ];
 
@@ -60,6 +60,7 @@ class Claim extends Model
         'eligibility_details'      => 'array',
         'eligibility_evaluated_at' => 'datetime',
         'confirmed_at'             => 'datetime',
+        'reminded_at'              => 'datetime',
         'consents'                 => 'array',
         'airline_letter'           => 'array',
         'filed_at'                 => 'datetime',
@@ -235,6 +236,44 @@ class Claim extends Model
         $signers = $this->relationLoaded('signers') ? $this->signers : $this->signers()->get();
 
         return $signers->isNotEmpty() && $signers->every(fn (ClaimSigner $s) => $s->status === ClaimSigner::STATUS_SIGNED);
+    }
+
+    /**
+     * May we write to the airline yet? Our letters assert that we act under a
+     * signed authorisation and attach it - so until the customer has confirmed
+     * AND every signature is in, sending would be a false assertion. Claims
+     * already filed stay open for follow-ups.
+     *
+     * @return array{0: bool, 1: ?string} [allowed, reason it is blocked]
+     */
+    public function canContactAirline(): array
+    {
+        // Ready to file means the workflow already collected every signature
+        // (or an admin deliberately moved it there); past that, follow-ups and
+        // escalations must keep working.
+        if (in_array($this->workflow_state, ['ready_to_file', 'filed', 'awaiting_response', 'responded', 'awaiting_escalation', 'escalated', 'litigation', 'paid', 'denied', 'closed'], true)) {
+            return [true, null];
+        }
+
+        if ($this->status !== self::STATUS_ELIGIBLE) {
+            return [false, 'This claim has not been approved as eligible yet.'];
+        }
+
+        if (!$this->confirmed_at) {
+            return [false, 'The customer has not confirmed this claim or authorised us to act. Nothing can be sent to the airline until they do.'];
+        }
+
+        if (!$this->signaturesComplete()) {
+            $signers = $this->relationLoaded('signers') ? $this->signers : $this->signers()->get();
+            $pending = $signers->where('status', ClaimSigner::STATUS_SIGNED)->count();
+
+            return [false, sprintf(
+                'Authorisation is not signed yet (%d of %d signatures). The claim letter states that a signed authority is attached.',
+                $pending, $signers->count(),
+            )];
+        }
+
+        return [true, null];
     }
 
     public function events(): HasMany

@@ -81,6 +81,12 @@ class Airlines extends Component
         }
     }
 
+    /** Viewing the directory is open to admins; changing it is permissioned. */
+    private function authorizeManage(): void
+    {
+        abort_unless(auth()->user()->can('airlines.manage'), 403);
+    }
+
     public function create(): void
     {
         $this->editingId = null;
@@ -110,6 +116,8 @@ class Airlines extends Component
 
     public function save(): void
     {
+        $this->authorizeManage();
+
         $this->validate([
             'form.name'               => 'required|string|max:120',
             'form.iata_code'          => 'nullable|string|min:2|max:3|unique:airlines,iata_code,' . ($this->editingId ?? 'NULL'),
@@ -163,7 +171,7 @@ class Airlines extends Component
      */
     public function delete(int $id, AdminActivity $activity): void
     {
-        abort_unless(auth()->user()->can('airlines.manage'), 403);
+        $this->authorizeManage();
 
         $airline = Airline::findOrFail($id);
         $activity->log($airline, AdminActivity::AIRLINE_DELETED, $airline->only(['name', 'iata_code', 'country']), null);
@@ -174,6 +182,8 @@ class Airlines extends Component
 
     public function toggleActive(int $id): void
     {
+        $this->authorizeManage();
+
         $airline = Airline::findOrFail($id);
         $airline->update(['is_active' => !$airline->is_active]);
 
@@ -196,6 +206,7 @@ class Airlines extends Component
                 'airlines'  => $airlines->setCollection($airlines->getCollection()->load('workflow')),
                 'purposes'  => AirlineContact::PURPOSES,
                 'workflows' => ClaimWorkflow::where('is_active', true)->orderByDesc('is_default')->orderBy('name')->get(),
+                'canManage' => auth()->user()->can('airlines.manage'),
             ])
             ->extends('layouts.admin')
             ->section('content');

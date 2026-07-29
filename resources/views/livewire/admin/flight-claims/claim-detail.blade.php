@@ -14,6 +14,23 @@
                     <div class="flex items-center gap-3 flex-wrap">
                         <h1 class="text-xl font-black text-slate-900 tracking-tight">{{ $claim->departure_airport }} → {{ $claim->arrival_airport }}</h1>
                         <span class="inline-flex px-2.5 py-1 rounded-full text-xs font-bold ring-1 {{ $stageCls }}">{{ $stageLabel }}</span>
+
+                        {{-- Waiting on the customer? Give the admin one button that
+                             nudges them by email and in the app. --}}
+                        @php [$todoAction, $todoLabel] = $customerTodo; @endphp
+                        @if ($todoAction)
+                            @php $remindedRecently = $claim->reminded_at && $claim->reminded_at->gt(now()->subDay()); @endphp
+                            <button wire:click="remindCustomer" wire:loading.attr="disabled"
+                                    @disabled($remindedRecently)
+                                    title="{{ $remindedRecently ? 'Reminded ' . $claim->reminded_at->diffForHumans() . ' - wait a day before nudging again' : 'Email the customer and notify them in the app' }}"
+                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-[12px] font-bold text-slate-700 hover:border-slate-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                                <i data-lucide="bell-ring" class="w-3.5 h-3.5"></i>
+                                <span wire:loading.remove wire:target="remindCustomer">
+                                    {{ $remindedRecently ? 'Reminded ' . $claim->reminded_at->diffForHumans() : 'Remind customer to ' . $todoLabel }}
+                                </span>
+                                <span wire:loading wire:target="remindCustomer">Sending…</span>
+                            </button>
+                        @endif
                     </div>
                     <p class="text-sm text-slate-500 mt-0.5">{{ $claim->airline }} {{ $claim->flight_number }} · {{ $claim->flight_date?->format('d M Y') }} · {{ $claim->user?->name }} ({{ $claim->user?->email }})</p>
                 </div>
@@ -326,6 +343,14 @@
                     </div>
 
                     <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-3 flex-wrap">
+                        @php [$canContact, $blockReason] = $contactGate; @endphp
+                        @unless ($canContact)
+                            <p class="w-full flex items-start gap-2 text-[12px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3.5 py-2.5 mb-1">
+                                <i data-lucide="lock" class="w-4 h-4 shrink-0 mt-0.5"></i>
+                                <span class="font-medium">{{ $blockReason }} You can draft and save now - sending unlocks by itself.</span>
+                            </p>
+                        @endunless
+
                         <p class="text-xs text-slate-400">
                             @if (($claim->airline_letter['generated_at'] ?? null))
                                 Draft {{ ($claim->airline_letter['generated_by'] ?? '') === 'ai' ? 'AI-generated' : 'template-generated' }}
@@ -335,13 +360,12 @@
                             Sends from {{ config('services.inbound.claims_display') }} - replies auto-attach to this claim ({{ $claim->reference }}).
                         </p>
                         <div class="flex items-center gap-2 flex-wrap">
-                            {{-- Schedule instead of sending now: empty = send immediately --}}
-                            <label class="flex items-center gap-1.5 text-[11px] font-bold text-slate-400">
-                                <i data-lucide="clock" class="w-3.5 h-3.5"></i>
-                                <input type="datetime-local" wire:model="scheduleAt" min="{{ now()->format('Y-m-d\TH:i') }}"
-                                       class="px-2.5 py-2 rounded-lg border border-slate-200 text-xs text-slate-700 outline-none focus:border-primary-500">
-                            </label>
-                            @error('scheduleAt') <p class="w-full text-xs font-bold text-rose-600">{{ $message }}</p> @enderror
+                            {{-- Sending later is opt-in: an unlabelled date box beside
+                                 "Send" reads as a mystery, so it stays hidden until asked for. --}}
+                            <button wire:click="$toggle('scheduling')"
+                                    class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border text-sm font-bold transition-colors {{ $scheduling ? 'border-slate-900 text-slate-900' : 'border-slate-200 text-slate-700 hover:border-slate-300' }}">
+                                <i data-lucide="clock" class="w-3.5 h-3.5"></i> Send later
+                            </button>
 
                             <button wire:click="$set('showPreview', true)" class="px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-bold hover:border-slate-300 transition-colors">
                                 Preview
@@ -356,10 +380,31 @@
                                         confirmLabel: 'Send now',
                                         method: 'send',
                                     })" wire:loading.attr="disabled"
-                                    class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold transition-colors disabled:opacity-60">
-                                <span wire:loading.remove wire:target="send" class="inline-flex items-center gap-2"><i data-lucide="send" class="w-4 h-4"></i> Send to airline</span>
+                                    @disabled(!$canContact)
+                                    title="{{ $canContact ? '' : $blockReason }}"
+                                    class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                                <span wire:loading.remove wire:target="send" class="inline-flex items-center gap-2"><i data-lucide="send" class="w-4 h-4"></i> {{ $scheduleAt ? 'Schedule send' : 'Send to airline' }}</span>
                                 <span wire:loading wire:target="send" class="inline-flex items-center gap-2"><svg class="inline w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg> Sending…</span>
                             </button>
+
+                            @if ($scheduling)
+                                <div class="w-full flex items-center gap-2 flex-wrap border-t border-slate-200 pt-3 mt-1">
+                                    <span class="text-[12px] font-bold text-slate-500">Send this email at</span>
+                                    <input type="datetime-local" wire:model.live="scheduleAt" min="{{ now()->format('Y-m-d\TH:i') }}"
+                                           class="px-3 py-2 rounded-lg border border-slate-200 text-sm text-slate-700 outline-none focus:border-primary-500">
+                                    <span class="text-[11px] text-slate-400">
+                                        @if ($scheduleAt)
+                                            It goes out automatically - you don't need to be here.
+                                        @else
+                                            Leave empty to send immediately.
+                                        @endif
+                                    </span>
+                                    @if ($scheduleAt)
+                                        <button wire:click="$set('scheduleAt', '')" class="text-[11px] font-bold text-slate-400 hover:text-slate-700 ml-auto">Send now instead</button>
+                                    @endif
+                                    @error('scheduleAt') <p class="w-full text-xs font-bold text-rose-600">{{ $message }}</p> @enderror
+                                </div>
+                            @endif
                         </div>
                     </div>
                 </div>
@@ -367,9 +412,12 @@
 
                 {{-- Draft history: every version, auditable; approve the final --}}
                 <div x-show="tab === 'email'" class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 mt-4">
-                    <div class="flex items-center justify-between gap-2 mb-3">
-                        <h2 class="font-bold text-slate-900 text-sm">Draft history</h2>
-                        <span class="text-[11px] font-bold text-slate-400">{{ $drafts->count() }} version{{ $drafts->count() === 1 ? '' : 's' }}</span>
+                    <div class="flex items-start justify-between gap-2 mb-3">
+                        <div>
+                            <h2 class="font-bold text-slate-900 text-sm">Draft history</h2>
+                            <p class="text-[11px] text-slate-400 mt-0.5">Every version is kept. <span class="font-bold text-slate-500">Edit</span> puts one back in the composer; <span class="font-bold text-slate-500">Mark final</span> records which wording the team settled on.</p>
+                        </div>
+                        <span class="text-[11px] font-bold text-slate-400 shrink-0">{{ $drafts->count() }} version{{ $drafts->count() === 1 ? '' : 's' }}</span>
                     </div>
                     @if ($drafts->isEmpty())
                         <p class="text-xs text-slate-400">No drafts yet - every AI generation and admin edit is stored here for auditing.</p>
@@ -392,19 +440,28 @@
                                         </div>
                                     </div>
                                     @if ($draft->approved_at)
-                                        <span class="inline-flex items-center gap-1 text-[10px] font-black bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full shrink-0">
-                                            <i data-lucide="check" class="w-3 h-3"></i> APPROVED
+                                        <span title="Marked as the final wording on {{ $draft->approved_at->format('d M Y H:i') }}"
+                                              class="inline-flex items-center gap-1 text-[10px] font-black bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full shrink-0">
+                                            <i data-lucide="check" class="w-3 h-3"></i> FINAL
                                         </span>
                                     @else
-                                        <button wire:click="approveDraft({{ $draft->id }})" wire:loading.attr="disabled" class="text-[11px] font-bold text-emerald-600 hover:underline shrink-0">
-                                        <span wire:loading.remove wire:target="approveDraft({{ $draft->id }})">Approve</span>
+                                        <button wire:click="approveDraft({{ $draft->id }})" wire:loading.attr="disabled"
+                                                title="Record this version as the wording the team settled on"
+                                                class="text-[11px] font-bold text-slate-500 hover:text-emerald-600 shrink-0">
+                                        <span wire:loading.remove wire:target="approveDraft({{ $draft->id }})">Mark final</span>
                                         <span wire:loading wire:target="approveDraft({{ $draft->id }})"><svg class="inline w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg></span>
                                     </button>
                                     @endif
-                                    <button wire:click="loadDraft({{ $draft->id }})" wire:loading.attr="disabled" class="text-[11px] font-bold text-primary-600 hover:underline shrink-0">
-                                        <span wire:loading.remove wire:target="loadDraft({{ $draft->id }})">{{ $loadedDraftId === $draft->id ? 'Loaded' : 'Load' }}</span>
+                                    @if ($loadedDraftId === $draft->id)
+                                        <span class="inline-flex items-center gap-1 text-[10px] font-black bg-primary-100 text-primary-700 px-2 py-0.5 rounded-full shrink-0">IN COMPOSER</span>
+                                    @else
+                                    <button wire:click="loadDraft({{ $draft->id }})" wire:loading.attr="disabled"
+                                            title="Put this version back in the composer to edit or send"
+                                            class="text-[11px] font-bold text-primary-600 hover:underline shrink-0">
+                                        <span wire:loading.remove wire:target="loadDraft({{ $draft->id }})">Edit</span>
                                         <span wire:loading wire:target="loadDraft({{ $draft->id }})"><svg class="inline w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg></span>
                                     </button>
+                                    @endif
                                 </li>
                             @endforeach
                         </ul>

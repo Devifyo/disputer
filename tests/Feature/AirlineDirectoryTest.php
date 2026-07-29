@@ -29,7 +29,10 @@ class AirlineDirectoryTest extends TestCase
         parent::setUp();
 
         Http::fake();
-        Role::findOrCreate('admin');
+        Role::findOrCreate('admin')->givePermissionTo(
+            \Spatie\Permission\Models\Permission::whereIn('name', ['airlines.manage'])->get()
+        );
+        app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
         Role::findOrCreate('user');
         $this->admin = User::factory()->create();
         $this->admin->assignRole('admin');

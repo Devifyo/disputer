@@ -61,7 +61,8 @@ class ClaimTemplates extends Component
     {
         $this->editingId = null;
         $this->form = [
-            'airline_id' => $this->airlineFilter !== 'all' ? (int) $this->airlineFilter : null,
+            'airlines'   => $this->airlineFilter !== 'all' ? [(int) $this->airlineFilter] : [],
+            'all'        => $this->airlineFilter === 'all',
             'name'       => '',
             'type'       => AirlineEmailTemplate::TYPE_INITIAL,
             'subject'    => 'Compensation claim - {{flight_number}} on {{scheduled_departure}} [{{claim_reference}}]',
@@ -75,18 +76,28 @@ class ClaimTemplates extends Component
 
     public function edit(int $id): void
     {
-        $template = AirlineEmailTemplate::findOrFail($id);
+        $template = AirlineEmailTemplate::with('airlines')->findOrFail($id);
 
         $this->editingId  = $template->id;
-        $this->form       = $template->only(['airline_id', 'name', 'type', 'subject', 'body', 'is_default', 'is_active']);
+        $this->form       = $template->only(['name', 'type', 'subject', 'body', 'is_default', 'is_active']) + [
+            'airlines' => $template->airlines->pluck('id')->all(),
+            'all'      => $template->appliesToAll(),
+        ];
         $this->showEditor = true;
         $this->resetErrorBag();
+    }
+
+    public function removeAirline(int $airlineId): void
+    {
+        $this->form['airlines'] = array_values(array_diff($this->form['airlines'] ?? [], [$airlineId]));
     }
 
     public function save(AdminActivity $activity): void
     {
         $data = $this->validate([
-            'form.airline_id' => ['required', 'integer', 'exists:airlines,id'],
+            'form.all'        => ['boolean'],
+            'form.airlines'   => ['array', 'required_if:form.all,false'],
+            'form.airlines.*' => ['integer', 'exists:airlines,id'],
             'form.name'       => ['required', 'string', 'max:120'],
             'form.type'       => ['required', Rule::in(array_keys(AirlineEmailTemplate::TYPES))],
             'form.subject'    => ['required', 'string', 'max:190'],
@@ -94,13 +105,14 @@ class ClaimTemplates extends Component
             'form.is_default' => ['boolean'],
             'form.is_active'  => ['boolean'],
         ], [
-            'form.body.min' => 'The letter looks too short to send to an airline.',
+            'form.body.min'            => 'The letter looks too short to send to an airline.',
+            'form.airlines.required_if' => 'Pick at least one airline, or tick "All airlines".',
         ], [
-            'form.airline_id' => 'airline', 'form.name' => 'template name', 'form.type' => 'template type',
+            'form.airlines' => 'airlines', 'form.name' => 'template name', 'form.type' => 'template type',
             'form.subject' => 'subject', 'form.body' => 'body',
         ])['form'];
 
-        $template = $this->editingId ? AirlineEmailTemplate::findOrFail($this->editingId) : new AirlineEmailTemplate();
+        $template = $this->editingId ? AirlineEmailTemplate::with('airlines')->findOrFail($this->editingId) : new AirlineEmailTemplate();
         $old      = $this->editingId ? $template->only(['name', 'type', 'subject', 'body', 'is_default', 'is_active']) : null;
 
         DB::transaction(function () use ($template, $data, $activity, $old) {
@@ -108,6 +120,10 @@ class ClaimTemplates extends Component
             $template->updated_by = auth()->id();
             $template->created_by ??= auth()->id();
             $template->save();
+
+            // Empty = every airline; otherwise exactly the ones picked.
+            $template->airlines()->sync(($data['all'] ?? false) ? [] : ($data['airlines'] ?? []));
+            $template->load('airlines');
 
             if ($data['is_default']) {
                 $this->promoteDefault($template);
@@ -118,7 +134,7 @@ class ClaimTemplates extends Component
                 $old ? AdminActivity::TEMPLATE_UPDATED : AdminActivity::TEMPLATE_CREATED,
                 $old,
                 $template->only(['name', 'type', 'subject', 'body', 'is_default', 'is_active']),
-                $template->airline?->name,
+                $template->reachLabel(),
             );
         });
 
@@ -128,7 +144,7 @@ class ClaimTemplates extends Component
 
     public function duplicate(int $id, AdminActivity $activity): void
     {
-        $source = AirlineEmailTemplate::findOrFail($id);
+        $source = AirlineEmailTemplate::with('airlines')->findOrFail($id);
 
         $copy = $source->replicate(['created_by', 'updated_by']);
         $copy->name       = Str::limit($source->name, 105, '') . ' (copy)';
@@ -137,6 +153,7 @@ class ClaimTemplates extends Component
         $copy->created_by = auth()->id();
         $copy->updated_by = auth()->id();
         $copy->save();
+        $copy->airlines()->sync($source->airlines->pluck('id')->all());
 
         $activity->log($copy, AdminActivity::TEMPLATE_DUPLICATED, null, ['copied_from' => $source->id], $source->name);
 
@@ -146,11 +163,11 @@ class ClaimTemplates extends Component
 
     public function setDefault(int $id, AdminActivity $activity): void
     {
-        $template = AirlineEmailTemplate::findOrFail($id);
+        $template = AirlineEmailTemplate::with('airlines')->findOrFail($id);
 
         DB::transaction(function () use ($template, $activity) {
             $this->promoteDefault($template);
-            $activity->log($template, AdminActivity::TEMPLATE_DEFAULTED, null, null, $template->airline?->name);
+            $activity->log($template, AdminActivity::TEMPLATE_DEFAULTED, null, null, $template->reachLabel());
         });
 
         $this->dispatch('toast', ['type' => 'success', 'message' => "\"{$template->name}\" is now the default {$template->typeLabel()} letter."]);
@@ -170,8 +187,8 @@ class ClaimTemplates extends Component
     {
         abort_unless(auth()->user()->can('claim_templates.delete'), 403);
 
-        $template = AirlineEmailTemplate::findOrFail($id);
-        $activity->log($template, AdminActivity::TEMPLATE_DELETED, $template->only(['name', 'type', 'subject', 'body']), null, $template->airline?->name);
+        $template = AirlineEmailTemplate::with('airlines')->findOrFail($id);
+        $activity->log($template, AdminActivity::TEMPLATE_DELETED, $template->only(['name', 'type', 'subject', 'body']), null, $template->reachLabel());
 
         // Sent emails keep their history: the FK nulls, the record stays.
         $template->delete();
@@ -179,13 +196,25 @@ class ClaimTemplates extends Component
         $this->dispatch('toast', ['type' => 'success', 'message' => 'Template deleted.']);
     }
 
-    /** Exactly one default per airline and type. */
+    /**
+     * One default per letter type within the same reach: a template marked
+     * default clears the flag on any other template of that type that covers
+     * an airline it also covers (house templates count as covering all).
+     */
     private function promoteDefault(AirlineEmailTemplate $template): void
     {
-        AirlineEmailTemplate::where('airline_id', $template->airline_id)
+        $airlineIds = $template->airlines->pluck('id');
+
+        $rivals = AirlineEmailTemplate::with('airlines')
             ->where('type', $template->type)
+            ->where('is_default', true)
             ->whereKeyNot($template->id)
-            ->update(['is_default' => null]);
+            ->get()
+            ->filter(fn (AirlineEmailTemplate $rival) => $template->appliesToAll()
+                || $rival->appliesToAll()
+                || $rival->airlines->pluck('id')->intersect($airlineIds)->isNotEmpty());
+
+        AirlineEmailTemplate::whereIn('id', $rivals->pluck('id'))->update(['is_default' => null]);
 
         $template->forceFill(['is_default' => 1])->save();
     }
@@ -212,16 +241,15 @@ class ClaimTemplates extends Component
 
     public function render(TemplateRenderer $renderer)
     {
-        $templates = AirlineEmailTemplate::with(['airline', 'author'])
+        $templates = AirlineEmailTemplate::with(['airlines', 'author'])
             ->when($this->search !== '', function ($q) {
                 $term = '%' . trim($this->search) . '%';
                 $q->where(fn ($w) => $w->where('name', 'like', $term)
                     ->orWhere('subject', 'like', $term)
-                    ->orWhereHas('airline', fn ($a) => $a->where('name', 'like', $term)->orWhere('iata_code', 'like', $term)));
+                    ->orWhereHas('airlines', fn ($a) => $a->where('name', 'like', $term)->orWhere('iata_code', 'like', $term)));
             })
-            ->when($this->airlineFilter !== 'all', fn ($q) => $q->where('airline_id', (int) $this->airlineFilter))
+            ->when($this->airlineFilter !== 'all', fn ($q) => $q->forAirline(Airline::find((int) $this->airlineFilter)))
             ->when($this->typeFilter !== 'all', fn ($q) => $q->where('type', $this->typeFilter))
-            ->orderBy('airline_id')
             ->orderByDesc('is_default')
             ->orderBy('type')
             ->paginate(15);
@@ -229,8 +257,9 @@ class ClaimTemplates extends Component
         // Preview against a real claim for that airline when there is one -
         // an admin should see the letter as the airline will read it.
         $preview = null;
-        if ($this->previewId && $template = AirlineEmailTemplate::with('airline')->find($this->previewId)) {
-            $claim = Claim::where('airline', 'like', '%' . $template->airline?->name . '%')->latest()->first()
+        if ($this->previewId && $template = AirlineEmailTemplate::with('airlines')->find($this->previewId)) {
+            $airlineName = $template->airlines->first()?->name;
+            $claim = ($airlineName ? Claim::where('airline', 'like', '%' . $airlineName . '%')->latest()->first() : null)
                 ?: Claim::latest()->first();
 
             $preview = [

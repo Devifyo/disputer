@@ -62,12 +62,14 @@
                                     <span wire:loading.remove wire:target="edit({{ $airline->id }})">Edit</span>
                                     <span wire:loading wire:target="edit({{ $airline->id }})"><svg class="inline w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg></span>
                                 </button>
+                                @if ($canManage)
                                 <button @click="$dispatch('admin-confirm', { title: 'Remove airline', message: 'Delete {{ addslashes($airline->name) }}? Its contacts and templates go too. Existing claims keep the airline name they were filed under.', confirmLabel: 'Delete', danger: true, method: 'delete', params: [{{ $airline->id }}] })"
                                         class="text-xs font-bold text-rose-600 hover:underline">Delete</button>
                                 <button wire:click="toggleActive({{ $airline->id }})" wire:loading.attr="disabled" class="text-xs font-bold text-amber-600 hover:underline">
                                     <span wire:loading.remove wire:target="toggleActive({{ $airline->id }})">{{ $airline->is_active ? 'Deactivate' : 'Activate' }}</span>
                                     <span wire:loading wire:target="toggleActive({{ $airline->id }})"><svg class="inline w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg></span>
                                 </button>
+                                @endif
                             </td>
                         </tr>
                     @empty

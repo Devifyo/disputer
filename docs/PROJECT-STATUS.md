@@ -194,6 +194,14 @@ Status keys: **Done** (built, tested, verified in production) ·
 
 Newest first. One line per session: what changed, what it unblocked.
 
+- **2026-07-28** - Guardrails + customer nudges: airline emails are blocked
+  until the customer has confirmed AND every authorisation is signed (the
+  letters assert a signed authority is attached), with the Send button
+  disabled and the reason shown; admins can remind the customer to confirm
+  or sign by email + in-app, once a day. Five house claim templates seeded
+  (initial, follow-up, escalation, final notice, expenses). Full suite 314
+  passing.
+
 - **2026-07-28** - Airline email templates + hybrid composer: per-airline
   letters (5 types, one default each, duplicate/preview/enable/delete),
   a variable renderer, and a compose mode switch where AI drafting stays
