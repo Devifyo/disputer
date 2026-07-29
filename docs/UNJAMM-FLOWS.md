@@ -540,6 +540,13 @@ subscriptions; permissioned beyond the admin role.
   own drafts (labelled "Airline reply - X" vs "Unjamm - ..."), so a
   follow-up is written against what the airline actually said rather
   than only against our previous letters.
+- Trip page report card ("Something went wrong that we couldn't see?")
+  now appears only once the flight is over (landed or cancelled) - not
+  while it is still in the air. The API still accepts reports any time
+  after departure. The in-air Status tab uses a flight-tracker route
+  view (elapsed/remaining around the plane), and far-out trips show
+  their FlightAware-confirmed schedule until live tracking binds at
+  T-24h.
 - Module switches (Admin Settings -> Website tab -> Modules): one toggle
   per admin page, grouped under the same headings as the admin nav.
   "Flight Claims" - Trip Reviews, Protected Trips, Claims, Passengers,

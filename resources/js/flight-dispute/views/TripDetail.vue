@@ -160,8 +160,65 @@
                                 </div>
 
                                 <template v-if="trip.fa_flight_id">
-                                    <!-- Where is the plane right now? -->
-                                    <div v-if="phaseInfo" class="rounded-xl px-4 py-3.5 mb-5" :class="phaseInfo.box">
+                                    <!-- In the air: flight-tracker style route view -->
+                                    <div v-if="enrouteInfo" class="rounded-xl border border-slate-200 p-5 sm:p-6 mb-5">
+                                        <div class="mb-5">
+                                            <div class="text-sm font-black uppercase tracking-wide" :class="enrouteInfo.late ? 'text-amber-600' : 'text-emerald-600'">
+                                                {{ enrouteInfo.statusCaps }}
+                                            </div>
+                                            <div class="text-sm font-medium mt-0.5" :class="enrouteInfo.late ? 'text-amber-600' : 'text-emerald-600'">
+                                                Arriving in {{ enrouteInfo.remainingHuman }}
+                                            </div>
+                                        </div>
+
+                                        <div class="flex justify-between gap-4 mb-2">
+                                            <div class="min-w-0">
+                                                <div class="text-2xl sm:text-3xl font-black text-slate-900 leading-none">{{ trip.departure_airport }}</div>
+                                                <div class="text-xs font-bold text-slate-600 uppercase mt-1 truncate">{{ trip.departure_city }}</div>
+                                                <div v-if="trip.origin_gate" class="text-xs text-slate-500 mt-1.5">left <span class="font-bold text-slate-700">GATE {{ trip.origin_gate }}</span></div>
+                                                <div class="text-xs text-slate-400 mt-1.5 uppercase font-medium">{{ enrouteInfo.dep.date }}</div>
+                                                <div class="text-sm font-black text-slate-800">
+                                                    {{ enrouteInfo.dep.time }}
+                                                    <span class="font-bold" :class="enrouteInfo.dep.lateLabel ? 'text-amber-600' : 'text-emerald-600'">({{ enrouteInfo.dep.lateLabel || 'on time' }})</span>
+                                                </div>
+                                            </div>
+                                            <div class="min-w-0 text-right">
+                                                <div class="text-2xl sm:text-3xl font-black text-slate-900 leading-none">{{ trip.arrival_airport }}</div>
+                                                <div class="text-xs font-bold text-slate-600 uppercase mt-1 truncate">{{ trip.arrival_city }}</div>
+                                                <div class="text-xs text-slate-500 mt-1.5">landing at <span class="font-bold text-slate-700">{{ airportLabel('arrival') }}</span></div>
+                                                <div class="text-xs text-slate-400 mt-1.5 uppercase font-medium">{{ enrouteInfo.arr.date }}</div>
+                                                <div class="text-sm font-black text-slate-800">
+                                                    <span class="font-bold" :class="enrouteInfo.arr.lateLabel ? 'text-amber-600' : 'text-emerald-600'">({{ enrouteInfo.arr.lateLabel || 'on time' }})</span>
+                                                    {{ enrouteInfo.arr.time }}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Route line: flown so far, plane, what's left -->
+                                        <div class="relative mt-4 mb-9">
+                                            <div class="h-1 rounded-full bg-slate-200 overflow-hidden">
+                                                <div class="h-full rounded-full transition-all" :class="enrouteInfo.late ? 'bg-amber-500' : 'bg-emerald-500'" :style="{ width: enrouteInfo.pct + '%' }"></div>
+                                            </div>
+                                            <span class="absolute -top-2 text-base leading-none transition-all" :style="{ left: `calc(${enrouteInfo.pct}% - 8px)` }">✈️</span>
+                                            <span class="absolute -left-1 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full" :class="enrouteInfo.late ? 'bg-amber-500' : 'bg-emerald-500'"></span>
+                                            <span class="absolute -right-1 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-slate-300"></span>
+
+                                            <div class="absolute left-0 top-3.5 text-left">
+                                                <span class="inline-block px-1.5 py-0.5 rounded bg-slate-700 text-white text-[10px] font-bold">{{ enrouteInfo.elapsedHuman }} elapsed</span>
+                                                <div v-if="enrouteInfo.flown !== null" class="text-[11px] text-slate-400 font-medium mt-0.5">{{ enrouteInfo.flown.toLocaleString() }} mi flown</div>
+                                            </div>
+                                            <div v-if="enrouteInfo.totalHuman" class="absolute inset-x-0 top-4 text-center text-[11px] text-slate-400 font-medium">
+                                                <span class="font-bold text-slate-500">{{ enrouteInfo.totalHuman }}</span> total travel time
+                                            </div>
+                                            <div class="absolute right-0 top-3.5 text-right">
+                                                <span class="inline-block px-1.5 py-0.5 rounded bg-slate-700 text-white text-[10px] font-bold">{{ enrouteInfo.remainingHuman }} remaining</span>
+                                                <div v-if="enrouteInfo.togo !== null" class="text-[11px] text-slate-400 font-medium mt-0.5">{{ enrouteInfo.togo.toLocaleString() }} mi to go</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Other phases keep the compact banner -->
+                                    <div v-else-if="phaseInfo" class="rounded-xl px-4 py-3.5 mb-5" :class="phaseInfo.box">
                                         <div class="flex items-center gap-3">
                                             <span class="text-xl leading-none">{{ phaseInfo.icon }}</span>
                                             <div class="min-w-0">
@@ -234,6 +291,41 @@
                                 <p v-else-if="trip.monitoring_status === 'failed'" class="text-sm text-slate-400">
                                     We couldn't find live tracking for this flight. Please check that the flight number and departure date are correct.
                                 </p>
+
+                                <!-- Schedule confirmed, live tracking not bound yet: FlightAware
+                                     only tracks ~2 days ahead, so far-out trips show their
+                                     confirmed schedule until the T-24h checkpoint takes over. -->
+                                <template v-else-if="trip.scheduled_departure">
+                                    <div class="rounded-xl px-4 py-3.5 mb-5 bg-sky-50 text-sky-800">
+                                        <div class="flex items-center gap-3">
+                                            <span class="text-xl leading-none">🛫</span>
+                                            <div class="min-w-0">
+                                                <div class="font-bold text-sm">{{ preflightInfo.headline }}</div>
+                                                <div v-if="preflightInfo.sub" class="text-xs opacity-80 mt-0.5">{{ preflightInfo.sub }}</div>
+                                                <div class="text-xs opacity-80 mt-0.5">Live tracking switches on about a day before departure.</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="grid sm:grid-cols-2 gap-5">
+                                        <div v-for="side in ['departure', 'arrival']" :key="side" class="rounded-xl border border-slate-200 p-4">
+                                            <div class="text-[11px] uppercase tracking-wider font-bold text-slate-400 mb-2">
+                                                {{ side === 'departure' ? 'Departure' : 'Arrival' }}
+                                                <span class="text-slate-300 normal-case font-medium">- {{ airportLabel(side) }}{{ tzFor(side) ? ' · local time' : '' }}</span>
+                                            </div>
+                                            <dl class="space-y-1.5 text-sm">
+                                                <div class="flex justify-between gap-3">
+                                                    <dt class="text-slate-400 font-medium">Scheduled</dt>
+                                                    <dd class="font-bold text-slate-800">{{ fmtSide(trip[`scheduled_${side}`], side) || '-' }}</dd>
+                                                </div>
+                                            </dl>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center gap-2 mt-4 text-xs text-slate-400 font-medium flex-wrap">
+                                        <svg class="w-3.5 h-3.5 text-emerald-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                        <span>Schedule confirmed with FlightAware. Live tracking switches on about a day before departure.</span>
+                                    </div>
+                                </template>
+
                                 <p v-else class="text-sm text-slate-400">
                                     We're setting up live tracking for this flight. Its status will appear here shortly.
                                 </p>
@@ -520,6 +612,62 @@ function joinFacts(parts) {
     return line || null;
 }
 
+// Schedule-only trips (no live tracking bound yet): where the flight stands.
+const preflightInfo = computed(() => {
+    const t = trip.value;
+    if (!t?.scheduled_departure) return null;
+
+    const departsInMs = new Date(t.scheduled_departure).getTime() - now.value;
+    const when = fmtSide(t.scheduled_departure, 'departure');
+
+    return {
+        headline: "This flight hasn't started yet",
+        sub: departsInMs > 60000
+            ? `Departs in ${formatDuration(departsInMs)} - scheduled ${when}${tzFor('departure') ? ' local time' : ''}`
+            : `Scheduled ${when}${tzFor('departure') ? ' local time' : ''}`,
+    };
+});
+
+// In-flight route view: elapsed / remaining around the plane's position.
+const enrouteInfo = computed(() => {
+    const t = trip.value;
+    if (!t || t.flight_phase !== 'enroute' || !t.actual_departure) return null;
+
+    const dep = new Date(t.actual_departure).getTime();
+    const arrIso = t.estimated_arrival || t.scheduled_arrival;
+    const arr = arrIso ? new Date(arrIso).getTime() : null;
+
+    const elapsedMs = Math.max(0, now.value - dep);
+    const remainingMs = arr ? Math.max(0, arr - now.value) : null;
+
+    const timeBased = arr && arr > dep ? Math.round((elapsedMs / (arr - dep)) * 100) : null;
+    const rawPct = Number.isFinite(t.progress_percent) ? t.progress_percent : timeBased;
+    const pct = rawPct === null ? 50 : Math.min(98, Math.max(2, rawPct));
+
+    const dist = t.route_distance_miles;
+    const flown = dist ? Math.round((dist * pct) / 100) : null;
+
+    const late = (t.arrival_delay_minutes ?? 0) > 15;
+    const lateFor = (mins) => (mins ?? 0) > 15 ? `${formatDuration(mins * 60000)} late` : null;
+    const splitWhen = (iso, side) => {
+        const parts = (fmtSide(iso, side) || '').split(', ');
+        return parts.length === 2 ? { date: parts[0], time: parts[1] } : { date: '', time: parts[0] || '-' };
+    };
+
+    return {
+        late,
+        statusCaps: late ? `En route - running ${formatDuration(t.arrival_delay_minutes * 60000)} late` : 'En route and on time',
+        remainingHuman: remainingMs !== null ? formatDuration(remainingMs) : null,
+        elapsedHuman: formatDuration(elapsedMs),
+        totalHuman: arr && arr > dep ? formatDuration(arr - dep) : null,
+        pct,
+        flown,
+        togo: dist && flown !== null ? Math.max(0, dist - flown) : null,
+        dep: { ...splitWhen(t.actual_departure, 'departure'), lateLabel: lateFor(t.departure_delay_minutes) },
+        arr: { ...splitWhen(arrIso, 'arrival'), lateLabel: lateFor(t.arrival_delay_minutes) },
+    };
+});
+
 const phaseInfo = computed(() => {
     const t = trip.value;
     if (!t?.flight_phase) return null;
@@ -675,10 +823,11 @@ const reportOptions = [
     { type: 'other',             label: 'Something else' },
 ];
 
-// Reportable once the flight has departed, until a report or claim exists.
+// Reportable once the flight is over (landed or cancelled), until a report
+// or claim exists - mid-air nothing is final yet.
 const canReport = computed(() => {
     const t = trip.value;
-    return t && t.flight_phase !== 'scheduled' && !t.reported_disruption && !(t.claims || []).length;
+    return t && ['landed', 'cancelled'].includes(t.flight_phase) && !t.reported_disruption && !(t.claims || []).length;
 });
 
 const reportingOption = ref(null); // opens the funnel wizard
