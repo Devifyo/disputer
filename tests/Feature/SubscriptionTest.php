@@ -485,4 +485,50 @@ class SubscriptionTest extends TestCase
         $this->assertSame('400.00', $claim->fresh()->compensation_amount);
         $this->assertSame('ready_to_file', $claim->fresh()->workflow_state);
     }
+
+    public function test_members_can_manage_their_membership_from_the_profile(): void
+    {
+        $user = User::factory()->create(['stripe_customer_id' => 'cus_profile']);
+        $user->assignRole('user');
+
+        $subscription = $user->subscriptions()->create([
+            'subscription_plan_id'   => SubscriptionPlan::query()->value('id'),
+            'stripe_customer_id'     => 'cus_profile',
+            'stripe_subscription_id' => 'sub_profile',
+            'stripe_price_id'        => 'price_x',
+            'interval'               => 'month',
+            'status'                 => 'active',
+            'current_period_end'     => now()->addMonth(),
+        ]);
+
+        $component = Livewire::actingAs($user)->test(\App\Livewire\User\PlusMembership::class);
+
+        // The panel shows the live membership, not the legacy product.
+        $component->assertSee('Renews')
+            ->assertSee($subscription->current_period_end->format('d M Y'))
+            ->assertSee('Pause billing');
+
+        // Pausing validates its date before it ever reaches Stripe.
+        $component->set('pauseUntil', now()->subDay()->toDateString())
+            ->call('pause')
+            ->assertHasErrors('pauseUntil');
+
+        // Cancelling asks first - the confirmation is part of the flow.
+        $component->call('$set', 'confirmingCancel', true)
+            ->assertSee('Cancel Unjamm Plus?')
+            ->assertSee('Keep my membership')
+            // The gentler option is offered before the destructive one.
+            ->assertSee('Pause billing');
+    }
+
+    public function test_a_free_user_sees_an_invitation_not_billing_controls(): void
+    {
+        $user = User::factory()->create();
+        $user->assignRole('user');
+
+        Livewire::actingAs($user)->test(\App\Livewire\User\PlusMembership::class)
+            ->assertSee('Unjamm Plus')
+            ->assertDontSee('Cancel membership')
+            ->assertDontSee('Pause billing');
+    }
 }

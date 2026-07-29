@@ -9,13 +9,24 @@
 
     {{-- Filters + search --}}
     <div class="flex flex-col lg:flex-row lg:items-center gap-3 mb-4">
-        <div class="inline-flex items-center gap-1 bg-white rounded-xl border border-slate-200 shadow-sm p-1 overflow-x-auto">
+        <button wire:click="$toggle('plusOnly')" @disabled(!$plusCount)
+                title="Show only claims from Unjamm Plus members"
+                class="shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border text-sm font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed {{ $plusOnly ? 'bg-slate-900 border-slate-900 text-amber-400 shadow' : 'bg-white border-slate-200 text-slate-500 hover:text-slate-800 hover:border-slate-300' }}">
+            <span class="{{ $plusOnly ? 'text-amber-400' : 'text-amber-500' }}">★</span> Plus
+            @if ($plusCount)
+                <span class="px-1.5 py-0.5 rounded-full text-[11px] font-black {{ $plusOnly ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-700' }}">{{ $plusCount }}</span>
+            @endif
+        </button>
+
+        <div class="flex items-center gap-1 bg-white rounded-xl border border-slate-200 shadow-sm p-1 overflow-x-auto min-w-0 lg:flex-1">
             @foreach ($filters as $key => $label)
                 <button wire:click="setStatus('{{ $key }}')"
                         class="px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-all {{ $status === $key ? 'bg-slate-900 text-white shadow' : 'text-slate-500 hover:text-slate-800' }}">
                     {{ $label }}
                     @if ($key === 'review' && $reviewCount)
                         <span class="ml-1 px-1.5 py-0.5 rounded-full text-[11px] font-black {{ $status === 'review' ? 'bg-white/20' : 'bg-rose-100 text-rose-600' }}">{{ $reviewCount }}</span>
+                    @elseif ($key === 'confirmation' && $confirmationCount)
+                        <span class="ml-1 px-1.5 py-0.5 rounded-full text-[11px] font-black {{ $status === 'confirmation' ? 'bg-white/20' : 'bg-blue-100 text-blue-600' }}">{{ $confirmationCount }}</span>
                     @endif
                 </button>
             @endforeach

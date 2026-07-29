@@ -17,12 +17,16 @@ const http = axios.create({
     },
 });
 
-// A 402 means the feature needs Unjamm Plus - send the user to the upgrade
-// page instead of leaving each view to handle it.
+// A 402 means the feature needs Unjamm Plus. By default we send the user to
+// the upgrade page; a request may pass { plusInline: true } to handle it in
+// place instead - a screen that can turn its own CTA into "Upgrade" gives a
+// far better experience than being thrown to another page.
 http.interceptors.response.use(
     (response) => response,
     (error) => {
-        if (error.response?.status === 402 && error.response.data?.code === 'subscription_required') {
+        const gated = error.response?.status === 402 && error.response.data?.code === 'subscription_required';
+
+        if (gated && !error.config?.plusInline) {
             window.location.href = `${BASE}/plus`;
         }
         return Promise.reject(error);
@@ -63,7 +67,9 @@ export default {
             return http.post(`/claims/${id}/passengers`, { passengers }).then((r) => r.data.data);
         },
         confirm(id, payload) {
-            return http.post(`/claims/${id}/confirm`, payload).then((r) => r.data.data);
+            // Handled in place: the confirm screen turns its own CTA into an
+            // upgrade rather than bouncing the customer to another page.
+            return http.post(`/claims/${id}/confirm`, payload, { plusInline: true }).then((r) => r.data.data);
         },
         signers(id) {
             return http.get(`/claims/${id}/signers`).then((r) => r.data.data);

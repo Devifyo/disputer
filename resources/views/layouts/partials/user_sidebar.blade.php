@@ -1,3 +1,4 @@
+@php $isPlus = Auth::user()?->hasActiveSubscription(); @endphp
 <aside 
     class="fixed inset-y-0 left-0 z-50 w-72 bg-slate-950 text-slate-400 flex flex-col transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 border-r border-white/5"
     :class="sidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'"
@@ -8,8 +9,16 @@
                 <svg viewBox="0 0 32 32" width="30" height="30" fill="none" aria-hidden="true"><path d="M5 23.5 L16 6 L27 23.5" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"></path><path d="M11 23.5 L16 15.5 L21 23.5" stroke="currentColor" stroke-opacity="0.4" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path><circle cx="16" cy="26" r="2.1" fill="currentColor"></circle></svg>
             </span>
             <div>
-                <span class="font-bold tracking-tight text-lg block leading-none">{{ config('app.name') }}</span>
-                <span class="text-[10px] text-slate-500 font-mono">Flight Compensation</span>
+                <span class="flex items-baseline gap-1.5">
+                    <span class="font-bold tracking-tight text-lg leading-none">{{ config('app.name') }}</span>
+                    @if ($isPlus)
+                        <span title="Unjamm Plus member"
+                              class="inline-flex items-center gap-[3px] rounded-full bg-amber-400/10 ring-1 ring-amber-400/25 text-amber-400 text-[8px] font-black uppercase tracking-wide px-1.5 py-[2px] leading-none">
+                            <span class="text-[8px] leading-none">★</span>Plus
+                        </span>
+                    @endif
+                </span>
+                <span class="text-[10px] text-slate-500 font-mono block leading-tight mt-0.5">Flight Compensation</span>
             </div>
         </div>
         <button @click="sidebarOpen = false" class="lg:hidden ml-auto text-slate-400 hover:text-white">
@@ -35,10 +44,13 @@
             Dashboard
         </a>
 
+        {{-- Retired with the case-management module - the route is closed by the
+             `retired_module` middleware, so this link would only 404 people.
         <a href="{{ route('user.documents.index') }}" class="{{ navClass('user.documents.*') }} group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all">
             <i data-lucide="files" class="w-5 h-5 transition-colors {{ request()->routeIs('user.documents.*') ? 'text-blue-400' : 'text-slate-500 group-hover:text-slate-300' }}"></i>
             Documents
         </a>
+        --}}
 
         @php
             // Both pages live inside the same SPA route — split the active
@@ -64,10 +76,17 @@
             @endif
         </a>
 
+        {{-- Retired with the case-management module (see the middleware note above).
         <a href="{{ route('user.cases.index') }}" class="{{ navClass('user.cases.*') }} group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all">
             <i data-lucide="folder-kanban" class="w-5 h-5 transition-colors {{ request()->routeIs('user.cases.*') ? 'text-blue-400' : 'text-slate-500 group-hover:text-slate-300' }}"></i>
             My {{ __('common.cases') }}
         </a>
+        --}}
+
+        {{-- Retired with the case-management module: the "Tools" section and its
+             Cases Email Templates entry (plus the subscription-required popup).
+             Route + controller are untouched - see the `retired_module`
+             middleware note above.
 
         <div class="px-2 mt-8 mb-3 text-[10px] uppercase tracking-wider font-bold text-slate-600 font-mono">Tools</div>
 
@@ -84,7 +103,7 @@
                     <i data-lucide="lock" class="w-3.5 h-3.5 text-slate-600 group-hover:text-amber-400 transition-colors shrink-0"></i>
                 </button>
 
-                {{-- Subscription required popup --}}
+                {{ -- Subscription required popup -- }}
                 <div x-show="open" style="display:none" class="fixed inset-0 z-[999] flex items-center justify-center p-4"
                      x-transition:enter="transition ease-out duration-200"
                      x-transition:enter-start="opacity-0"
@@ -124,6 +143,9 @@
             </div>
         @endif
 
+
+        --}}
+
         {{-- <a href="{{ route('user.emails.index') }}" class="{{ navClass('user.emails.*') }} group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all justify-between">
             <div class="flex items-center gap-3">
                 <i data-lucide="mail" class="w-5 h-5 transition-colors {{ request()->routeIs('user.emails.*') ? 'text-blue-400' : 'text-slate-500 group-hover:text-slate-300' }}"></i>
@@ -141,7 +163,12 @@
                     <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-sm text-white font-bold shadow-lg ring-2 ring-transparent group-hover:ring-blue-500/50 transition-all">
                         {{ substr(Auth::user()->name ?? 'U', 0, 2) }}
                     </div>
-                    <div class="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-slate-900 rounded-full"></div>
+                    @if ($isPlus)
+                        <span title="Unjamm Plus member"
+                              class="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-slate-900 border-2 border-slate-900 ring-1 ring-amber-400/60 text-amber-400 text-[8px] leading-none flex items-center justify-center">★</span>
+                    @else
+                        <div class="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-slate-900 rounded-full"></div>
+                    @endif
                 </div>
 
                 <div class="flex-1 min-w-0">
@@ -181,7 +208,7 @@
                     <span x-show="unread > 0" x-cloak x-text="unread > 9 ? '9+' : unread"
                           class="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center"></span>
                 </button>
-                <div x-show="open" x-cloak class="absolute bottom-12 right-0 w-80 bg-white rounded-2xl border border-slate-200 shadow-2xl z-50 overflow-hidden text-left">
+                <div x-show="open" x-cloak class="absolute bottom-12 left-0 w-80 max-w-[calc(100vw-2rem)] bg-white rounded-2xl border border-slate-200 shadow-2xl z-50 overflow-hidden text-left">
                     <div class="px-4 py-3 border-b border-slate-100 text-sm font-bold text-slate-900">Notifications</div>
                     <ul class="max-h-80 overflow-y-auto divide-y divide-slate-50">
                         <template x-for="n in items" :key="n.id">

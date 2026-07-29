@@ -257,6 +257,47 @@ class Claim extends Model
         };
     }
 
+    /**
+     * The one state a CUSTOMER should see, in their words - eligibility and
+     * workflow blended, because "draft" means nothing to a passenger and is
+     * wrong the moment the engine has ruled. Returns [label, badge classes].
+     *
+     * @return array{0: string, 1: string}
+     */
+    public function customerStage(): array
+    {
+        if ($this->status === self::STATUS_REJECTED) {
+            return ['Not eligible', 'bg-rose-100 text-rose-700'];
+        }
+
+        if ($this->status === self::STATUS_PENDING_ELIGIBILITY) {
+            return ['In review', 'bg-amber-100 text-amber-700'];
+        }
+
+        if ($this->status !== self::STATUS_ELIGIBLE) {
+            return ['Checking eligibility', 'bg-slate-100 text-slate-500'];
+        }
+
+        // Eligible: what is the claim waiting on?
+        if (!$this->confirmed_at) {
+            return ['Confirm to continue', 'bg-blue-100 text-blue-700'];
+        }
+
+        if ($this->workflow_state === 'awaiting_signature') {
+            return ['Signature needed', 'bg-violet-100 text-violet-700'];
+        }
+
+        return match ($this->workflow_state) {
+            'paid'   => ['Paid', 'bg-emerald-100 text-emerald-700'],
+            'denied' => ['Airline rejected', 'bg-rose-100 text-rose-700'],
+            'closed' => ['Closed', 'bg-slate-100 text-slate-500'],
+            default  => [
+                $this->workflowStage()?->customer_label ?: 'In progress',
+                'bg-slate-100 text-slate-600',
+            ],
+        };
+    }
+
     public function getDisruptionLabelAttribute(): ?string
     {
         return $this->disruption_type ? (self::DISRUPTIONS[$this->disruption_type] ?? ucfirst($this->disruption_type)) : null;

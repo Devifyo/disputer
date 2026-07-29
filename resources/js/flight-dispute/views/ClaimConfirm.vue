@@ -237,12 +237,24 @@
                             </label>
                         </section>
 
-                        <!-- 9. CTA -->
-                        <button @click="submit" :disabled="!allConsented || submitting"
+                        <!-- 9. CTA - gated claims upgrade instead of failing on submit -->
+                        <router-link v-if="upgradeRequired" :to="{ name: 'plus' }"
+                                     class="flex items-center justify-center gap-2 w-full bg-slate-900 hover:bg-slate-800 text-white font-black py-4 rounded-2xl text-base transition-colors shadow-lg shadow-slate-900/10">
+                            <span class="text-amber-400">★</span> Upgrade to Unjamm Plus to create this claim
+                        </router-link>
+                        <button v-else @click="submit" :disabled="!allConsented || submitting"
                                 class="w-full bg-slate-900 hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black py-4 rounded-2xl text-base transition-colors shadow-lg shadow-slate-900/10">
                             {{ submitting ? 'Saving…' : 'Confirm & Continue' }}
                         </button>
-                        <p class="text-center text-xs text-slate-400 pb-6">Next: sign your authorisation documents - takes under a minute.</p>
+
+                        <p v-if="submitError" class="flex items-start gap-2 bg-rose-50 border border-rose-100 text-rose-700 rounded-xl px-4 py-3 text-sm">
+                            <svg class="w-4 h-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/></svg>
+                            <span>{{ submitError }}</span>
+                        </p>
+
+                        <p class="text-center text-xs text-slate-400 pb-6">
+                            {{ upgradeRequired ? 'Your claim is saved - it will be filed as soon as you upgrade.' : 'Next: sign your authorisation documents - takes under a minute.' }}
+                        </p>
                     </div>
                 </template>
             </div>
@@ -256,6 +268,11 @@ import { useRouter } from 'vue-router';
 import api from '../api';
 
 const props = defineProps({ id: { type: String, required: true } });
+
+// The claim needs Plus - either we knew up front (multi-passenger) or the
+// server told us when we tried to confirm.
+const gated = ref(false);
+const submitError = ref('');
 const router = useRouter();
 
 const c = ref(null);
@@ -312,6 +329,9 @@ const nextSteps = [
 
 const allConsented = computed(() => consentItems.every((i) => consents.value[i.key]));
 
+// Known before submitting (multi-passenger booking) or learned from a 402.
+const upgradeRequired = computed(() => gated.value || !!c.value?.multi_passenger_locked);
+
 const airlineMark = computed(() => {
     const name = c.value?.flight?.airline || '';
     const words = name.split(/\s+/).filter(Boolean);
@@ -333,7 +353,14 @@ async function submit() {
         await api.claims.confirm(props.id, { consents: consents.value, plus: plus.value });
         router.push({ name: 'claim-sign', params: { id: props.id } });
     } catch (e) {
-        window.alert(e.response?.data?.message || 'Could not save your confirmation. Please try again.');
+        // A 402 means this claim needs Plus: turn the CTA into the upgrade
+        // action rather than interrupting with a dialog.
+        if (e.response?.status === 402) {
+            gated.value = true;
+            submitError.value = '';
+        } else {
+            submitError.value = e.response?.data?.message || 'Could not save your confirmation. Please try again.';
+        }
     } finally {
         submitting.value = false;
     }

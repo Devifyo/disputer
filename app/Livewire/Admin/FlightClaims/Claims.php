@@ -22,9 +22,13 @@ class Claims extends Component
     public string $search = '';
     public string $status = 'all';
 
+    /** Membership is a separate axis from lifecycle - combine it with any tab. */
+    public bool $plusOnly = false;
+
     public const FILTERS = [
         'all'        => 'All',
         'review'     => 'In review',
+        'confirmation' => 'Awaiting confirmation',
         'signatures' => 'Awaiting signatures',
         'ready'      => 'Ready to file',
         'filed'      => 'Awaiting airline',
@@ -37,6 +41,11 @@ class Claims extends Component
     ];
 
     public function updatingSearch(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatingPlusOnly(): void
     {
         $this->resetPage();
     }
@@ -94,6 +103,9 @@ class Claims extends Component
             })
             ->when($this->status !== 'all', fn ($q) => match ($this->status) {
                 'review'     => $q->where('status', Claim::STATUS_PENDING_ELIGIBILITY),
+                // Eligible, but the customer has not confirmed yet - the claim
+                // cannot move until they do, so it is worth chasing.
+                'confirmation' => $q->where('status', Claim::STATUS_ELIGIBLE)->where('workflow_state', 'draft'),
                 'signatures' => $q->where('workflow_state', 'awaiting_signature'),
                 'ready'      => $q->where('workflow_state', 'ready_to_file'),
                 'filed'      => $q->whereIn('workflow_state', ['filed', 'awaiting_response']),
@@ -105,6 +117,8 @@ class Claims extends Component
                 'rejected'   => $q->where('status', Claim::STATUS_REJECTED),
                 default      => $q,
             })
+            ->when($this->plusOnly, fn ($q) => $q->whereHas('user.subscriptions',
+                fn ($sub) => $sub->whereIn('status', Subscription::GOOD_STANDING)))
             // Priority filing queue: when the admin makes it a Plus perk,
             // members' claims surface first; otherwise pure date order.
             ->select('claims.*')
@@ -123,6 +137,8 @@ class Claims extends Component
                 'claims'      => $claims,
                 'filters'     => self::FILTERS,
                 'reviewCount' => Claim::where('status', Claim::STATUS_PENDING_ELIGIBILITY)->count(),
+                'confirmationCount' => Claim::where('status', Claim::STATUS_ELIGIBLE)->where('workflow_state', 'draft')->count(),
+                'plusCount'   => Claim::whereHas('user.subscriptions', fn ($sub) => $sub->whereIn('status', Subscription::GOOD_STANDING))->count(),
                 'plusBadges'  => SubscriptionGate::enabled(),
             ])
             ->extends('layouts.admin')

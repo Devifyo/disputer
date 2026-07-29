@@ -501,6 +501,34 @@ subscriptions; permissioned beyond the admin role.
   cards stay clean at any volume.
   Admin sidebar bell icon inlined as SVG (the lucide JS replacement was
   lost inside the nested Livewire component).
+- Retired customer modules (Documents, My Cases): the sidebar links are
+  COMMENTED OUT (kept in the blade) and the GET routes are wrapped in a
+  new `retired_module` middleware (`BlockRetiredModules`) - hiding a link
+  is not access control, a bookmarked URL would still get in. Browsers
+  are redirected to the dashboard with "That section has moved -
+  everything now lives under Flight Disputes"; JSON clients get a plain
+  404. Routes, controllers and views all stay in the codebase: removing
+  the middleware from the route group reopens the module.
+- Profile -> Billing is now the member's self-service home for Unjamm
+  Plus (`App\Livewire\User\PlusMembership`): membership status with what
+  happens next in plain words, the card on file (brand/last4/expiry) with
+  an "Update card" deep-link into Stripe's payment-method flow,
+  PAUSE billing (optionally until a date - Stripe pause_collection,
+  mirrored locally on subscriptions.paused_at / resumes_at), resume,
+  cancel-at-period-end behind an inline confirmation that offers pausing
+  instead, "Keep my membership" to undo a pending cancellation, the full
+  Stripe portal, and an invoice list with PDF downloads. Non-members see
+  an invitation instead of billing controls.
+  The legacy case-management "Billing & Plans" partial is COMMENTED OUT
+  in profile/edit.blade.php (kept in the codebase, not deleted).
+- Claims list gained the missing "Awaiting confirmation" queue (eligible
+  but the customer has not consented yet - the claim cannot move until
+  they do) with its own count badge, plus a "★ Plus" toggle beside the
+  tabs. Membership is deliberately NOT a tab: it is a separate axis, so
+  the toggle narrows whichever lifecycle tab is open (e.g. In review +
+  Plus only). Plus-first ORDERING already applies automatically when the
+  priority_processing perk is enabled - the toggle is for focusing on
+  members, not for turning priority on.
 - Airline replies feed the drafts automatically (client caught it): the
   follow-up context box used to be a blank "paste the airline's response"
   field even though inbound replies are already stored on the claim. It

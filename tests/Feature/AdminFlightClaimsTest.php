@@ -240,4 +240,46 @@ class AdminFlightClaimsTest extends TestCase
         $this->assertStringContainsString('14 days', $draft['body']);
         $this->assertStringContainsString('National Enforcement Body', $draft['body']);
     }
+
+    public function test_the_plus_toggle_narrows_any_tab_to_members_and_priority_ordering_still_applies(): void
+    {
+        $member = \App\Models\User::factory()->create();
+        $member->assignRole('user');
+        $member->subscriptions()->create([
+            'subscription_plan_id'   => \App\Models\SubscriptionPlan::query()->value('id'),
+            'stripe_customer_id'     => 'cus_test',
+            'stripe_subscription_id' => 'sub_test',
+            'stripe_price_id'        => 'price_test',
+            'interval'               => 'month',
+            'status'                 => 'active',
+            'current_period_end'     => now()->addMonth(),
+        ]);
+
+        $plusClaim = \App\Models\Claim::create([
+            'user_id' => $member->id, 'status' => \App\Models\Claim::STATUS_ELIGIBLE, 'workflow_state' => 'draft',
+            'airline' => 'Air Canada', 'flight_number' => 'AC900', 'departure_airport' => 'YYZ',
+            'arrival_airport' => 'LHR', 'flight_date' => '2026-07-10', 'passenger_name' => 'Plus Member',
+        ]);
+        $free = \App\Models\User::factory()->create();
+        $free->assignRole('user');
+
+        $freeClaim = \App\Models\Claim::create([
+            'user_id' => $free->id, 'status' => \App\Models\Claim::STATUS_ELIGIBLE, 'workflow_state' => 'draft',
+            'airline' => 'Air Canada', 'flight_number' => 'AC901', 'departure_airport' => 'YYZ',
+            'arrival_airport' => 'LHR', 'flight_date' => '2026-07-10', 'passenger_name' => 'Free Customer',
+        ]);
+
+        // Membership is orthogonal to lifecycle: it narrows whichever tab is open.
+        Livewire::actingAs($this->admin)->test(\App\Livewire\Admin\FlightClaims\Claims::class)
+            ->call('setStatus', 'confirmation')
+            ->set('plusOnly', true)
+            ->assertSee('AC900')
+            ->assertDontSee('AC901');
+
+        // Off again, both are listed.
+        Livewire::actingAs($this->admin)->test(\App\Livewire\Admin\FlightClaims\Claims::class)
+            ->call('setStatus', 'confirmation')
+            ->assertSee('AC900')
+            ->assertSee('AC901');
+    }
 }

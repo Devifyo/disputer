@@ -18,7 +18,7 @@ class Subscription extends Model
     protected $fillable = [
         'user_id', 'subscription_plan_id', 'stripe_customer_id', 'stripe_subscription_id',
         'stripe_price_id', 'interval', 'status', 'current_period_start', 'current_period_end',
-        'cancel_at_period_end', 'trial_ends_at', 'canceled_at',
+        'cancel_at_period_end', 'trial_ends_at', 'canceled_at', 'paused_at', 'resumes_at',
     ];
 
     protected $casts = [
@@ -27,7 +27,15 @@ class Subscription extends Model
         'cancel_at_period_end' => 'boolean',
         'trial_ends_at'        => 'datetime',
         'canceled_at'          => 'datetime',
+        'paused_at'            => 'datetime',
+        'resumes_at'           => 'datetime',
     ];
+
+    /** Billing is paused at Stripe - reversible, unlike a cancellation. */
+    public function isPaused(): bool
+    {
+        return $this->paused_at !== null;
+    }
 
     public function user(): BelongsTo
     {

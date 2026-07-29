@@ -88,7 +88,15 @@
                     </div> -->
 
                     <div id="tab-billing" class="tab-pane hidden space-y-6">
+                        {{-- Unjamm Plus membership: status, card, pause/resume,
+                             cancel and invoices. --}}
+                        @livewire('user.plus-membership')
+
+                        {{-- Legacy case-management "Billing & Plans" - kept in the
+                             codebase, hidden from the profile while Unjamm Plus is
+                             the customer-facing subscription.
                         @include('profile.partials.billing-plans')
+                        --}}
                     </div>
 
                     <div id="tab-password" class="tab-pane hidden space-y-6">

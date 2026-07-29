@@ -4,33 +4,70 @@
 
         <template v-else>
             <!-- Checkout outcome banners -->
-            <div v-if="checkoutState === 'success'" class="flex items-start gap-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl px-5 py-4 text-sm mb-6">
-                <span class="font-bold">Payment received.</span>
-                <span>Your membership activates within a few seconds - this page refreshes automatically.</span>
+            <div v-if="checkoutState === 'success' && !billing.is_plus"
+                 class="flex items-center gap-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl px-5 py-3.5 text-sm mb-6">
+                <svg class="w-5 h-5 shrink-0 animate-spin text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                    <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+                </svg>
+                <span><span class="font-bold">Payment received</span> - activating your membership, just a moment…</span>
             </div>
             <div v-else-if="checkoutState === 'cancelled'" class="bg-slate-100 border border-slate-200 text-slate-600 rounded-2xl px-5 py-4 text-sm mb-6">
                 Checkout cancelled - no charge was made.
             </div>
 
             <!-- Already a member -->
-            <div v-if="billing.is_plus" class="bg-white rounded-2xl ring-1 ring-slate-900/5 p-6 sm:p-8">
-                <div class="flex items-center gap-3 mb-1">
-                    <span class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-slate-900 text-amber-400 text-lg">★</span>
-                    <div>
-                        <h1 class="text-xl font-bold text-slate-900">You're an Unjamm Plus member</h1>
-                        <p class="text-sm text-slate-500">
-                            {{ billing.subscription?.plan || 'Unjamm Plus' }} · {{ billing.subscription?.status }}
-                            <template v-if="billing.subscription?.renews_at">
-                                · {{ billing.subscription?.cancelling ? 'access until' : 'renews' }} {{ billing.subscription.renews_at }}
-                            </template>
+            <div v-if="billing.is_plus" class="space-y-5">
+                <div class="rounded-3xl bg-slate-900 text-white overflow-hidden shadow-xl shadow-slate-900/10">
+                    <div class="px-6 sm:px-8 pt-8 pb-7 text-center">
+                        <span class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-white/10 text-amber-400 text-2xl ring-1 ring-white/15">★</span>
+                        <h1 class="text-2xl font-bold tracking-tight mt-4">
+                            {{ justUpgraded ? "Welcome to Unjamm Plus" : "You're an Unjamm Plus member" }}
+                        </h1>
+                        <p class="text-sm text-slate-300 mt-1.5">
+                            {{ justUpgraded ? 'Your membership is active - every perk below is switched on.' : 'Thanks for flying with us in your corner.' }}
                         </p>
                     </div>
+                    <dl class="grid grid-cols-3 divide-x divide-white/10 border-t border-white/10 text-center">
+                        <div class="px-3 py-4">
+                            <dt class="text-[10px] uppercase tracking-wider font-bold text-slate-400">Plan</dt>
+                            <dd class="text-sm font-bold mt-1 truncate">{{ billing.subscription?.plan || 'Unjamm Plus' }}</dd>
+                        </div>
+                        <div class="px-3 py-4">
+                            <dt class="text-[10px] uppercase tracking-wider font-bold text-slate-400">Status</dt>
+                            <dd class="text-sm font-bold mt-1 capitalize text-emerald-400">{{ billing.subscription?.status || 'active' }}</dd>
+                        </div>
+                        <div class="px-3 py-4">
+                            <dt class="text-[10px] uppercase tracking-wider font-bold text-slate-400">
+                                {{ billing.subscription?.cancelling ? 'Access until' : 'Renews' }}
+                            </dt>
+                            <dd class="text-sm font-bold mt-1">{{ billing.subscription?.renews_at || '-' }}</dd>
+                        </div>
+                    </dl>
                 </div>
-                <p class="text-sm text-slate-500 mt-4">Cards, invoices and cancellation are handled securely by Stripe.</p>
-                <button :disabled="redirecting" @click="openPortal"
-                        class="mt-4 bg-slate-900 hover:bg-slate-800 disabled:opacity-60 text-white text-sm font-bold px-6 py-3 rounded-xl transition-colors">
-                    {{ redirecting ? 'Opening…' : 'Manage billing' }}
-                </button>
+
+                <div class="bg-white rounded-2xl ring-1 ring-slate-900/5 p-6 sm:p-7">
+                    <p class="text-[11px] uppercase tracking-wider font-bold text-slate-400 mb-3">What your membership includes</p>
+                    <ul class="grid sm:grid-cols-2 gap-x-6 gap-y-2.5">
+                        <li v-for="item in plusItems" :key="item" class="flex items-start gap-2.5 text-[13px] text-slate-700">
+                            <span class="mt-0.5 w-4 h-4 rounded-full bg-emerald-100 text-emerald-600 text-[10px] font-black flex items-center justify-center shrink-0">✓</span>
+                            {{ item }}
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-3 bg-white rounded-2xl ring-1 ring-slate-900/5 p-5 sm:px-7">
+                    <div class="min-w-0 flex-1">
+                        <p class="text-sm font-bold text-slate-900">Billing</p>
+                        <p class="text-[13px] text-slate-500">Cards, invoices and cancellation are handled securely by Stripe.</p>
+                    </div>
+                    <div class="flex items-center gap-2 shrink-0">
+                        <router-link :to="{ name: 'claims' }" class="text-sm font-bold text-slate-500 hover:text-slate-800 px-4 py-3">My claims</router-link>
+                        <button :disabled="redirecting" @click="openPortal"
+                                class="bg-slate-900 hover:bg-slate-800 disabled:opacity-60 text-white text-sm font-bold px-6 py-3 rounded-xl transition-colors">
+                            {{ redirecting ? 'Opening…' : 'Manage billing' }}
+                        </button>
+                    </div>
+                </div>
             </div>
 
             <!-- System off: nothing to sell -->
@@ -174,6 +211,28 @@ const freeItems = computed(() => {
         ...catalogue.filter((f) => !locked.includes(f.key)).map((f) => f.label),
     ];
 });
+
+// A member's perks: the features the admin has actually gated (those are the
+// ones membership unlocks), always with the headline promises.
+const plusItems = computed(() => {
+    const locked = billing.value.locked || [];
+    const labels = {
+        flight_claims: 'Compensation claims',
+        flight_monitoring: 'Live flight monitoring',
+        priority_processing: 'Priority filing queue',
+        multi_passenger: 'Multi-passenger / family accounts',
+        auto_filing: 'Fully automatic claim filing',
+        ai_claim_drafting: 'AI-written claim letters',
+        ai_follow_up_drafts: 'AI follow-ups to the airline',
+        ai_regulator_drafts: 'AI regulator complaints',
+    };
+    const unlocked = locked.map((key) => labels[key]).filter(Boolean);
+
+    return unlocked.length ? unlocked : ['Priority filing queue', 'Multi-passenger / family accounts', 'Fully automatic claim filing'];
+});
+
+// Landed here straight from Stripe: greet them rather than just informing.
+const justUpgraded = computed(() => checkoutState.value === 'success');
 
 function available(plan) {
     return interval.value === 'annual' ? plan.annual_available : plan.monthly_available;

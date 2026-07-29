@@ -85,29 +85,36 @@ Route::middleware(['auth', 'verified', 'role_access:user'])->name('user.')->grou
         Route::get('{path?}', [ItineraryController::class, 'index'])->where('path', '.*')->name('index');
     });
 
-    // ✅ CREATE must come BEFORE {case_reference_id}
-    Route::get('/cases/create', [CaseController::class, 'createStep1'])
-        ->name('cases.create');
+    // Retired customer modules: the routes and controllers stay, but the
+    // `retired_module` middleware closes the door - a bookmarked URL must not
+    // be a way back in. Drop the middleware to reopen them.
+    Route::middleware('retired_module')->group(function () {
+        // ✅ CREATE must come BEFORE {case_reference_id}
+        Route::get('/cases/create', [CaseController::class, 'createStep1'])
+            ->name('cases.create');
 
-    Route::get('/cases', [CaseController::class, 'index'])
-        ->name('cases.index');
+        Route::get('/cases', [CaseController::class, 'index'])
+            ->name('cases.index');
 
-    Route::get('/cases/{case_reference_id}', [CaseController::class, 'show'])
-        ->name('cases.show');
-    Route::get('/cases/{case}/export', [CaseController::class, 'exportPdf'])->name('cases.export');
+        Route::get('/cases/{case_reference_id}', [CaseController::class, 'show'])
+            ->name('cases.show');
+        Route::get('/cases/{case}/export', [CaseController::class, 'exportPdf'])->name('cases.export');
+
+        // Documents Route
+        Route::get('/documents', [DocumentController::class, 'index'])->name('documents.index');
+    });
+
     Route::get('/api/institutions/search', [CaseController::class, 'searchInstitutions'])
         ->name('api.institutions.search');
-
-    // Documents Route
-    Route::get('/documents', [DocumentController::class, 'index'])->name('documents.index');
     Route::get('/document/view/{attachment}', [DocumentController::class, 'showPublic'])
     ->name('evidence.view');
     Route::get('/document/download/{attachment}', [DocumentController::class, 'downloadSecure'])
     ->name('evidence.download')
     ->middleware('signed');
 
-    // lettler templates — requires active subscription or cases remaining
-    Route::middleware('requires_subscription')->group(function () {
+    // Letter templates - retired with the case-management module. Kept in the
+    // codebase behind `retired_module`; drop that middleware to reopen.
+    Route::middleware(['requires_subscription', 'retired_module'])->group(function () {
         Route::get('/templates', [TemplateController::class, 'index'])->name('templates.index');
         Route::get('/templates/search', [TemplateController::class, 'search'])->name('templates.search');
     });

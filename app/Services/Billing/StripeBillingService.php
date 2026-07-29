@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 use Stripe\StripeClient;
+use Throwable;
 
 /**
  * Every Stripe call the platform makes. Product/price IDs live on the plan
@@ -102,6 +103,66 @@ class StripeBillingService
         ]);
 
         $this->syncFromStripe($stripeSub->toArray());
+    }
+
+    /**
+     * Pause billing without losing the subscription: Stripe stops collecting
+     * (invoices are voided) and the membership resumes on unpause. Kept
+     * separate from cancel-at-period-end - a pause is reversible and keeps
+     * the same subscription, price and billing anchor.
+     */
+    public function pauseCollection(Subscription $subscription, ?Carbon $resumesAt = null): void
+    {
+        $stripeSub = $this->stripe()->subscriptions->update($subscription->stripe_subscription_id, [
+            'pause_collection' => array_filter([
+                'behavior'   => 'void',
+                'resumes_at' => $resumesAt?->getTimestamp(),
+            ]),
+        ]);
+
+        $this->syncFromStripe($stripeSub->toArray());
+    }
+
+    public function resumeCollection(Subscription $subscription): void
+    {
+        $stripeSub = $this->stripe()->subscriptions->update($subscription->stripe_subscription_id, [
+            'pause_collection' => null,
+        ]);
+
+        $this->syncFromStripe($stripeSub->toArray());
+    }
+
+    /** Portal deep-link straight to the card-update screen. */
+    public function paymentMethodUrl(User $user, string $returnUrl): string
+    {
+        return $this->stripe()->billingPortal->sessions->create([
+            'customer'   => $this->customerId($user),
+            'return_url' => $returnUrl,
+            'flow_data'  => ['type' => 'payment_method_update'],
+        ])->url;
+    }
+
+    /** The card Stripe will charge next, for display only. */
+    public function paymentMethod(User $user): ?array
+    {
+        if (!$user->stripe_customer_id) {
+            return null;
+        }
+
+        try {
+            $customer = $this->stripe()->customers->retrieve($user->stripe_customer_id, ['expand' => ['invoice_settings.default_payment_method']]);
+            $card     = $customer->invoice_settings->default_payment_method?->card;
+
+            return $card ? [
+                'brand'   => ucfirst($card->brand),
+                'last4'   => $card->last4,
+                'expires' => sprintf('%02d/%d', $card->exp_month, $card->exp_year),
+            ] : null;
+        } catch (Throwable $e) {
+            Log::warning('Stripe payment method lookup failed', ['user' => $user->id, 'error' => $e->getMessage()]);
+
+            return null;
+        }
     }
 
     /** Upgrade/downgrade: swap the subscription onto another plan/interval. */
@@ -266,6 +327,7 @@ class StripeBillingService
                 'total'  => strtoupper($invoice->currency) . ' ' . number_format($invoice->total / 100, 2),
                 'status' => $invoice->status,
                 'url'    => $invoice->hosted_invoice_url,
+                'pdf'    => $invoice->invoice_pdf,
             ])
             ->all();
     }
@@ -319,6 +381,11 @@ class StripeBillingService
                 'cancel_at_period_end' => (bool) ($stripeSub['cancel_at_period_end'] ?? false),
                 'trial_ends_at'        => !empty($stripeSub['trial_end']) ? Carbon::createFromTimestamp($stripeSub['trial_end']) : null,
                 'canceled_at'          => !empty($stripeSub['canceled_at']) ? Carbon::createFromTimestamp($stripeSub['canceled_at']) : null,
+                // Mirror Stripe's pause so the app can show it without a round trip.
+                'paused_at'            => !empty($stripeSub['pause_collection']) ? now() : null,
+                'resumes_at'           => !empty($stripeSub['pause_collection']['resumes_at'])
+                    ? Carbon::createFromTimestamp($stripeSub['pause_collection']['resumes_at'])
+                    : null,
             ]
         );
     }
