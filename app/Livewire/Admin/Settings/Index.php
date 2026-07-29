@@ -3,6 +3,7 @@
 namespace App\Livewire\Admin\Settings;
 
 use App\Models\Setting;
+use App\Support\Modules;
 use App\Services\Claims\AdminAlertRecipients;
 use App\Services\Eligibility\EligibilityEngine;
 use Livewire\Component;
@@ -38,6 +39,10 @@ class Index extends Component
     // Website configuration — feature toggles.
     public $site_plus_promo;
 
+    // Module switches: [module key => enabled]. Off = hidden AND blocked on
+    // both portals; data is untouched, so switching back on restores it.
+    public array $modules = [];
+
     public function mount()
     {
         $admin = auth()->user();
@@ -50,13 +55,18 @@ class Index extends Component
         $this->alert_recipients = AdminAlertRecipients::configured()
             ?: [['name' => '', 'email' => '', 'alerts' => array_keys(AdminAlertRecipients::TYPES)]];
         $this->site_plus_promo = (bool) Setting::get('app.plus_promo_enabled', true);
+        $this->modules = Modules::states();
     }
 
     public function updateWebsite()
     {
         Setting::set('app.plus_promo_enabled', $this->site_plus_promo ? 1 : 0);
 
-        $this->dispatch('toast', ['type' => 'success', 'message' => 'Website configuration saved.']);
+        foreach (array_keys(Modules::ALL) as $module) {
+            Modules::set($module, (bool) ($this->modules[$module] ?? true));
+        }
+
+        $this->dispatch('toast', ['type' => 'success', 'message' => 'Website configuration saved - modules apply immediately, on both portals.']);
     }
 
     public function updateClaims()

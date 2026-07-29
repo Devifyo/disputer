@@ -1,3 +1,4 @@
+@use('App\Support\Modules')
 <div class="flex h-full" x-data="{ mobileSidebarOpen: false }">
     
     {{-- MOBILE BACKDROP --}}
@@ -75,17 +76,21 @@
                 Users
             </a>
 
+            @if (Modules::enabled(Modules::EMAIL_TEMPLATES))
             <a href="{{ route('admin.templates.index') }}" wire:navigate class="{{ $navClass('admin.templates.*') }} group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200" @click="mobileSidebarOpen = false">
                 <i data-lucide="file-text" class="w-4.5 h-4.5 transition-colors {{ $iconClass('admin.templates.*') }}"></i>
                 Templates
             </a>
+            @endif
 
+            @if (Modules::enabled(Modules::SUCCESS_STORIES))
             <a href="{{ route('admin.success-stories.index') }}" wire:navigate class="{{ $navClass('admin.success-stories.*') }} group flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200" @click="mobileSidebarOpen = false">
                 <div class="flex items-center gap-3">
                     <i data-lucide="heart" class="w-4.5 h-4.5 transition-colors {{ $iconClass('admin.success-stories.*') }}"></i>
                     Success Stories
                 </div>
             </a>
+            @endif
             <!-- communications -->
             <div class="px-3 mt-6 mb-2 text-[10px] uppercase tracking-wider font-bold text-slate-600">Communications</div>
 
@@ -116,6 +121,7 @@
                 </button>
 
                 <div x-show="open" x-collapse x-cloak class="pl-4 space-y-1">
+                    @if (Modules::enabled(Modules::TRIP_REVIEWS))
                     <a href="{{ route('admin.trip-reviews.index') }}" wire:navigate class="{{ $subClass('admin.trip-reviews.*') }} group flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all duration-200 border-l border-white/10" @click="mobileSidebarOpen = false">
                         <i data-lucide="scale" class="w-4 h-4 {{ $iconClass('admin.trip-reviews.*') }}"></i>
                         Trip Reviews
@@ -123,10 +129,14 @@
                             <span class="ml-auto min-w-[18px] h-4.5 px-1.5 rounded-full bg-rose-500/90 text-white text-[10px] font-black flex items-center justify-center">{{ $pendingReviews }}</span>
                         @endif
                     </a>
+                    @endif
+                    @if (Modules::enabled(Modules::TRIPS))
                     <a href="{{ route('admin.flight-claims.trips') }}" wire:navigate class="{{ $subClass('admin.flight-claims.trips') }} group flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all duration-200 border-l border-white/10" @click="mobileSidebarOpen = false">
                         <i data-lucide="shield-check" class="w-4 h-4 {{ $iconClass('admin.flight-claims.trips') }}"></i>
                         Protected Trips
                     </a>
+                    @endif
+                    @if (Modules::enabled(Modules::CLAIMS))
                     <a href="{{ route('admin.flight-claims.claims') }}" wire:navigate class="{{ $subClass('admin.flight-claims.claims') }} group flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all duration-200 border-l border-white/10" @click="mobileSidebarOpen = false">
                         <i data-lucide="hand-coins" class="w-4 h-4 {{ $iconClass('admin.flight-claims.claims') }}"></i>
                         Claims
@@ -134,51 +144,74 @@
                             <span class="ml-auto min-w-[18px] h-4.5 px-1.5 rounded-full bg-rose-500/90 text-white text-[10px] font-black flex items-center justify-center">{{ $pendingClaims }}</span>
                         @endif
                     </a>
+                    @endif
+                    @if (Modules::enabled(Modules::PASSENGERS))
                     <a href="{{ route('admin.flight-claims.passengers') }}" wire:navigate class="{{ $subClass('admin.flight-claims.passengers') }} group flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all duration-200 border-l border-white/10" @click="mobileSidebarOpen = false">
                         <i data-lucide="users" class="w-4 h-4 {{ $iconClass('admin.flight-claims.passengers') }}"></i>
                         Passengers
                     </a>
+                    @endif
+                    @if (Modules::enabled(Modules::LIFECYCLE))
                     <a href="{{ route('admin.flight-claims.lifecycle') }}" wire:navigate class="{{ $subClass('admin.flight-claims.lifecycle') }} group flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all duration-200 border-l border-white/10" @click="mobileSidebarOpen = false">
                         <i data-lucide="workflow" class="w-4 h-4 {{ $iconClass('admin.flight-claims.lifecycle') }}"></i>
                         Lifecycle
                     </a>
+                    @endif
+                    @if (Modules::enabled(Modules::AIRLINES))
                     <a href="{{ route('admin.flight-claims.airlines') }}" wire:navigate class="{{ $subClass('admin.flight-claims.airlines') }} group flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all duration-200 border-l border-white/10" @click="mobileSidebarOpen = false">
                         <i data-lucide="plane-takeoff" class="w-4 h-4 {{ $iconClass('admin.flight-claims.airlines') }}"></i>
                         Airlines
                     </a>
+                    @endif
+                    @if (Modules::enabled(Modules::CLAIM_TEMPLATES))
                     <a href="{{ route('admin.flight-claims.templates') }}" wire:navigate class="{{ $subClass('admin.flight-claims.templates') }} group flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all duration-200 border-l border-white/10" @click="mobileSidebarOpen = false">
                         <i data-lucide="mail-plus" class="w-4 h-4 {{ $iconClass('admin.flight-claims.templates') }}"></i>
                         Claim Templates
                     </a>
+                    @endif
+                    @if (Modules::enabled(Modules::SUBSCRIPTIONS))
                     <a href="{{ route('admin.flight-claims.subscriptions') }}" wire:navigate class="{{ $subClass('admin.flight-claims.subscriptions') }} group flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all duration-200 border-l border-white/10" @click="mobileSidebarOpen = false">
                         <i data-lucide="crown" class="w-4 h-4 {{ $iconClass('admin.flight-claims.subscriptions') }}"></i>
                         Subscriptions
                     </a>
+                    @endif
+                    @if (Modules::enabled(Modules::PAYMENTS))
                     <a href="{{ route('admin.flight-claims.payments') }}" wire:navigate class="{{ $subClass('admin.flight-claims.payments') }} group flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all duration-200 border-l border-white/10" @click="mobileSidebarOpen = false">
                         <i data-lucide="banknote" class="w-4 h-4 {{ $iconClass('admin.flight-claims.payments') }}"></i>
                         Payments
                     </a>
+                    @endif
                 </div>
             </div>
+            @if (Modules::enabled(Modules::INSTITUTIONS) || Modules::enabled(Modules::CATEGORIES))
             <div class="px-3 mt-6 mb-2 text-[10px] uppercase tracking-wider font-bold text-slate-600">Institutes</div>
+            @endif
 
+            @if (Modules::enabled(Modules::INSTITUTIONS))
             <a href="{{ route('admin.institutions.index') }}" wire:navigate class="{{ $navClass('admin.institutions.*') }} group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200" @click="mobileSidebarOpen = false">
                 <i data-lucide="building-2" class="w-4.5 h-4.5 transition-colors {{ $iconClass('admin.institutions.*') }}"></i>
                 All Institutes
             </a>
+            @endif
 
+            @if (Modules::enabled(Modules::CATEGORIES))
             <a href="{{ route('admin.categories.index') }}" wire:navigate class="{{ $navClass('admin.categories.*') }} group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200" @click="mobileSidebarOpen = false">
                 <i data-lucide="layers" class="w-4.5 h-4.5 transition-colors {{ $iconClass('admin.categories.*') }}"></i>
                 Categories
             </a>
+            @endif
 
             {{-- NEW BILLING & PLANS SECTION --}}
+            @if (Modules::enabled(Modules::PLANS))
             <div class="px-3 mt-6 mb-2 text-[10px] uppercase tracking-wider font-bold text-slate-600">Billing</div>
+            @endif
 
+            @if (Modules::enabled(Modules::PLANS))
             <a href="{{ route('admin.plans.index') }}" wire:navigate class="{{ $navClass('admin.plans.*') }} group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200" @click="mobileSidebarOpen = false">
                 <i data-lucide="credit-card" class="w-4.5 h-4.5 transition-colors {{ $iconClass('admin.plans.*') }}"></i>
                 Plans & Pricing
             </a>
+            @endif
 
             <div class="px-3 mt-6 mb-2 text-[10px] uppercase tracking-wider font-bold text-slate-600">Content</div>
 

@@ -24,7 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
             'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
             'requires_subscription' => \App\Http\Middleware\RequiresActiveSubscription::class,
-            'retired_module' => \App\Http\Middleware\BlockRetiredModules::class,
+            'module' => \App\Http\Middleware\EnsureModuleEnabled::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

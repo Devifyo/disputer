@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Jobs\SyncTripFlight;
 use App\Models\Trip;
+use App\Support\Modules;
 use Illuminate\Console\Command;
 
 /**
@@ -19,6 +20,14 @@ class MonitorTrips extends Command
 
     public function handle(): int
     {
+        // Module switch: monitoring pauses while Protect Your Trip is off -
+        // polls resume from where they left off when it is switched back on.
+        if (!Modules::enabled(Modules::TRIPS)) {
+            $this->info('Trip Protection module is switched off - skipping.');
+
+            return self::SUCCESS;
+        }
+
         $due = Trip::whereIn('monitoring_status', [Trip::MONITORING_PENDING, Trip::MONITORING_ACTIVE])
             ->whereNotNull('next_poll_at')
             ->where('next_poll_at', '<=', now())

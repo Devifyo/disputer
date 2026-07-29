@@ -1,4 +1,4 @@
-<div class="h-full overflow-y-auto p-6 pb-24 bg-slate-50/50">
+<div class="h-full overflow-y-auto p-6 pb-24 bg-slate-50/50" x-data="{ tab: @js($tab) }">
     <x-flash />
 
     {{-- Header --}}
@@ -9,20 +9,26 @@
 
     {{-- Tabs --}}
     <div class="inline-flex items-center gap-1 bg-white rounded-xl border border-slate-200 shadow-sm p-1 mb-4">
-        <button wire:click="setTab('review')"
-                class="px-5 py-2 rounded-lg text-sm font-bold transition-all {{ $tab === 'review' ? 'bg-slate-900 text-white shadow' : 'text-slate-500 hover:text-slate-800' }}">
+        <button @click="tab = 'review'" wire:click="setTab('review')"
+                :class="tab === 'review' ? 'bg-slate-900 text-white shadow' : 'text-slate-500 hover:text-slate-800'"
+                class="px-5 py-2 rounded-lg text-sm font-bold transition-all">
             Review
-            <span class="ml-1 px-1.5 py-0.5 rounded-full text-[11px] font-black {{ $tab === 'review' ? 'bg-white/20' : 'bg-rose-100 text-rose-600' }}">{{ $counts['review'] }}</span>
+            <span class="ml-1 px-1.5 py-0.5 rounded-full text-[11px] font-black" :class="tab === 'review' ? 'bg-white/20' : 'bg-rose-100 text-rose-600'">{{ $counts['review'] }}</span>
         </button>
-        <button wire:click="setTab('all')"
-                class="px-5 py-2 rounded-lg text-sm font-bold transition-all {{ $tab === 'all' ? 'bg-slate-900 text-white shadow' : 'text-slate-500 hover:text-slate-800' }}">
+        <button @click="tab = 'all'" wire:click="setTab('all')"
+                :class="tab === 'all' ? 'bg-slate-900 text-white shadow' : 'text-slate-500 hover:text-slate-800'"
+                class="px-5 py-2 rounded-lg text-sm font-bold transition-all">
             All
-            <span class="ml-1 px-1.5 py-0.5 rounded-full text-[11px] font-black {{ $tab === 'all' ? 'bg-white/20' : 'bg-slate-100 text-slate-500' }}">{{ $counts['all'] }}</span>
+            <span class="ml-1 px-1.5 py-0.5 rounded-full text-[11px] font-black" :class="tab === 'all' ? 'bg-white/20' : 'bg-slate-100 text-slate-500'">{{ $counts['all'] }}</span>
         </button>
     </div>
 
     {{-- Queue --}}
-    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden relative">
+        <div wire:loading.flex wire:target="setTab"
+             class="absolute inset-0 z-10 bg-white/70 backdrop-blur-[1px] items-center justify-center">
+            <svg class="w-6 h-6 animate-spin text-slate-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
+        </div>
         <table class="w-full text-sm">
             <thead>
                 <tr class="text-left text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-100">

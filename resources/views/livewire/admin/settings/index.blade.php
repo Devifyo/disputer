@@ -1,3 +1,4 @@
+@use('App\Support\Modules')
 <div class="h-full overflow-y-auto p-6 pb-24 relative bg-slate-50/50" x-data="{ activeTab: 'profile' }">
     <x-flash />
 
@@ -266,6 +267,45 @@
                         </span>
                     </label>
                 </div>
+
+                {{-- Modules, grouped by product area: one switch per feature.
+                     Off = hidden AND blocked, admin and customer alike; data
+                     is untouched. Toggles flip locally (entangled, deferred)
+                     and persist with the tab's Save Settings button. --}}
+                <div class="px-6 pb-6" x-data="{ modules: @entangle('modules') }">
+                    <div class="rounded-2xl border border-slate-200 overflow-hidden">
+                        <div class="px-5 py-4 border-b border-slate-100 bg-slate-50/60">
+                            <h3 class="text-sm font-bold text-slate-800">Modules</h3>
+                            <p class="text-xs text-slate-500 mt-0.5">Switch a module off to remove it from both portals - navigation and pages alike. Nothing is deleted; switching back on restores it exactly as it was.</p>
+                        </div>
+                        @foreach (Modules::grouped() as $groupLabel => $groupModules)
+                            <div class="px-5 pt-4 pb-1.5 {{ $loop->first ? '' : 'border-t border-slate-100' }}">
+                                <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wide">{{ $groupLabel }}</p>
+                            </div>
+                            <ul class="divide-y divide-slate-50">
+                                @foreach ($groupModules as $moduleKey => $module)
+                                    <li class="flex items-start gap-4 px-5 py-4">
+                                        <div class="min-w-0 flex-1">
+                                            <p class="text-sm font-bold text-slate-800">{{ $module['label'] }}</p>
+                                            <p class="text-xs text-slate-500 mt-0.5">{{ $module['description'] }}</p>
+                                        </div>
+                                        <button type="button" @click="modules['{{ $moduleKey }}'] = !modules['{{ $moduleKey }}']"
+                                                role="switch" :aria-checked="modules['{{ $moduleKey }}'] ? 'true' : 'false'"
+                                                :class="modules['{{ $moduleKey }}'] ? 'bg-emerald-500' : 'bg-slate-300'"
+                                                class="relative shrink-0 mt-0.5 w-11 h-6 rounded-full transition-colors">
+                                            <span :class="modules['{{ $moduleKey }}'] ? 'left-[22px]' : 'left-0.5'"
+                                                  class="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all"></span>
+                                        </button>
+                                    </li>
+                                @endforeach
+                            </ul>
+                        @endforeach
+                        <div class="px-5 py-3.5 bg-slate-50 border-t border-slate-100">
+                            <p class="text-[11px] text-slate-400">Unjamm Plus has its own master switch under Flight Claims → Subscriptions. Changes apply when you press Save Settings below.</p>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end">
                     <button wire:click="updateWebsite" wire:loading.attr="disabled" class="min-w-[140px] px-6 py-2 bg-slate-900 text-white rounded-xl text-sm font-bold shadow-lg shadow-slate-900/20 hover:bg-slate-800 transition-all disabled:opacity-70 flex justify-center items-center gap-2">
                         <span wire:loading.remove wire:target="updateWebsite">Save Settings</span>

@@ -26,25 +26,27 @@ use App\Livewire\Admin\CmsPages\Index as CmsPagesIndex;
 Route::prefix('admin')->name('admin.')->middleware(['auth', 'role_access:admin'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/users', UserIndex::class)->name('users.index');
-    Route::get('/institutions', InstitutionIndex::class)->name('institutions.index');
-    Route::get('/categories', CategoriesIndex::class)->name('categories.index');
-    Route::get('/templates', AdminTemplates::class)->name('templates.index');
+    Route::get('/institutions', InstitutionIndex::class)->middleware('module:institutions')->name('institutions.index');
+    Route::get('/categories', CategoriesIndex::class)->middleware('module:categories')->name('categories.index');
+    Route::get('/templates', AdminTemplates::class)->middleware('module:email_templates')->name('templates.index');
     Route::get('/settings', AdminSettings::class)->name('settings.index');
-    Route::get('/success-stories', SuccessStoriesIndex::class)->name('success-stories.index');
-    Route::get('/plans', AdminPlans::class)->name('plans.index');
+    Route::get('/success-stories', SuccessStoriesIndex::class)->middleware('module:success_stories')->name('success-stories.index');
+    Route::get('/plans', AdminPlans::class)->middleware('module:plans')->name('plans.index');
     Route::get('/impersonate-case/{case}', [DashboardController::class, 'impersonateAndViewCase'])->name('impersonate.case');
     Route::get('/support', SupportIndex::class)->name('support.index');
-    Route::get('/trip-reviews', TripReviewsIndex::class)->name('trip-reviews.index');
-    Route::get('/flight-claims/trips', FlightClaimsTrips::class)->name('flight-claims.trips');
-    Route::get('/flight-claims/claims', FlightClaimsClaims::class)->name('flight-claims.claims');
-    Route::get('/flight-claims/passengers', FlightClaimsPassengers::class)->name('flight-claims.passengers');
-    Route::get('/flight-claims/lifecycle', FlightClaimsLifecycle::class)->name('flight-claims.lifecycle');
-    Route::get('/flight-claims/airlines', FlightClaimsAirlines::class)->name('flight-claims.airlines');
-    Route::get('/flight-claims/templates', FlightClaimsTemplates::class)->name('flight-claims.templates');
-    Route::get('/flight-claims/subscriptions', FlightClaimsSubscriptions::class)->name('flight-claims.subscriptions');
-    Route::get('/flight-claims/payments', FlightClaimsPayments::class)->name('flight-claims.payments');
-    Route::get('/flight-claims/payments/{payment}/receipt', PaymentReceiptController::class)->name('flight-claims.payments.receipt');
-    Route::get('/flight-claims/claims/{claim}', FlightClaimsClaimDetail::class)->whereNumber('claim')->name('flight-claims.claims.show');
+    // Module toggles (Settings -> Modules): a switched-off module refuses
+    // here, not just in the nav.
+    Route::get('/trip-reviews', TripReviewsIndex::class)->middleware('module:trip_reviews')->name('trip-reviews.index');
+    Route::get('/flight-claims/trips', FlightClaimsTrips::class)->middleware('module:trips')->name('flight-claims.trips');
+    Route::get('/flight-claims/claims', FlightClaimsClaims::class)->middleware('module:claims')->name('flight-claims.claims');
+    Route::get('/flight-claims/passengers', FlightClaimsPassengers::class)->middleware('module:passengers')->name('flight-claims.passengers');
+    Route::get('/flight-claims/lifecycle', FlightClaimsLifecycle::class)->middleware('module:lifecycle')->name('flight-claims.lifecycle');
+    Route::get('/flight-claims/airlines', FlightClaimsAirlines::class)->middleware('module:airlines')->name('flight-claims.airlines');
+    Route::get('/flight-claims/templates', FlightClaimsTemplates::class)->middleware('module:claim_templates')->name('flight-claims.templates');
+    Route::get('/flight-claims/subscriptions', FlightClaimsSubscriptions::class)->middleware('module:subscriptions')->name('flight-claims.subscriptions');
+    Route::get('/flight-claims/payments', FlightClaimsPayments::class)->middleware('module:payments')->name('flight-claims.payments');
+    Route::get('/flight-claims/payments/{payment}/receipt', PaymentReceiptController::class)->middleware('module:payments')->name('flight-claims.payments.receipt');
+    Route::get('/flight-claims/claims/{claim}', FlightClaimsClaimDetail::class)->whereNumber('claim')->middleware('module:claims')->name('flight-claims.claims.show');
     Route::get('/flight-claims/claims/{claim}/document/{key}', function (\App\Models\Claim $claim, string $key) {
         $path = $claim->documentPath($key);
         abort_unless($path && \Illuminate\Support\Facades\Storage::disk('local')->exists($path), 404);

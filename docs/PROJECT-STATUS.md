@@ -1,6 +1,6 @@
 # Unjamm - project status
 
-**Last updated: 2026-07-28**
+**Last updated: 2026-07-29**
 
 Living delivery tracker: what is built, what is partial, what is not started,
 and what is blocked on someone else. Claude Code updates this file at the end
@@ -193,6 +193,20 @@ Status keys: **Done** (built, tested, verified in production) ·
 ## Session log
 
 Newest first. One line per session: what changed, what it unblocked.
+
+- **2026-07-29** - Module switches: Admin Settings -> Website tab gained a
+  Modules card - one toggle per admin page, grouped "Flight Claims" (Trip
+  Reviews, Protected Trips, Claims, Passengers, Lifecycle, Airlines, Claim
+  Templates, Subscriptions, Payments) and "Other" (Templates, Success
+  Stories, All Institutes, Categories, Plans & Pricing, plus the retired
+  customer case pages - My Cases, Documents, Cases Email Templates -
+  which default OFF and replace the old comment-out + `retired_module`
+  middleware). Off hides the nav
+  link AND refuses the routes on both portals (`module:` middleware);
+  Claims/Protected Trips also govern the customer pages and monitoring.
+  Data untouched, everything defaults on. Also: full pre-launch data wipe
+  (claims/trips/payouts, backup kept) and the admin dashboard rebuilt
+  around the flight product. Full suite 320 passing.
 
 - **2026-07-28** - Guardrails + customer nudges: airline emails are blocked
   until the customer has confirmed AND every authorisation is signed (the

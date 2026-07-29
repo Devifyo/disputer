@@ -8,8 +8,9 @@ use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 /**
- * The retired case-management pages are closed to customers. Hiding the nav
- * link is not enough - a bookmark or a typed URL must not get in either.
+ * The retired case-management pages default to OFF via the module switches.
+ * Hiding the nav link is not enough - a bookmark or a typed URL must not
+ * get in either. ModuleTogglesTest covers switching them back on.
  */
 class RetiredModulesTest extends TestCase
 {

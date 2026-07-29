@@ -1,4 +1,4 @@
-<div class="h-full overflow-y-auto bg-slate-50/50">
+<div class="h-full overflow-y-auto bg-slate-50/50" x-data="{ tab: @js($filter) }">
     <div class="max-w-[1320px] mx-auto p-6 pb-24">
         <x-flash />
 
@@ -15,8 +15,9 @@
                 ['stuck', 'No email on file', $stats['stuck'], $stats['stuck'] ? 'text-rose-600' : 'text-slate-900'],
                 ['minors', 'Minors', $stats['minors'], 'text-violet-600'],
             ] as [$key, $label, $value, $cls])
-                <button wire:click="setFilter('{{ $key }}')"
-                        class="bg-white rounded-2xl border shadow-sm p-5 text-left transition-all hover:shadow {{ $filter === $key ? 'border-slate-900 ring-1 ring-slate-900' : 'border-slate-200 hover:border-slate-300' }}">
+                <button @click="tab = '{{ $key }}'" wire:click="setFilter('{{ $key }}')"
+                        :class="tab === '{{ $key }}' ? 'border-slate-900 ring-1 ring-slate-900' : 'border-slate-200 hover:border-slate-300'"
+                        class="bg-white rounded-2xl border shadow-sm p-5 text-left transition-all hover:shadow">
                     <p class="text-[11px] uppercase tracking-wider font-bold text-slate-400">{{ $label }}</p>
                     <p class="text-2xl font-bold mt-2 {{ $cls }}">{{ $value }}</p>
                 </button>
@@ -26,8 +27,9 @@
         <div class="flex items-center justify-between gap-3 flex-wrap mb-4">
             <div class="inline-flex items-center gap-1 bg-white rounded-xl border border-slate-200 shadow-sm p-1 overflow-x-auto">
                 @foreach ($filters as $key => $label)
-                    <button wire:click="setFilter('{{ $key }}')"
-                            class="px-3.5 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-all {{ $filter === $key ? 'bg-slate-900 text-white shadow' : 'text-slate-500 hover:text-slate-800' }}">
+                    <button @click="tab = '{{ $key }}'" wire:click="setFilter('{{ $key }}')"
+                            :class="tab === '{{ $key }}' ? 'bg-slate-900 text-white shadow' : 'text-slate-500 hover:text-slate-800'"
+                            class="px-3.5 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-all">
                         {{ $label }}
                     </button>
                 @endforeach
@@ -36,7 +38,11 @@
                    class="w-72 px-3.5 py-2 rounded-xl border border-slate-200 text-sm focus:border-primary-500 outline-none">
         </div>
 
-        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden relative">
+            <div wire:loading.flex wire:target="setFilter, search"
+                 class="absolute inset-0 z-10 bg-white/70 backdrop-blur-[1px] items-center justify-center">
+                <svg class="w-6 h-6 animate-spin text-slate-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
+            </div>
             @if ($people->isEmpty())
                 <p class="px-6 py-12 text-sm text-slate-400 text-center">No passengers match this view.</p>
             @else

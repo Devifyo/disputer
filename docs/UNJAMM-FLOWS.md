@@ -3,7 +3,7 @@
 Living documentation of the flight-dispute module: how the flows work, where
 the code lives, and what changed. **Update this file whenever a flow changes.**
 
-Last updated: 2026-07-28
+Last updated: 2026-07-29
 
 ---
 
@@ -504,14 +504,12 @@ subscriptions; permissioned beyond the admin role.
   cards stay clean at any volume.
   Admin sidebar bell icon inlined as SVG (the lucide JS replacement was
   lost inside the nested Livewire component).
-- Retired customer modules (Documents, My Cases): the sidebar links are
-  COMMENTED OUT (kept in the blade) and the GET routes are wrapped in a
-  new `retired_module` middleware (`BlockRetiredModules`) - hiding a link
-  is not access control, a bookmarked URL would still get in. Browsers
-  are redirected to the dashboard with "That section has moved -
-  everything now lives under Flight Disputes"; JSON clients get a plain
-  404. Routes, controllers and views all stay in the codebase: removing
-  the middleware from the route group reopens the module.
+- Retired customer modules (Documents, My Cases, Cases Email Templates):
+  SUPERSEDED 2026-07-29 - the comment-outs and the `retired_module`
+  middleware were replaced by module switches (see "Module switches"
+  below). The pages are modules defaulting OFF: same closed-door
+  behaviour (redirect home for browsers, 404 for JSON), but an admin can
+  reopen them from Settings without a code change.
 - Profile -> Billing is now the member's self-service home for Unjamm
   Plus (`App\Livewire\User\PlusMembership`): membership status with what
   happens next in plain words, the card on file (brand/last4/expiry) with
@@ -542,6 +540,27 @@ subscriptions; permissioned beyond the admin role.
   own drafts (labelled "Airline reply - X" vs "Unjamm - ..."), so a
   follow-up is written against what the airline actually said rather
   than only against our previous letters.
+- Module switches (Admin Settings -> Website tab -> Modules): one toggle
+  per admin page, grouped under the same headings as the admin nav.
+  "Flight Claims" - Trip Reviews, Protected Trips, Claims, Passengers,
+  Lifecycle, Airlines, Claim Templates, Subscriptions, Payments.
+  "Other" - Templates, Success Stories, All Institutes, Categories,
+  Plans & Pricing. All default ON, stored as Setting modules.{key}.
+  Off means gone from BOTH portals: nav links (and empty section
+  headings) hide AND routes refuse through the `module:` middleware
+  (admin pages redirect home with "switched off in Settings", JSON APIs
+  404) - hiding a link is not access control. Claims off also removes
+  the customer Flight Disputes pages; Protected Trips off removes the
+  customer Protect Your Trip pages and pauses `trips:monitor`, which
+  resumes where it left off. Data is never touched - switching back on
+  restores everything. The Subscriptions toggle hides the admin page
+  only; Unjamm Plus keeps its own master switch inside it.
+  The retired customer case pages (My Cases, Documents, Cases Email
+  Templates) are modules too, defaulting OFF - an admin can bring them
+  back from Settings without a code change; the old `retired_module`
+  middleware and sidebar comment-outs are gone, replaced by these
+  switches. `Modules::enabled()` caches per request; tests flush it in
+  the base TestCase since they share a process.
 - Admin dashboard rebuilt around the flight product: Total Cases /
   Escalated / Total Earnings / Recent Cases (all retired case-module
   figures) replaced by Total Claims (with a "N need review" hint),

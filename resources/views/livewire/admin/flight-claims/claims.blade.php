@@ -1,5 +1,5 @@
 @php use App\Livewire\Admin\FlightClaims\Claims; @endphp
-<div class="h-full overflow-y-auto p-6 pb-24 bg-slate-50/50">
+<div class="h-full overflow-y-auto p-6 pb-24 bg-slate-50/50" x-data="{ tab: @js($status) }">
     <x-flash />
 
     <div class="mb-8">
@@ -20,13 +20,14 @@
 
         <div class="flex items-center gap-1 bg-white rounded-xl border border-slate-200 shadow-sm p-1 overflow-x-auto min-w-0 lg:flex-1">
             @foreach ($filters as $key => $label)
-                <button wire:click="setStatus('{{ $key }}')"
-                        class="px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-all {{ $status === $key ? 'bg-slate-900 text-white shadow' : 'text-slate-500 hover:text-slate-800' }}">
+                <button @click="tab = '{{ $key }}'" wire:click="setStatus('{{ $key }}')"
+                        :class="tab === '{{ $key }}' ? 'bg-slate-900 text-white shadow' : 'text-slate-500 hover:text-slate-800'"
+                        class="px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-all">
                     {{ $label }}
                     @if ($key === 'review' && $reviewCount)
-                        <span class="ml-1 px-1.5 py-0.5 rounded-full text-[11px] font-black {{ $status === 'review' ? 'bg-white/20' : 'bg-rose-100 text-rose-600' }}">{{ $reviewCount }}</span>
+                        <span class="ml-1 px-1.5 py-0.5 rounded-full text-[11px] font-black" :class="tab === 'review' ? 'bg-white/20' : 'bg-rose-100 text-rose-600'">{{ $reviewCount }}</span>
                     @elseif ($key === 'confirmation' && $confirmationCount)
-                        <span class="ml-1 px-1.5 py-0.5 rounded-full text-[11px] font-black {{ $status === 'confirmation' ? 'bg-white/20' : 'bg-blue-100 text-blue-600' }}">{{ $confirmationCount }}</span>
+                        <span class="ml-1 px-1.5 py-0.5 rounded-full text-[11px] font-black" :class="tab === 'confirmation' ? 'bg-white/20' : 'bg-blue-100 text-blue-600'">{{ $confirmationCount }}</span>
                     @endif
                 </button>
             @endforeach
@@ -38,7 +39,11 @@
         </div>
     </div>
 
-    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden relative">
+        <div wire:loading.flex wire:target="setStatus, search, plusOnly"
+             class="absolute inset-0 z-10 bg-white/70 backdrop-blur-[1px] items-center justify-center">
+            <svg class="w-6 h-6 animate-spin text-slate-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
+        </div>
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
                 <thead>

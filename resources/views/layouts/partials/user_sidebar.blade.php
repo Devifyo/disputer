@@ -1,3 +1,4 @@
+@use('App\Support\Modules')
 @php $isPlus = Auth::user()?->hasActiveSubscription(); @endphp
 <aside 
     class="fixed inset-y-0 left-0 z-50 w-72 bg-slate-950 text-slate-400 flex flex-col transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 border-r border-white/5"
@@ -44,13 +45,14 @@
             Dashboard
         </a>
 
-        {{-- Retired with the case-management module - the route is closed by the
-             `retired_module` middleware, so this link would only 404 people.
+        {{-- Retired case-management pages: shown only when their module is
+             switched on in Admin Settings (off by default). --}}
+        @if (Modules::enabled(Modules::DOCUMENTS))
         <a href="{{ route('user.documents.index') }}" class="{{ navClass('user.documents.*') }} group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all">
             <i data-lucide="files" class="w-5 h-5 transition-colors {{ request()->routeIs('user.documents.*') ? 'text-blue-400' : 'text-slate-500 group-hover:text-slate-300' }}"></i>
             Documents
         </a>
-        --}}
+        @endif
 
         @php
             // Both pages live inside the same SPA route — split the active
@@ -63,11 +65,14 @@
         @endphp
         {{-- data-spa-nav: the flight-dispute Vue app re-syncs these two links'
              active state on client-side navigation (see its main.js). --}}
+        @if (Modules::enabled(Modules::CLAIMS))
         <a href="{{ route('user.itineraries.index') }}" data-spa-nav="disputes" class="{{ $onDisputes ? $activeCls : $idleCls }} group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all">
             <i data-lucide="plane" class="w-5 h-5 transition-colors {{ $onDisputes ? 'text-blue-400' : 'text-slate-500 group-hover:text-slate-300' }}"></i>
             Flight Disputes
         </a>
+        @endif
 
+        @if (Modules::enabled(Modules::TRIPS))
         <a href="{{ route('user.itineraries.index') }}/trips" data-spa-nav="trips" class="{{ $onTrips ? $activeCls : $idleCls }} group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all">
             <i data-lucide="shield-check" class="w-5 h-5 transition-colors {{ $onTrips ? 'text-blue-400' : 'text-slate-500 group-hover:text-slate-300' }}"></i>
             Protect Your Trip
@@ -75,19 +80,16 @@
                 <x-claim-alert-dot class="relative ml-auto" />
             @endif
         </a>
+        @endif
 
-        {{-- Retired with the case-management module (see the middleware note above).
+        @if (Modules::enabled(Modules::CASES))
         <a href="{{ route('user.cases.index') }}" class="{{ navClass('user.cases.*') }} group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all">
             <i data-lucide="folder-kanban" class="w-5 h-5 transition-colors {{ request()->routeIs('user.cases.*') ? 'text-blue-400' : 'text-slate-500 group-hover:text-slate-300' }}"></i>
             My {{ __('common.cases') }}
         </a>
-        --}}
+        @endif
 
-        {{-- Retired with the case-management module: the "Tools" section and its
-             Cases Email Templates entry (plus the subscription-required popup).
-             Route + controller are untouched - see the `retired_module`
-             middleware note above.
-
+        @if (Modules::enabled(Modules::CASE_TEMPLATES))
         <div class="px-2 mt-8 mb-3 text-[10px] uppercase tracking-wider font-bold text-slate-600 font-mono">Tools</div>
 
         @if(Auth::user()->canCreateCase())
@@ -103,7 +105,7 @@
                     <i data-lucide="lock" class="w-3.5 h-3.5 text-slate-600 group-hover:text-amber-400 transition-colors shrink-0"></i>
                 </button>
 
-                {{ -- Subscription required popup -- }}
+                {{-- Subscription required popup --}}
                 <div x-show="open" style="display:none" class="fixed inset-0 z-[999] flex items-center justify-center p-4"
                      x-transition:enter="transition ease-out duration-200"
                      x-transition:enter-start="opacity-0"
@@ -142,9 +144,7 @@
                 </div>
             </div>
         @endif
-
-
-        --}}
+        @endif
 
         {{-- <a href="{{ route('user.emails.index') }}" class="{{ navClass('user.emails.*') }} group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all justify-between">
             <div class="flex items-center gap-3">
