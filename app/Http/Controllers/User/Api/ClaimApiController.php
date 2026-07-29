@@ -408,6 +408,10 @@ class ClaimApiController extends Controller
             'reference'         => $c->reference,
             'status'            => $c->status,
             'status_label'      => $c->status_label,
+            // Where the claim actually IS - eligibility alone never changes
+            // once decided, so it cannot be the badge on its own.
+            'stage_label'       => $c->customerStage()[0],
+            'stage_tone'        => $c->customerStage()[2],
             'departure_city'    => $r['departure_city'],
             'departure_airport' => $r['departure_airport'],
             'arrival_city'      => $r['arrival_city'],

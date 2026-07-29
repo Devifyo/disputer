@@ -24,6 +24,10 @@
                                         <span class="truncate">{{ claim.departure_city || claim.departure_airport }}</span>
                                         <span class="truncate text-right">{{ claim.arrival_city || claim.arrival_airport }}</span>
                                     </div>
+                                    <span v-if="claim.stage_label"
+                                          class="inline-flex items-center gap-1.5 bg-white/15 border border-white/20 rounded-full px-3 py-1 text-[11px] font-bold mb-2">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-white/80"></span>{{ claim.stage_label }}
+                                    </span>
                                     <div class="flex items-center gap-3">
                                         <span class="text-3xl sm:text-4xl font-black tracking-tight">{{ claim.departure_airport || '-' }}</span>
                                         <span class="flex-1 flex items-center">
@@ -984,7 +988,10 @@ const detailRows = computed(() => claim.value ? [
     { label: 'Booking reference', value: claim.value.booking_reference },
     { label: 'Claim reference', value: claim.value.reference },
     { label: 'Submitted', value: claim.value.submitted_at },
-    { label: 'Status', value: claim.value.status_label },
+    // The journey is what people mean by "status"; the engine's verdict is a
+    // separate fact, so it gets its own row rather than overwriting it.
+    { label: 'Status', value: claim.value.stage_label || claim.value.status_label },
+    { label: 'Eligibility', value: claim.value.status_label },
 ] : []);
 
 const entitlements = computed(() => claim.value?.compensation?.breakdown?.entitlements || []);

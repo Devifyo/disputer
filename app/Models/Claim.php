@@ -301,38 +301,67 @@ class Claim extends Model
      * workflow blended, because "draft" means nothing to a passenger and is
      * wrong the moment the engine has ruled. Returns [label, badge classes].
      *
-     * @return array{0: string, 1: string}
+     * @return array{0: string, 1: string, 2: string} [label, blade classes, tone]
      */
     public function customerStage(): array
     {
         if ($this->status === self::STATUS_REJECTED) {
-            return ['Not eligible', 'bg-rose-100 text-rose-700'];
+            return ['Not eligible', 'bg-rose-100 text-rose-700', 'danger'];
         }
 
         if ($this->status === self::STATUS_PENDING_ELIGIBILITY) {
-            return ['In review', 'bg-amber-100 text-amber-700'];
+            return ['In review', 'bg-amber-100 text-amber-700', 'warning'];
         }
 
         if ($this->status !== self::STATUS_ELIGIBLE) {
-            return ['Checking eligibility', 'bg-slate-100 text-slate-500'];
+            return ['Checking eligibility', 'bg-slate-100 text-slate-500', 'neutral'];
+        }
+
+        // Money outranks the workflow - but only say "paid out" when there is
+        // nothing left to pay. A claim can be settled in instalments, and one
+        // payout landing does not mean the rest has.
+        $payments = $this->relationLoaded('payments') ? $this->payments : $this->payments()->get();
+        $live     = $payments->whereNotIn('status', [Payment::STATUS_CANCELLED, Payment::STATUS_REFUNDED]);
+
+        if ($live->isNotEmpty()) {
+            $paid = $live->where('status', Payment::STATUS_PAID);
+
+            if ($paid->count() === $live->count()) {
+                return ['Paid out', 'bg-emerald-100 text-emerald-700', 'success'];
+            }
+
+            return $paid->isNotEmpty()
+                ? ['Partly paid', 'bg-emerald-100 text-emerald-700', 'success']
+                : ['Payout on the way', 'bg-teal-100 text-teal-700', 'progress'];
         }
 
         // Eligible: what is the claim waiting on?
         if (!$this->confirmed_at) {
-            return ['Confirm to continue', 'bg-blue-100 text-blue-700'];
+            return ['Confirm to continue', 'bg-blue-100 text-blue-700', 'action'];
         }
 
         if ($this->workflow_state === 'awaiting_signature') {
-            return ['Signature needed', 'bg-violet-100 text-violet-700'];
+            return ['Signature needed', 'bg-violet-100 text-violet-700', 'action'];
         }
 
+        // Short by design: this is a chip in a list, not the timeline sentence.
+        // The stage's own customer_label ("Our team is preparing your claim
+        // for filing") stays where it has room - the claim's progress steps.
         return match ($this->workflow_state) {
-            'paid'   => ['Paid', 'bg-emerald-100 text-emerald-700'],
-            'denied' => ['Airline rejected', 'bg-rose-100 text-rose-700'],
-            'closed' => ['Closed', 'bg-slate-100 text-slate-500'],
-            default  => [
-                $this->workflowStage()?->customer_label ?: 'In progress',
+            'paid'                => ['Paid', 'bg-emerald-100 text-emerald-700', 'success'],
+            'denied'              => ['Airline rejected', 'bg-rose-100 text-rose-700', 'danger'],
+            'closed'              => ['Closed', 'bg-slate-100 text-slate-500', 'neutral'],
+            'ready_to_file'       => ['Preparing to file', 'bg-slate-100 text-slate-600', 'progress'],
+            'filed'               => ['Filed with airline', 'bg-slate-100 text-slate-600', 'progress'],
+            'awaiting_response'   => ['Awaiting airline', 'bg-slate-100 text-slate-600', 'progress'],
+            'responded'           => ['Airline responded', 'bg-slate-100 text-slate-600', 'progress'],
+            'awaiting_escalation' => ['Under review', 'bg-slate-100 text-slate-600', 'progress'],
+            'escalated'           => ['Escalated', 'bg-slate-100 text-slate-600', 'progress'],
+            'litigation'          => ['In legal proceedings', 'bg-slate-100 text-slate-600', 'progress'],
+            default               => [
+                Str::limit($this->workflowStage()?->customer_label ?: 'In progress', 22),
                 'bg-slate-100 text-slate-600',
+                'progress',
             ],
         };
     }

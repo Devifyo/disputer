@@ -138,4 +138,44 @@ class CustomerDashboardTest extends TestCase
             ->assertSee('Confirm to continue')
             ->assertDontSee('>DRAFT<', false);
     }
+
+    public function test_a_paid_claim_never_still_reads_eligible_to_the_customer(): void
+    {
+        $claim = $this->claim(['flight_number' => 'AC77']);
+
+        // Eligibility says "eligible" forever - but the money has landed, and
+        // that is what the customer should see in their list.
+        $payment = app(PaymentService::class)->record($claim, [
+            'gross_amount' => 600, 'currency' => 'EUR', 'payment_date' => now()->toDateString(),
+        ], $this->admin);
+        $payment->forceFill(['status' => Payment::STATUS_PAID])->save();
+
+        [$label, , $tone] = $claim->fresh()->customerStage();
+        $this->assertSame('Paid out', $label);
+        $this->assertSame('success', $tone);
+
+        // A second instalment still awaiting payout must not read "Paid out" -
+        // one payout landing does not mean the rest has.
+        app(PaymentService::class)->record($claim, [
+            'gross_amount' => 200, 'currency' => 'EUR', 'payment_date' => now()->toDateString(),
+        ], $this->admin);
+
+        $this->assertSame('Partly paid', $claim->fresh()->customerStage()[0]);
+
+        // Money in, nothing paid out yet: the customer is told it is coming.
+        $waiting = $this->claim(['flight_number' => 'AC78']);
+        app(PaymentService::class)->record($waiting, [
+            'gross_amount' => 300, 'currency' => 'EUR', 'payment_date' => now()->toDateString(),
+        ], $this->admin);
+
+        $this->assertSame('Payout on the way', $waiting->fresh()->customerStage()[0]);
+
+        // The API sends it, so the SPA badge and filters follow the journey.
+        $payload = collect($this->actingAs($this->customer)
+            ->getJson(route('user.itineraries.api.claims.index'))
+            ->json('data'))->firstWhere('number', $claim->number);
+
+        $this->assertSame('Partly paid', $payload['stage_label']);
+        $this->assertSame('Eligible for Compensation', $payload['status_label'], 'The verdict itself is unchanged.');
+    }
 }

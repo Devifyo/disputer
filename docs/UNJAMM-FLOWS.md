@@ -114,9 +114,12 @@ the claim's Compensation tab (regulation, reason, flight info, NO amounts).
   unsigned copies.
 - Reminders: `claims:signature-reminders` daily 09:00 - nudges signers
   invited 48h+ ago, re-nudges every 48h.
-- Unlock: when the last signature lands -> `claims.signed_at`, events
-  "All authorisations signed - unlocked for filing" + "Claim submitted -
-  waiting for the airline's response" (pending).
+- Unlock: when the last signature lands -> `claims.signed_at`, event
+  "All authorisations signed - your claim is unlocked for filing"; the
+  workflow transition to ready_to_file then writes the stage's own
+  customer step. (The old pre-written "Claim submitted - waiting for the
+  airline's response" pending step is gone - it claimed a submission that
+  had not happened; the two stale rows were relabelled 2026-07-29.)
 - Where users see documents: claim Documents tab ("Authorisation documents",
   SIGNED/AWAITING badges) and the Sign page.
 - Dropbox test mode: DROPBOX_SIGN_TEST_MODE=true -> TEST watermark, not
@@ -539,6 +542,18 @@ subscriptions; permissioned beyond the admin role.
   own drafts (labelled "Airline reply - X" vs "Unjamm - ..."), so a
   follow-up is written against what the airline actually said rather
   than only against our previous letters.
+- Customer claim list follows the JOURNEY, not the verdict (client caught
+  a paid claim still badged "Eligible for Compensation"): eligibility is
+  decided once and never changes, so it cannot be the badge on its own.
+  `Claim::customerStage()` now also returns a tone and checks payments
+  first - but only claims "Paid out" when EVERY live payment is paid.
+  A claim settled in instalments reads "Partly paid" while any payment is
+  still outstanding, and "Payout on the way" when the airline has paid us
+  but nothing has reached the customer yet (cancelled/refunded payments
+  are ignored). One payout landing must never imply the rest has. The claims API sends `stage_label` + `stage_tone`
+  alongside the unchanged `status_label`, and the SPA list uses them for
+  the badge, the filter chips and search. Same helper drives the
+  dashboard, so both views always agree.
 - "Remind customer" on the admin claim header: when a claim waits on the
   customer, one button nudges them by EMAIL (admin-editable templates
   `claim-confirm-reminder` / `claim-sign-reminder`, each with the amount,

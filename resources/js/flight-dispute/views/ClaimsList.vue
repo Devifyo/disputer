@@ -86,9 +86,9 @@
 
                         <!-- Status -->
                         <div class="col-span-2 md:col-span-1">
-                            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold ring-1" :class="statusTheme(c.status)">
+                            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold ring-1 whitespace-nowrap" :class="stageTheme(c.stage_tone)">
                                 <span class="w-1.5 h-1.5 rounded-full bg-current opacity-70"></span>
-                                {{ c.status_label }}
+                                {{ c.stage_label || c.status_label }}
                             </span>
                         </div>
 
@@ -137,17 +137,19 @@ const error = ref('');
 const q = ref('');
 const filter = ref('all');
 
-// Status chips are built from whatever statuses actually exist in the
-// user's claims, so new backend statuses appear without a frontend change.
+// Chips follow the journey, not the eligibility verdict: "Eligible for
+// compensation" never changes once decided, so a paid claim would still sit
+// under it. Built from whatever stages the user's claims are actually in.
 const chips = computed(() => {
-    const byStatus = new Map();
+    const byStage = new Map();
     for (const c of claims.value) {
-        if (!byStatus.has(c.status)) {
-            byStatus.set(c.status, { key: c.status, label: c.status_label, count: 0 });
+        const key = c.stage_label || c.status_label;
+        if (!byStage.has(key)) {
+            byStage.set(key, { key, label: key, count: 0 });
         }
-        byStatus.get(c.status).count++;
+        byStage.get(key).count++;
     }
-    return [{ key: 'all', label: 'All', count: claims.value.length }, ...byStatus.values()];
+    return [{ key: 'all', label: 'All', count: claims.value.length }, ...byStage.values()];
 });
 
 function matchesSearch(c) {
@@ -156,23 +158,23 @@ function matchesSearch(c) {
     return [
         c.number, c.reference, c.airline, c.flight_number,
         c.departure_airport, c.departure_city, c.arrival_airport, c.arrival_city,
-        c.status_label, c.disruption_label,
+        c.status_label, c.stage_label, c.disruption_label,
     ].some((v) => v && String(v).toLowerCase().includes(needle));
 }
 
 const visible = computed(() =>
-    claims.value.filter((c) => (filter.value === 'all' || c.status === filter.value) && matchesSearch(c))
+    claims.value.filter((c) => (filter.value === 'all' || (c.stage_label || c.status_label) === filter.value) && matchesSearch(c))
 );
 
-function statusTheme(status) {
-    switch (status) {
-        case 'draft':                       return 'bg-slate-50 text-slate-600 ring-slate-200';
-        case 'pending_eligibility_review':  return 'bg-amber-50 text-amber-700 ring-amber-200';
-        case 'eligible':
-        case 'approved':
-        case 'paid':                        return 'bg-emerald-50 text-emerald-700 ring-emerald-200';
-        case 'rejected':                    return 'bg-rose-50 text-rose-700 ring-rose-200';
-        default:                            return 'bg-sky-50 text-sky-700 ring-sky-200';
+// One tone per meaning, set by the backend so both apps agree.
+function stageTheme(tone) {
+    switch (tone) {
+        case 'success':  return 'bg-emerald-50 text-emerald-700 ring-emerald-200';
+        case 'warning':  return 'bg-amber-50 text-amber-700 ring-amber-200';
+        case 'danger':   return 'bg-rose-50 text-rose-700 ring-rose-200';
+        case 'action':   return 'bg-blue-50 text-blue-700 ring-blue-200';
+        case 'neutral':  return 'bg-slate-50 text-slate-600 ring-slate-200';
+        default:         return 'bg-sky-50 text-sky-700 ring-sky-200';
     }
 }
 
