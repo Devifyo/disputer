@@ -130,10 +130,18 @@ class ClaimLetterService
             throw new RuntimeException('Gemini returned malformed letter JSON.');
         }
 
+        $text = $decoded['subject'] . ' ' . $decoded['body'];
+
         // The model may not cite anything the engine did not authorise.
-        $invented = $this->inventedCitations($claim, $decoded['subject'] . ' ' . $decoded['body']);
+        $invented = $this->inventedCitations($claim, $text);
         if ($invented !== []) {
             throw new RuntimeException('Draft cited unauthorised provisions: ' . implode(', ', $invented));
+        }
+
+        // Nor may it demand money the CompensationCalculator never worked out.
+        $wrongMoney = $this->conflictingAmounts($claim, $text);
+        if ($wrongMoney !== []) {
+            throw new RuntimeException('Draft demanded unauthorised amounts: ' . implode(', ', $wrongMoney));
         }
 
         return ['subject' => trim($decoded['subject']), 'body' => trim($decoded['body'])];
@@ -186,6 +194,91 @@ class ClaimLetterService
      *
      * @return array<int, string>
      */
+    /**
+     * Money in the text that the Eligibility Engine / CompensationCalculator
+     * never worked out. Amounts are the other half of the citation guard: the
+     * engine decides what is owed, the model only formats it, so a figure the
+     * claim record cannot account for must never reach an airline.
+     *
+     * Only currency-tagged figures ("CAD 400.00", "400.00 CAD") are policed -
+     * the prompt mandates that form, and anything looser would flag ordinary
+     * prose like flight numbers or delay minutes.
+     *
+     * @return array<int, string>
+     */
+    public function conflictingAmounts(Claim $claim, string $text): array
+    {
+        $permitted = $this->permittedAmounts($claim);
+
+        if ($permitted === []) {
+            return [];
+        }
+
+        $currencies = implode('|', array_unique(array_filter([
+            strtoupper((string) $claim->compensation_currency),
+            strtoupper((string) $claim->ticket_currency),
+        ])));
+
+        if ($currencies === '') {
+            return [];
+        }
+
+        $number  = '\d{1,3}(?:[,\s]\d{3})*(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?';
+        $pattern = "/(?:(?:{$currencies})\s*({$number}))|(?:({$number})\s*(?:{$currencies}))/i";
+
+        preg_match_all($pattern, $text, $matches, PREG_SET_ORDER);
+
+        return collect($matches)
+            ->map(fn (array $m) => (float) str_replace([',', ' '], '', $m[1] !== '' ? $m[1] : ($m[2] ?? '0')))
+            ->reject(fn (float $found) => collect($permitted)->contains(
+                fn (float $ok) => abs($ok - $found) < 0.01
+            ))
+            ->map(fn (float $f) => number_format($f, 2))
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /** Every figure the engine authorises this letter to name. */
+    private function permittedAmounts(Claim $claim): array
+    {
+        $amount = $claim->compensation_amount ? (float) $claim->compensation_amount : null;
+        $count  = max(1, count($claim->passengerNames()));
+
+        $allowed = [];
+
+        if ($amount !== null) {
+            // Per passenger, the booking total, and every partial total in
+            // between - a letter may legitimately break the claim down.
+            for ($i = 1; $i <= $count; $i++) {
+                $allowed[] = round($amount * $i, 2);
+            }
+        }
+
+        if ($claim->ticket_price) {
+            $allowed[] = round((float) $claim->ticket_price, 2);
+        }
+
+        // Verified receipts: each amount, plus their per-currency totals.
+        $expenses = $claim->expenses->where('status', ClaimExpense::STATUS_APPROVED);
+        foreach ($expenses as $expense) {
+            if ($expense->amount) {
+                $allowed[] = round((float) $expense->amount, 2);
+            }
+        }
+        foreach ($claim->approvedExpenseTotals() as $total) {
+            $allowed[] = round((float) $total, 2);
+        }
+
+        // A letter may also demand compensation and expenses as one figure.
+        $expenseTotal = $expenses->sum(fn (ClaimExpense $e) => (float) $e->amount);
+        if ($amount !== null && $expenseTotal > 0) {
+            $allowed[] = round($amount * $count + $expenseTotal, 2);
+        }
+
+        return array_values(array_unique($allowed));
+    }
+
     private function provisions(string $citation): array
     {
         $citation = strtolower(trim($citation));

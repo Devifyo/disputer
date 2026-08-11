@@ -194,6 +194,81 @@ Status keys: **Done** (built, tested, verified in production) ·
 
 Newest first. One line per session: what changed, what it unblocked.
 
+- **2026-07-29** - Payment workflow validation: PaymentWorkflowValidationTest
+  (14 tests) closes the gaps around the existing PaymentModuleTest - the 25%
+  fee across 100/400/600/1000/5000 plus uneven amounts reconciling to the
+  cent, the split holding in CAD/USD/EUR/GBP, a 5-passenger booking paid as
+  one master payment, the full status path (received -> ready_for_payout ->
+  processing -> paid) with paid terminal except refund, refunds recorded as
+  refunds and never as completed payouts, retry after a failed transfer
+  never charging the fee twice, a second payout refused while one is in
+  flight (and a funded transfer correctly not cancellable), payouts refused
+  on cancelled/refunded/paid payments, AI drafts unable to move any figure,
+  Wise 400/401/403/429/500 leaving the books whole, replayed Wise webhooks
+  completing once, RSA signature rejection (missing/garbage/tampered), and
+  no token leakage. No product bugs found. Suite 376 -> 390 passing.
+
+- **2026-07-29** - Dropbox Sign validation: DropboxSignValidationTest (18
+  tests) covers the provider path nothing else touched - per-signer request
+  creation and its idempotency, embedded signing URLs bound to the right
+  signer, webhook HMAC security (missing/wrong/tampered/garbage all 400),
+  replayed completion events applying once, downloadable backfill without
+  re-signing, declines blocking filing, 5-passenger partial signatures
+  gating ready_to_file, cross-claim signature isolation, document access
+  security, reconciliation recovering a missed webhook, provider outages
+  (400/401/403/429/500) leaving state untouched while confirmation still
+  works, reminders, and no credential leakage. POA/Assignment CONTENT is
+  now verified by parsing the generated PDFs (passenger, guardian's minor,
+  claim ref, airline, flight, booking ref, jurisdiction; no other
+  passenger's name present). Note: expired/cancelled requests have no
+  distinct status - signers stay pending, which safely blocks filing.
+  All mocked; no live or sandbox provider calls. Suite 358 -> 376 passing.
+
+- **2026-07-29** - AI drafting validation + one product fix:
+  AiDraftingValidationTest pins the structured-data contract (engine
+  verdict, article, per-passenger and total amounts all reach the prompt;
+  the model is told it does not decide the law), citation guard behaviour
+  across correct/foreign/unauthorised/missing citations, s.17 surviving as
+  the refund provision, six AI failure modes all degrading to the
+  template, no credential leakage, draft-versioning without sending or
+  advancing the lifecycle, customer isolation, and eligibility working
+  with the AI provider removed. **Bug found and fixed**: the guard policed
+  citations but not amounts, so a draft demanding CAD 9,999 on a CAD 400
+  claim was accepted as AI output and would have gone to the airline after
+  admin review. `conflictingAmounts()` now applies the same
+  reject-redraft-fallback mechanism to money; regression tests cover both
+  the refusal and the legitimate-figure set. Suite 345 -> 358 passing.
+
+- **2026-07-29** - Eligibility Engine validation: EligibilityValidationTest
+  pins the 3-hour threshold edges (179/180/181, config-driven not
+  hardcoded), statutory amounts immune to ticket price (EUR 100/1k/5k all
+  pay EUR 600) with fare-based downgrade as the lawful exception, all
+  three EU261 and UK261 distance bands, cancellation judged separately
+  from delay, APPR citing s.19 (never s.17) from the canonical table,
+  fail-safe handling of unknown routes/negative delays/unverified facts,
+  deterministic re-evaluation, a rejected claim that cannot be confirmed,
+  and zero AI calls on the rules path. No product bugs found.
+  Suite 335 -> 345 passing.
+
+- **2026-07-29** - Flight-monitoring validation: TripMonitoringValidationTest
+  pins down the checkpoint plan (T-24h/-6h/-2h/0/+2h/+4h/+8h/+24h walked
+  with a faked clock), the */5 scheduler entry, en-route tracking, API
+  failure never corrupting stored data + recovery on the next poll,
+  permanent-failure closure past T+24h, replay idempotency (one event /
+  one notification / one evaluation, every poll still logged), log
+  completeness with no credential leakage, and the sync job's retry
+  envelope. No product bugs found. Suite 327 -> 335 passing.
+
+- **2026-07-29** - End-to-end verification: new EndToEndJourneyTest chains
+  the whole business flow through the real routes and workflow engine -
+  registration -> login -> itinerary PDF -> Gemini parse -> FlightAware
+  verify -> EU261 verdict -> confirmation (25% fee split) -> signatures ->
+  admin files -> 30-day timer -> airline reply -> payment -> Wise payout
+  webhook -> closed, plus the escalation branch (silence -> admin queue,
+  never auto-regulator), a 5-passenger booking (guardian signs the minor),
+  intake failure/recovery, duplicate-PDF guard and cross-customer probes.
+  Externals faked at the HTTP boundary only. Suite 321 -> 327 passing.
+
 - **2026-07-29** - Module switches: Admin Settings -> Website tab gained a
   Modules card - one toggle per admin page, grouped "Flight Claims" (Trip
   Reviews, Protected Trips, Claims, Passengers, Lifecycle, Airlines, Claim

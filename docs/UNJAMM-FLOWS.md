@@ -547,6 +547,16 @@ subscriptions; permissioned beyond the admin role.
   view (elapsed/remaining around the plane), and far-out trips show
   their FlightAware-confirmed schedule until live tracking binds at
   T-24h.
+- AI draft guards (ClaimLetterService): a generated letter is rejected and
+  redrafted - falling back to the deterministic template - when it either
+  cites a provision the engine never authorised (`inventedCitations`) or
+  demands money the CompensationCalculator never worked out
+  (`conflictingAmounts`, added 2026-07-29). The amount guard policies only
+  currency-tagged figures and permits the per-passenger amount, every
+  partial total up to the booking total, the fare on file, approved
+  expense amounts and their totals, and compensation+expenses combined.
+  Prose containing bare numbers (flight numbers, delay minutes) is never
+  mistaken for money.
 - Module switches (Admin Settings -> Website tab -> Modules): one toggle
   per admin page, grouped under the same headings as the admin nav.
   "Flight Claims" - Trip Reviews, Protected Trips, Claims, Passengers,

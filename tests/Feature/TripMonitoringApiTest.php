@@ -260,8 +260,12 @@ class TripMonitoringApiTest extends TestCase
         $this->assertSame('Tenzin Hagyal', $claims->first()->passenger_name);
         $this->assertSame('delayed', $claims->first()->disruption_type);
         $this->assertSame('YEG', $claims->first()->departure_airport);
-        // The stored trip verdict carried over - the engine was not re-run.
+        // The stored trip verdict carried over - the engine was not re-run:
+        // same evaluation timestamp, same verdict fields, inheritance marker.
         $this->assertSame($trip->id, $claims->first()->eligibility_details['inherited_from_trip'] ?? null);
+        $this->assertTrue($trip->eligibility_evaluated_at->equalTo($claims->first()->eligibility_evaluated_at));
+        $this->assertSame($trip->eligibility_regulation, $claims->first()->eligibility_regulation);
+        $this->assertSame($trip->eligibility_confidence, (int) $claims->first()->eligibility_confidence);
         $this->assertTrue($trip->events()->where('type', 'claim_created')->exists());
 
         // The trip leaves the action-needed state once its claim is filed.
